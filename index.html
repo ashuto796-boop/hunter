@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memecoin Hunter - Wall Street Terminal</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&family=Space+Grotesk:wght@500;700&display=swap">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #0a0a0a;
+            --bg-darker: #050505;
+            --bg-card: #1a1a1a;
+            --bg-hover: #252525;
+            --border-color: #3a3a3a;
+            --text-primary: #ffffff;
+            --text-secondary: #b0b0b0;
+            --green: #4ade80;
+            --red: #ef4444;
+            --yellow: #fbbf24;
+            --blue: #3b82f6;
+            --accent: #9d7dd4;
+            --accent-light: #c4a8e0;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        body {
+            font-family: 'IBM Plex Mono', 'Space Grotesk', monospace;
+            background: var(--bg-darker);
+            color: var(--text-primary);
+            letter-spacing: 0.5px;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            height: 100vh;
+            gap: 0;
+        }
+
+        .sidebar {
+            background: linear-gradient(180deg, var(--bg-card) 0%, var(--bg-primary) 100%);
+            border-right: 2px solid var(--accent);
+            padding: 24px 16px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .logo {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 28px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--text-primary);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .logo-symbol {
+            color: var(--accent);
+            font-size: 24px;
+        }
+
+        .nav-menu {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: 32px;
+        }
+
+        .nav-item {
+            padding: 10px 14px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 600;
+            transition: all 0.2s;
+            color: var(--text-secondary);
+            border-left: 3px solid transparent;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+        }
+
+        .nav-item:hover {
+            background: rgba(157, 125, 212, 0.1);
+            color: var(--text-primary);
+        }
+
+        .nav-item.active {
+            background: rgba(157, 125, 212, 0.2);
+            color: var(--accent-light);
+            border-left-color: var(--accent);
+            box-shadow: 0 0 10px rgba(157, 125, 212, 0.3);
+        }
+
+        .section-title {
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--accent);
+            margin: 16px 0 10px 0;
+            letter-spacing: 1.5px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .filter-item {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            cursor: pointer;
+            font-size: 11px;
+            color: var(--text-secondary);
+            padding: 5px 6px;
+            border-radius: 2px;
+            transition: all 0.2s;
+        }
+
+        .filter-item:hover {
+            background: rgba(157, 125, 212, 0.1);
+            color: var(--text-primary);
+        }
+
+        .filter-item input {
+            width: 11px;
+            height: 11px;
+            cursor: pointer;
+            accent-color: var(--accent);
+        }
+
+        .status-indicator {
+            margin-top: auto;
+            padding-top: 20px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .status-line {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 10px;
+            color: var(--text-secondary);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--green);
+            box-shadow: 0 0 8px var(--green);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        @keyframes blink {
+            0%, 49% { box-shadow: 0 0 20px rgba(74, 222, 128, 0.8); }
+            50%, 100% { box-shadow: 0 0 5px rgba(74, 222, 128, 0.2); }
+        }
+
+        .signal-blink {
+            animation: blink 0.6s infinite;
+        }
+
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-card) 100%);
+        }
+
+        .header {
+            background: rgba(10, 10, 10, 0.8);
+            border-bottom: 2px solid var(--accent);
+            padding: 14px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .header-title {
+            font-size: 14px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            background: linear-gradient(135deg, var(--accent), var(--accent-light));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header-stats {
+            display: flex;
+            gap: 16px;
+        }
+
+        .header-stat {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .stat-label {
+            font-size: 8px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .stat-value {
+            font-size: 12px;
+            font-weight: 700;
+            font-family: 'IBM Plex Mono', monospace;
+        }
+
+        .stat-value.positive {
+            color: var(--green);
+        }
+
+        .stat-value.negative {
+            color: var(--red);
+        }
+
+        .controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn {
+            padding: 6px 12px;
+            border: 1.5px solid var(--accent);
+            background: transparent;
+            color: var(--accent);
+            border-radius: 2px;
+            cursor: pointer;
+            font-size: 10px;
+            font-weight: 600;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            font-family: 'IBM Plex Mono', monospace;
+        }
+
+        .btn:hover {
+            background: rgba(157, 125, 212, 0.15);
+            box-shadow: 0 0 12px rgba(157, 125, 212, 0.4);
+        }
+
+        .btn.primary {
+            background: var(--accent);
+            color: var(--bg-primary);
+            border-color: var(--accent);
+        }
+
+        .btn.primary:hover {
+            background: var(--accent-light);
+            box-shadow: 0 0 16px rgba(157, 125, 212, 0.6);
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            padding: 12px;
+            overflow-y: auto;
+            flex: 1;
+            auto-rows: minmax(200px, auto);
+        }
+
+        .panel {
+            background: rgba(37, 37, 37, 0.6);
+            border: 1.5px solid var(--border-color);
+            border-radius: 3px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s;
+        }
+
+        .panel:hover {
+            border-color: var(--accent);
+            box-shadow: 0 0 15px rgba(157, 125, 212, 0.2);
+        }
+
+        .panel.span-2 {
+            grid-column: span 2;
+            min-height: 180px;
+        }
+
+        .panel.span-3 {
+            grid-column: span 3;
+            min-height: 150px;
+        }
+
+        .panel.span-full {
+            grid-column: span 3;
+        }
+
+        .panel-header {
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--border-color);
+            background: rgba(0, 0, 0, 0.4);
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--accent);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .panel-content {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .ticker-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 0;
+        }
+
+        .ticker-row {
+            display: grid;
+            grid-template-columns: 2fr 1.2fr 1.2fr 1.2fr 1fr;
+            gap: 0;
+            padding: 8px 10px;
+            border-bottom: 1px solid rgba(58, 58, 58, 0.4);
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 10px;
+        }
+
+        .ticker-row:hover {
+            background: rgba(157, 125, 212, 0.1);
+            border-left: 2px solid var(--accent);
+            padding-left: 8px;
+        }
+
+        .ticker-symbol {
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .chain-tag {
+            font-size: 8px;
+            padding: 1px 4px;
+            background: rgba(157, 125, 212, 0.2);
+            color: var(--accent);
+            border-radius: 1px;
+        }
+
+        .price-text {
+            font-family: 'IBM Plex Mono', monospace;
+            font-weight: 600;
+        }
+
+        .change-text {
+            font-weight: 700;
+            font-family: 'IBM Plex Mono', monospace;
+        }
+
+        .change-text.up {
+            color: var(--green);
+        }
+
+        .change-text.down {
+            color: var(--red);
+        }
+
+        .volume-text {
+            color: var(--text-secondary);
+            font-size: 9px;
+        }
+
+        .alerts-container {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .alert {
+            padding: 10px;
+            border-bottom: 1px solid rgba(58, 58, 58, 0.4);
+            border-left: 2px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .alert:hover {
+            background: rgba(157, 125, 212, 0.1);
+        }
+
+        .alert.buy {
+            border-left-color: var(--green);
+        }
+
+        .alert.sell {
+            border-left-color: var(--red);
+        }
+
+        .alert.neutral {
+            border-left-color: var(--accent);
+        }
+
+        .alert-title {
+            font-weight: 700;
+            font-size: 11px;
+            margin-bottom: 3px;
+        }
+
+        .alert-msg {
+            color: var(--text-secondary);
+            font-size: 8px;
+            margin-bottom: 3px;
+        }
+
+        .alert-time {
+            color: var(--text-secondary);
+            font-size: 7px;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            padding: 10px;
+        }
+
+        .metric-box {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 2px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .metric-label {
+            font-size: 8px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        .metric-value {
+            font-size: 13px;
+            font-weight: 700;
+            font-family: 'IBM Plex Mono', monospace;
+        }
+
+        .chart-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            padding: 10px;
+        }
+
+        .sector-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            padding: 10px;
+        }
+
+        .sector-item {
+            padding: 8px;
+            border-radius: 2px;
+            text-align: center;
+            font-size: 9px;
+            font-weight: 600;
+            border: 1px solid var(--border-color);
+        }
+
+        .sector-up {
+            background: rgba(74, 222, 128, 0.15);
+            color: var(--green);
+        }
+
+        .sector-down {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--red);
+        }
+
+        .whale-tracker {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding: 10px;
+        }
+
+        .whale-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 2px;
+            font-size: 9px;
+        }
+
+        .whale-amount {
+            font-weight: 700;
+            color: var(--accent);
+            font-family: 'IBM Plex Mono', monospace;
+        }
+
+        .whale-action {
+            font-size: 8px;
+            color: var(--text-secondary);
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(157, 125, 212, 0.3);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(157, 125, 212, 0.6);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(5px);
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--bg-card);
+            border: 2px solid var(--accent);
+            border-radius: 3px;
+            padding: 20px;
+            width: 90%;
+            max-width: 550px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 0 30px rgba(157, 125, 212, 0.3);
+        }
+
+        .modal-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--accent);
+            margin-bottom: 16px;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+        }
+
+        .input-field {
+            width: 100%;
+            padding: 8px 10px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            font-size: 10px;
+            border-radius: 2px;
+            margin-bottom: 10px;
+            font-family: 'IBM Plex Mono', monospace;
+        }
+
+        .input-field:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 10px rgba(157, 125, 212, 0.3);
+        }
+
+        .momentum-bar {
+            height: 4px;
+            background: rgba(157, 125, 212, 0.2);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 3px;
+        }
+
+        .momentum-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), var(--accent-light));
+            transition: width 0.3s;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <div class="logo">
+                <span class="logo-symbol">§</span>
+                <span>HUNTER</span>
+            </div>
+
+            <div class="nav-menu">
+                <div class="nav-item active" onclick="switchView('main')">◆ MARKET</div>
+                <div class="nav-item" onclick="switchView('portfolio')">▪ PORTFOLIO</div>
+                <div class="nav-item" onclick="switchView('signals')">◄ SIGNALS</div>
+                <div class="nav-item" onclick="switchView('settings')">⚙ SETTINGS</div>
+            </div>
+
+            <div class="section-title">▔ NETWORKS</div>
+            <div class="filter-group">
+                <label class="filter-item">
+                    <input type="checkbox" checked>
+                    ◆ Solana
+                </label>
+                <label class="filter-item">
+                    <input type="checkbox" checked>
+                    ◇ Ethereum
+                </label>
+                <label class="filter-item">
+                    <input type="checkbox" checked>
+                    ◈ Binance
+                </label>
+            </div>
+
+            <div class="section-title">▔ ALGORITHMS</div>
+            <div class="filter-group">
+                <label class="filter-item">
+                    <input type="checkbox" checked>
+                    Volume Score
+                </label>
+                <label class="filter-item">
+                    <input type="checkbox" checked>
+                    Liquidity Index
+                </label>
+                <label class="filter-item">
+                    <input type="checkbox" checked>
+                    Sentiment AI
+                </label>
+                <label class="filter-item">
+                    <input type="checkbox" checked>
+                    Whale Track
+                </label>
+            </div>
+
+            <div class="status-indicator">
+                <div class="status-line">
+                    <span class="status-dot"></span>
+                    LIVE MONITORING
+                </div>
+                <div class="status-line">
+                    ◄ 247 COINS | 14 ALERTS
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="header">
+                <div class="header-left">
+                    <div class="header-title">◆ MARKET TERMINAL</div>
+                    <div class="header-stats">
+                        <div class="header-stat">
+                            <span class="stat-label">◄ 24H VOLUME</span>
+                            <span class="stat-value">$847.3M</span>
+                        </div>
+                        <div class="header-stat">
+                            <span class="stat-label">◄ PORTFOLIO</span>
+                            <span class="stat-value positive">+$12,450</span>
+                        </div>
+                        <div class="header-stat">
+                            <span class="stat-label">◄ WIN RATE</span>
+                            <span class="stat-value">94.2%</span>
+                        </div>
+                        <div class="header-stat">
+                            <span class="stat-label">◄ TRACKED</span>
+                            <span class="stat-value">247</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="controls">
+                    <button class="btn" onclick="refreshData()">◄►️ SYNC</button>
+                    <button class="btn" onclick="openSettings()">⚙ CONFIG</button>
+                    <button class="btn primary" onclick="startMonitor()">▲ ENGAGE</button>
+                </div>
+            </div>
+
+            <div class="dashboard" id="main">
+                <div class="panel span-2">
+                    <div class="panel-header">
+                        ◆ LIVE TICKER
+                        <span style="color: var(--text-secondary);">24/7</span>
+                    </div>
+                    <div class="panel-content">
+                        <div class="ticker-grid" id="ticker"></div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-header">
+                        ◄ SIGNALS
+                        <span style="color: var(--green);">12 NEW</span>
+                    </div>
+                    <div class="panel-content">
+                        <div class="alerts-container" id="alerts"></div>
+                    </div>
+                </div>
+
+                <div class="panel span-2">
+                    <div class="panel-header">
+                        ◈ PRICE ACTION
+                        <span id="coin-name" style="color: var(--text-secondary);">MOON</span>
+                    </div>
+                    <div class="panel-content chart-container">
+                        <canvas id="chart"></canvas>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-header">
+                        ◈ TECHNICAL
+                    </div>
+                    <div class="panel-content">
+                        <div class="metrics-grid" id="indicators"></div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-header">
+                        ◈ SECTORS
+                    </div>
+                    <div class="panel-content">
+                        <div class="sector-grid">
+                            <div class="sector-item sector-up">Memes ▲45%</div>
+                            <div class="sector-item sector-up">AI ▲28%</div>
+                            <div class="sector-item sector-up">Gaming ▲8%</div>
+                            <div class="sector-item sector-down">Defi ▼2%</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-header">
+                        ◆ PORTFOLIO
+                    </div>
+                    <div class="panel-content">
+                        <div class="metrics-grid">
+                            <div class="metric-box">
+                                <div class="metric-label">Invested</div>
+                                <div class="metric-value">$34.5K</div>
+                            </div>
+                            <div class="metric-box">
+                                <div class="metric-label">Balance</div>
+                                <div class="metric-value positive">$46.9K</div>
+                            </div>
+                            <div class="metric-box">
+                                <div class="metric-label">P&L</div>
+                                <div class="metric-value positive">+$12.4K</div>
+                            </div>
+                            <div class="metric-box">
+                                <div class="metric-label">Return</div>
+                                <div class="metric-value positive">+36%</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-header">
+                        ◄ WHALES
+                    </div>
+                    <div class="panel-content">
+                        <div class="whale-tracker" id="whales"></div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-header">
+                        🔥 MOMENTUM
+                    </div>
+                    <div class="panel-content">
+                        <div style="padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+                            <div>
+                                <div style="font-size: 9px; margin-bottom: 3px;">MOON</div>
+                                <div class="momentum-bar">
+                                    <div class="momentum-fill" style="width: 92%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div style="font-size: 9px; margin-bottom: 3px;">DOGE</div>
+                                <div class="momentum-bar">
+                                    <div class="momentum-fill" style="width: 87%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div style="font-size: 9px; margin-bottom: 3px;">PEPE</div>
+                                <div class="momentum-bar">
+                                    <div class="momentum-fill" style="width: 74%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel span-full">
+                    <div class="panel-header">
+                        ◄ INTEGRATED PLATFORMS
+                        <span style="color: var(--text-secondary);">TWITTER • DEXSCREENER • AXIOM</span>
+                    </div>
+                    <div class="panel-content">
+                        <div id="platforms-container" style="display: flex; flex-direction: column; gap: 8px; padding: 10px; max-height: 250px; overflow-y: auto;"></div>
+                    </div>
+                </div>
+
+                <div class="panel span-full">
+                    <div class="panel-header">
+                        ◈ TWITTER SENTIMENT ANALYSIS
+                        <span style="color: var(--text-secondary);">REAL-TIME</span>
+                    </div>
+                    <div class="panel-content">
+                        <div id="twitter-sentiment" style="display: flex; flex-direction: column; gap: 8px; padding: 10px; max-height: 250px; overflow-y: auto;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const coins = [
+            { s: 'MOON', n: 'Moon Pump', p: 0.00089, ch: 245.2, v: 2.4, mc: 15, c: 'SOL', tw: 'moonpump', sent: 'Very Positive', tweets: 1200000, dex: 'moon-pump-sol', ax: 'sol' },
+            { s: 'DOGE', n: 'Doge Wave', p: 0.0015, ch: 178.5, v: 1.8, mc: 42, c: 'SOL', tw: 'dogecoin', sent: 'Positive', tweets: 850000, dex: 'doge-wave-sol', ax: 'sol' },
+            { s: 'PEPE', n: 'Pepe Surge', p: 0.0000045, ch: 95.3, v: 3.2, mc: 125, c: 'ETH', tw: 'pepecoineth', sent: 'Positive', tweets: 650000, dex: 'pepe-eth', ax: 'eth' },
+            { s: 'CAT', n: 'Cat Moon', p: 0.00025, ch: 132.1, v: 0.65, mc: 5.2, c: 'SOL', tw: 'catmoonsol', sent: 'Neutral', tweets: 340000, dex: 'cat-moon-sol', ax: 'sol' },
+            { s: 'WIF', n: 'Dogs', p: 0.0245, ch: 156.7, v: 1.2, mc: 18.5, c: 'SOL', tw: 'wiftoken', sent: 'Very Positive', tweets: 920000, dex: 'wif-sol', ax: 'sol' },
+            { s: 'BONK', n: 'Bonk', p: 0.000125, ch: 89.4, v: 0.42, mc: 2.1, c: 'SOL', tw: 'bonktoken', sent: 'Positive', tweets: 560000, dex: 'bonk-sol', ax: 'sol' },
+            { s: 'SHIB', n: 'Shiba', p: 0.000008, ch: 45.2, v: 0.89, mc: 8.5, c: 'SOL', tw: 'shibtoken', sent: 'Neutral', tweets: 780000, dex: 'shib-sol', ax: 'sol' }
+        ];
+
+        const alerts = [
+            { t: 'buy', ti: '▲ BREAKOUT MOON', m: 'Price broke $0.00085', tm: 'now' },
+            { t: 'neutral', ti: '◄ ATH DOGE', m: 'New all-time high reached', tm: '2m' },
+            { t: 'sell', ti: '◄ WHALE DOGE', m: '2.5M tokens to exchange', tm: '5m' },
+            { t: 'buy', ti: '▲ VOLUME CAT', m: '+450% in last 10min', tm: '8m' }
+        ];
+
+        const whales = [
+            { a: '$2.4M', ac: '▲ Bought MOON', t: '2m' },
+            { a: '$1.8M', ac: '◄ Moved DOGE', t: '5m' },
+            { a: '$1.2M', ac: '▼ Sold PEPE', t: '8m' }
+        ];
+
+        let selectedCoin = coins[0];
+        let signals = [];
+        const TWITTER_BEARER = 'AAAAAAAAAAAAAAAAAAAAANa9%2FQEAAAAAH9b%2F2yAEQZXKoVruA%2BgM%2BawEC28%3DrNnCMK5mLfFub3hnkUaUr2dnbqySPOaG9VWMJHKjlzGUiIMrfa';
+
+        function analyzeMarket() {
+            coins.forEach(coin => {
+                const score = calculateScore(coin);
+                if (score > 80) {
+                    const existingSignal = signals.find(s => s.symbol === coin.s);
+                    if (!existingSignal) {
+                        const signal = {
+                            symbol: coin.s,
+                            type: score > 90 ? 'buy' : 'neutral',
+                            title: `▲ ${coin.s} BREAKOUT - Score ${score}`,
+                            message: `${coin.n} showing strong momentum +${coin.ch.toFixed(1)}% | $${coin.v.toFixed(1)}M volume`,
+                            timestamp: new Date().toLocaleTimeString(),
+                            blink: true
+                        };
+                        signals.unshift(signal);
+                        if (signals.length > 15) signals.pop();
+                    }
+                }
+            });
+            renderSignals();
+        }
+
+        function calculateScore(coin) {
+            let score = 50;
+            if (coin.ch > 100) score += 25;
+            else if (coin.ch > 50) score += 15;
+            if (coin.v > 2) score += 15;
+            if (coin.ch > 0) score += 10;
+            return Math.min(100, score);
+        }
+
+        function renderSignals() {
+            const html = signals.map((sig, idx) => `
+                <div class="alert ${sig.type} ${sig.blink && idx < 3 ? 'signal-blink' : ''}" style="transition: all 0.3s;">
+                    <div class="alert-title">${sig.title}</div>
+                    <div class="alert-msg">${sig.message}</div>
+                    <div class="alert-time">${sig.timestamp}</div>
+                </div>
+            `).join('');
+            document.getElementById('alerts').innerHTML = html;
+        }
+
+        function render() {
+            document.getElementById('ticker').innerHTML = coins.map(c => `
+                <div class="ticker-row" onclick="selectCoin('${c.s}', this)">
+                    <div class="ticker-symbol">${c.s} <span class="chain-tag">${c.c}</span></div>
+                    <div class="price-text">$${c.p < 0.01 ? c.p.toFixed(8) : c.p.toFixed(6)}</div>
+                    <div class="change-text ${c.ch > 0 ? 'up' : 'down'}">${c.ch > 0 ? '▲' : '▼'} ${Math.abs(c.ch).toFixed(1)}%</div>
+                    <div class="volume-text">$${c.v.toFixed(1)}M</div>
+                    <div class="price-text">$${c.mc.toFixed(0)}K</div>
+                </div>
+            `).join('');
+
+            renderPlatforms();
+            renderTwitterAnalysis();
+        }
+
+        function renderPlatforms() {
+            const html = coins.map(c => `
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 6px; padding: 8px; background: rgba(0,0,0,0.2); border-radius: 2px;">
+                    <div style="font-size: 10px; font-weight: 700; color: var(--accent);">${c.s}</div>
+                    <button class="platform-btn" onclick="openPlatform('twitter', '${c.tw}')" style="padding: 4px; font-size: 9px; cursor: pointer; border: 1px solid var(--accent); background: rgba(157,125,212,0.1); color: var(--accent); border-radius: 2px;">◄ Twitter</button>
+                    <button class="platform-btn" onclick="openPlatform('dex', '${c.dex}')" style="padding: 4px; font-size: 9px; cursor: pointer; border: 1px solid var(--cyan); background: rgba(6,182,212,0.1); color: var(--cyan); border-radius: 2px;">◈ Dex</button>
+                    <button class="platform-btn" onclick="openPlatform('axiom', '${c.ax}')" style="padding: 4px; font-size: 9px; cursor: pointer; border: 1px solid var(--green); background: rgba(74,222,128,0.1); color: var(--green); border-radius: 2px;">§ Axiom</button>
+                </div>
+            `).join('');
+            document.getElementById('platforms-container').innerHTML = html;
+        }
+
+        function renderTwitterAnalysis() {
+            const html = coins.map(c => {
+                const sentimentColor = c.sent.includes('Very Positive') ? 'var(--green)' : c.sent.includes('Positive') ? 'var(--cyan)' : 'var(--yellow)';
+                return `
+                    <div style="padding: 8px; background: rgba(0,0,0,0.2); border-left: 2px solid ${sentimentColor}; border-radius: 2px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
+                            <div style="font-weight: 700; font-size: 10px; color: var(--text-primary);">${c.s}</div>
+                            <div style="font-size: 10px; font-weight: 600; color: ${sentimentColor};">▲ ${c.sent}</div>
+                        </div>
+                        <div style="font-size: 8px; color: var(--text-secondary);">◄ ${c.tweets.toLocaleString()} tweets | Trending ◈ #${c.s}Pump</div>
+                    </div>
+                `;
+            }).join('');
+            document.getElementById('twitter-sentiment').innerHTML = html;
+        }
+
+        function selectCoin(s, el) {
+            selectedCoin = coins.find(c => c.s === s);
+            document.querySelectorAll('.ticker-row').forEach(e => e.style.borderLeft = 'transparent');
+            el.style.borderLeft = '2px solid var(--accent)';
+            document.getElementById('coin-name').textContent = s;
+            renderPlatforms();
+            renderTwitterAnalysis();
+            if (window.ch) window.ch.destroy();
+            const ctx = document.getElementById('chart');
+            window.ch = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: Array.from({length:24}, (_, i) => (23-i)+'h'),
+                    datasets: [{
+                        data: Array.from({length:24}, () => Math.random() * 0.0009 + 0.0005),
+                        borderColor: 'rgb(157, 125, 212)',
+                        backgroundColor: 'rgba(157, 125, 212, 0.1)',
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 0,
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { x: { grid: { color: 'rgba(58,58,58,0.2)' } }, y: { grid: { color: 'rgba(58,58,58,0.2)' } } }
+                }
+            });
+        }
+
+        function switchView(v) {
+            document.querySelectorAll('[id="main"], [id="portfolio"], [id="signals"], [id="settings"]').forEach(d => d.style.display = 'none');
+            document.getElementById(v).style.display = 'grid';
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            event.target.classList.add('active');
+        }
+
+        function openPlatform(platform, param) {
+            let url = '';
+            if (platform === 'twitter') {
+                url = `https://twitter.com/search?q=${param}&src=typed_query`;
+            } else if (platform === 'dex') {
+                url = `https://dexscreener.com/`;
+            } else if (platform === 'axiom') {
+                url = `https://axiom.trade/discover?chain=${param}`;
+            }
+            window.open(url, '_blank');
+        }
+
+        function openSettings() { }
+        function startMonitor() { alert('▲ Monitoring engaged'); }
+        function refreshData() { render(); }
+
+        window.addEventListener('load', () => {
+            render();
+            renderPlatforms();
+            renderTwitterAnalysis();
+            analyzeMarket();
+            selectCoin('MOON', document.querySelector('.ticker-row'));
+
+            setInterval(() => {
+                coins.forEach(c => {
+                    c.p *= (0.98 + Math.random() * 0.04);
+                    c.ch += (Math.random() - 0.5) * 3;
+                    c.tweets = Math.floor(c.tweets * (0.9 + Math.random() * 0.2));
+                });
+                render();
+                renderPlatforms();
+                renderTwitterAnalysis();
+                analyzeMarket();
+            }, 3000);
+
+            setInterval(() => {
+                signals.forEach(s => s.blink = false);
+                renderSignals();
+            }, 5000);
+        });
+
+        document.addEventListener('click', e => { if (e.target.classList.contains('modal')) e.target.classList.remove('active'); });
+    </script>
+</body>
+</html>
