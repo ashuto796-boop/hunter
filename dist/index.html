@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memecoin Hunter - Market Terminal</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Space Grotesk', sans-serif; background-color: #030712; color: #e5e7eb; height: 100vh; display: flex; }
+        .sidebar { width: 384px; background: linear-gradient(180deg, #1f2937 0%, #111827 100%); border-right: 4px solid #9d7dd4; padding: 32px; overflow-y: auto; }
+        .sidebar h1 { font-size: 36px; font-weight: bold; margin-bottom: 48px; color: white; }
+        .main { flex: 1; display: flex; flex-direction: column; background-color: #030712; }
+        .header { background: linear-gradient(90deg, #1f2937 0%, #111827 100%); border-bottom: 4px solid #9d7dd4; padding: 20px 32px; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { font-size: 32px; font-weight: bold; color: white; }
+        .content { flex: 1; padding: 24px; overflow-y: auto; }
+        .panel { background-color: #1f2937; border: 2px solid #374151; border-radius: 8px; padding: 24px; margin-bottom: 16px; }
+        .panel-header { font-size: 16px; font-weight: bold; color: #9d7dd4; text-transform: uppercase; margin-bottom: 16px; }
+        .coin-row { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 16px; padding: 16px; border-bottom: 2px solid #374151; }
+        .coin-symbol { font-size: 18px; font-weight: bold; color: #9d7dd4; }
+        .coin-price { font-size: 18px; font-weight: bold; color: white; }
+        .positive { color: #4ade80; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h1><span style="color: #9d7dd4; font-size: 40px;">§</span> HUNTER</h1>
+        <div style="font-size: 14px; margin-top: 32px;">◆ MARKET<br/>▪ PORTFOLIO<br/>◄ ALERTS</div>
+    </div>
+    <div class="main">
+        <div class="header">
+            <div><h1>MEMECOIN HUNTER</h1><div style="color: #9ca3af; font-size: 16px;">Real-Time Solana/Ethereum Sentiment</div></div>
+        </div>
+        <div class="content">
+            <div class="panel">
+                <div class="panel-header">◆ LIVE TICKER</div>
+                <div class="coin-row">
+                    <div class="coin-symbol">MOON</div>
+                    <div class="coin-price">$0.00089</div>
+                    <div class="positive">▲ +245%</div>
+                    <div>$2.4M</div>
+                </div>
+                <div class="coin-row">
+                    <div class="coin-symbol">DOGE</div>
+                    <div class="coin-price">$0.0015</div>
+                    <div class="positive">▲ +178%</div>
+                    <div>$1.8M</div>
+                </div>
+            </div>
+            <div class="panel">
+                <div class="panel-header">Status</div>
+                <div style="color: #4ade80;">✓ Memecoin Hunter is ready!</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
