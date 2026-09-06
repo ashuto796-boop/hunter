@@ -9,22 +9,31 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v3
 
-      - name: Setup Node.js
+      - name: Setup Node
         uses: actions/setup-node@v3
         with:
           node-version: '18'
 
-      - name: Install dependencies
-        run: npm install --legacy-peer-deps
+      - name: Install and Build
+        run: |
+          npm install --legacy-peer-deps
+          npm run build
+          echo "Build complete!"
+          ls -la dist/
 
-      - name: Build with Vite
-        run: npm run build
-
-      - name: Deploy to gh-pages
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./dist
+      - name: Deploy with git
+        run: |
+          git config --global user.email "action@github.com"
+          git config --global user.name "GitHub Action"
+          
+          mkdir -p deploy
+          cp -r dist/* deploy/
+          
+          cd deploy
+          git init
+          git add .
+          git commit -m "Deploy to gh-pages"
+          git push --force https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:gh-pages
