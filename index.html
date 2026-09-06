@@ -3,13 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Memecoin Hunter - Trading Terminal V2</title>
+    <title>Memecoin Hunter - Wall Street Terminal</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&family=Space+Grotesk:wght@500;700&display=swap">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root {
             --bg-primary: #0a0a0a;
+            --bg-darker: #050505;
             --bg-card: #1a1a1a;
             --bg-hover: #252525;
             --border: #3a3a3a;
@@ -17,24 +18,27 @@
             --text-secondary: #b0b0b0;
             --green: #4ade80;
             --red: #ef4444;
+            --yellow: #fbbf24;
+            --blue: #3b82f6;
             --accent: #9d7dd4;
             --accent-light: #c4a8e0;
         }
         html, body { width: 100%; height: 100%; overflow: hidden; }
-        body { font-family: 'IBM Plex Mono', monospace; background: var(--bg-primary); color: var(--text-primary); }
-        .container { display: grid; grid-template-columns: 250px 1fr; height: 100vh; gap: 0; }
+        body { font-family: 'IBM Plex Mono', monospace; background: var(--bg-darker); color: var(--text-primary); }
+        .container { display: grid; grid-template-columns: 300px 1fr; height: 100vh; gap: 0; }
         .sidebar {
             background: linear-gradient(180deg, var(--bg-card) 0%, var(--bg-primary) 100%);
             border-right: 2px solid var(--accent);
-            padding: 20px;
+            padding: 24px 16px;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
         }
-        .logo { font-size: 16px; font-weight: 700; margin-bottom: 25px; color: var(--accent); text-transform: uppercase; }
-        .nav-menu { display: flex; flex-direction: column; gap: 4px; margin-bottom: 30px; }
+        .logo { font-size: 18px; font-weight: 700; margin-bottom: 28px; color: var(--text-primary); text-transform: uppercase; letter-spacing: 2px; }
+        .section-title { font-size: 9px; font-weight: 700; color: var(--accent); text-transform: uppercase; margin: 16px 0 8px; letter-spacing: 1px; }
+        .nav-menu { display: flex; flex-direction: column; gap: 6px; margin-bottom: 32px; }
         .nav-item {
-            padding: 10px 12px;
+            padding: 10px 14px;
             border-radius: 3px;
             cursor: pointer;
             font-size: 11px;
@@ -46,6 +50,10 @@
         }
         .nav-item:hover { background: rgba(157, 125, 212, 0.1); color: var(--text-primary); }
         .nav-item.active { background: rgba(157, 125, 212, 0.2); color: var(--accent-light); border-left-color: var(--accent); }
+        .network-filter { padding: 6px 0; font-size: 10px; display: flex; align-items: center; gap: 6px; cursor: pointer; }
+        .network-filter input { cursor: pointer; }
+        .algo-filter { padding: 6px 0; font-size: 10px; display: flex; align-items: center; gap: 6px; cursor: pointer; }
+        .algo-filter input { cursor: pointer; }
         .status-bar { margin-top: auto; padding-top: 15px; border-top: 1px solid var(--border); font-size: 10px; }
         .main-content { display: flex; flex-direction: column; overflow: hidden; }
         .header {
@@ -74,11 +82,10 @@
             text-transform: uppercase;
         }
         .btn:hover { background: rgba(157, 125, 212, 0.15); }
-        .btn.primary { background: var(--accent); color: white; }
         .dashboard {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
             padding: 12px;
             overflow-y: auto;
             flex: 1;
@@ -93,6 +100,7 @@
         }
         .panel:hover { border-color: var(--accent); }
         .panel.span-2 { grid-column: span 2; }
+        .panel.span-full { grid-column: span 4; }
         .panel-header {
             padding: 8px 12px;
             border-bottom: 1px solid var(--border);
@@ -101,8 +109,6 @@
             font-weight: 700;
             text-transform: uppercase;
             color: var(--accent);
-            display: flex;
-            justify-content: space-between;
         }
         .panel-content { flex: 1; overflow-y: auto; padding: 8px; }
         .ticker-row {
@@ -124,13 +130,7 @@
         .metric-box { background: rgba(0,0,0,0.3); padding: 8px; border-radius: 2px; border: 1px solid var(--border); }
         .metric-label { font-size: 8px; color: var(--text-secondary); margin-bottom: 3px; }
         .metric-val { font-size: 12px; font-weight: 700; }
-        .sector-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-        .sector-item { padding: 8px; text-align: center; font-size: 9px; border: 1px solid var(--border); border-radius: 2px; }
-        .sector-up { background: rgba(74, 222, 128, 0.15); color: var(--green); }
-        .sector-down { background: rgba(239, 68, 68, 0.15); color: var(--red); }
-        .whale-list { display: flex; flex-direction: column; gap: 6px; }
-        .whale-item { padding: 8px; background: rgba(0,0,0,0.2); border-radius: 2px; font-size: 9px; display: flex; justify-content: space-between; }
-        .chart-container { position: relative; width: 100%; height: 100%; padding: 8px; }
+        .candlestick-container { position: relative; width: 100%; height: 100%; }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-thumb { background: rgba(157, 125, 212, 0.3); border-radius: 3px; }
         @keyframes blink { 0%, 49% { box-shadow: 0 0 15px rgba(74, 222, 128, 0.6); } 50%, 100% { box-shadow: none; } }
@@ -142,14 +142,26 @@
         <div class="sidebar">
             <div class="logo">§ HUNTER</div>
             <div class="nav-menu">
-                <div class="nav-item active" onclick="switchView('overview')">◆ MARKET</div>
-                <div class="nav-item" onclick="switchView('portfolio')">▪ PORTFOLIO</div>
-                <div class="nav-item" onclick="switchView('signals')">◄ SIGNALS</div>
-                <div class="nav-item" onclick="switchView('settings')">⚙ CONFIG</div>
+                <div class="nav-item active" onclick="switchPage('market')">◆ MARKET</div>
+                <div class="nav-item" onclick="switchPage('portfolio')">▪ PORTFOLIO</div>
+                <div class="nav-item" onclick="switchPage('alerts')">◄ ALERTS</div>
             </div>
+
+            <div class="section-title">▔ NETWORKS</div>
+            <div class="network-filter"><input type="checkbox" id="sol" checked> ◆ Solana</div>
+            <div class="network-filter"><input type="checkbox" id="eth" checked> ◆ Ethereum</div>
+            <div class="network-filter"><input type="checkbox" id="bnb" checked> ◆ Binance</div>
+
+            <div class="section-title">▔ ALGORITHMS</div>
+            <div class="algo-filter"><input type="checkbox" id="vol" checked> Volume Score</div>
+            <div class="algo-filter"><input type="checkbox" id="liq" checked> Liquidity Index</div>
+            <div class="algo-filter"><input type="checkbox" id="sent" checked> Sentiment AI</div>
+            <div class="algo-filter"><input type="checkbox" id="whale" checked> Whale Track</div>
+
             <div class="status-bar">
                 <div>◄ 247 COINS</div>
                 <div>▲ 14 ALERTS</div>
+                <div style="margin-top: 8px; color: var(--green);">◄ MONITORING LIVE</div>
             </div>
         </div>
 
@@ -162,17 +174,14 @@
                         <span class="stat-val">$847M</span>
                     </div>
                     <div class="stat">
-                        <span>PORTFOLIO</span>
-                        <span class="stat-val green">+$12.4K</span>
+                        <span>TOP GAINER</span>
+                        <span class="stat-val green">+245%</span>
                     </div>
                 </div>
-                <div style="display: flex; gap: 8px;">
-                    <button class="btn" onclick="refresh()">◄► SYNC</button>
-                    <button class="btn primary" onclick="engage()">▲ ENGAGE</button>
-                </div>
+                <button class="btn" onclick="refresh()">◄► SYNC</button>
             </div>
 
-            <div class="dashboard" id="overview">
+            <div class="dashboard" id="market">
                 <!-- TICKER -->
                 <div class="panel span-2">
                     <div class="panel-header">◆ LIVE TICKER</div>
@@ -180,7 +189,7 @@
                 </div>
 
                 <!-- SIGNALS -->
-                <div class="panel">
+                <div class="panel span-2">
                     <div class="panel-header">◄ SIGNALS</div>
                     <div class="panel-content" id="signals"></div>
                 </div>
@@ -188,13 +197,11 @@
                 <!-- CANDLESTICKS -->
                 <div class="panel span-2">
                     <div class="panel-header">◈ CANDLESTICKS</div>
-                    <div class="panel-content chart-container">
-                        <canvas id="candleChart"></canvas>
-                    </div>
+                    <div class="panel-content candlestick-container" id="chart"></div>
                 </div>
 
                 <!-- TECHNICAL -->
-                <div class="panel">
+                <div class="panel span-2">
                     <div class="panel-header">◈ TECHNICAL</div>
                     <div class="panel-content">
                         <div class="metric-grid">
@@ -218,60 +225,38 @@
                     </div>
                 </div>
 
-                <!-- SECTORS -->
+                <!-- MOMENTUM -->
                 <div class="panel">
-                    <div class="panel-header">◈ SECTORS</div>
-                    <div class="panel-content">
-                        <div class="sector-grid">
-                            <div class="sector-item sector-up">Memes ▲45%</div>
-                            <div class="sector-item sector-up">AI ▲28%</div>
-                            <div class="sector-item sector-up">Gaming ▲8%</div>
-                            <div class="sector-item sector-down">Defi ▼2%</div>
-                        </div>
-                    </div>
+                    <div class="panel-header">🔥 MOMENTUM</div>
+                    <div class="panel-content" id="momentum"></div>
                 </div>
 
-                <!-- WHALES -->
-                <div class="panel">
-                    <div class="panel-header">◄ WHALES</div>
-                    <div class="panel-content">
-                        <div class="whale-list" id="whales"></div>
-                    </div>
+                <!-- INTEGRATED PLATFORMS -->
+                <div class="panel span-full">
+                    <div class="panel-header">◄ INTEGRATED PLATFORMS - TWITTER • DEXSCREENER • AXIOM</div>
+                    <div class="panel-content" id="platforms"></div>
+                </div>
+
+                <!-- TWITTER SENTIMENT -->
+                <div class="panel span-full">
+                    <div class="panel-header">◈ TWITTER SENTIMENT ANALYSIS</div>
+                    <div class="panel-content" id="twitter"></div>
                 </div>
             </div>
 
-            <!-- PORTFOLIO VIEW -->
+            <!-- PORTFOLIO PAGE -->
             <div class="dashboard" id="portfolio" style="display: none;">
-                <div class="panel span-2">
+                <div class="panel span-full">
                     <div class="panel-header">💼 PORTFOLIO</div>
-                    <div class="panel-content" id="portfolio-list"></div>
+                    <div class="panel-content" id="portfolio-content"></div>
                 </div>
             </div>
 
-            <!-- SIGNALS VIEW -->
-            <div class="dashboard" id="signals" style="display: none;">
-                <div class="panel span-2">
-                    <div class="panel-header">◄ ALL SIGNALS</div>
-                    <div class="panel-content" id="signals-list"></div>
-                </div>
-            </div>
-
-            <!-- SETTINGS VIEW -->
-            <div class="dashboard" id="settings" style="display: none;">
-                <div class="panel span-2">
-                    <div class="panel-header">⚙ SETTINGS</div>
-                    <div class="panel-content" style="padding: 12px;">
-                        <div style="color: var(--text-secondary); font-size: 11px; line-height: 1.6;">
-                            ◆ Discord Webhook<br>
-                            ◆ Telegram Bot<br>
-                            ◆ Email Alerts<br>
-                            ◆ Refresh Rate: 30s<br>
-                            <br>
-                            ◄ API Keys<br>
-                            ◄ Network Filters<br>
-                            ◄ Alert Thresholds
-                        </div>
-                    </div>
+            <!-- ALERTS PAGE -->
+            <div class="dashboard" id="alerts" style="display: none;">
+                <div class="panel span-full">
+                    <div class="panel-header">⚠ TRADE ALERTS</div>
+                    <div class="panel-content" id="alerts-content"></div>
                 </div>
             </div>
         </div>
@@ -279,126 +264,197 @@
 
     <script>
         const coins = [
-            { s: 'MOON', p: 0.00089, ch: 245, v: 2.4, mc: 15 },
-            { s: 'DOGE', p: 0.0015, ch: 178, v: 1.8, mc: 42 },
-            { s: 'PEPE', p: 0.0000045, ch: 95, v: 3.2, mc: 125 },
-            { s: 'CAT', p: 0.00025, ch: 132, v: 0.65, mc: 5.2 },
-            { s: 'WIF', p: 0.0245, ch: 156, v: 1.2, mc: 18 },
-            { s: 'BONK', p: 0.000125, ch: 89, v: 0.42, mc: 2.1 }
-        ];
-
-        const whales = [
-            { a: '$2.4M', ac: '▲ Bought MOON', t: '2m' },
-            { a: '$1.8M', ac: '◄ Moved DOGE', t: '5m' },
-            { a: '$1.2M', ac: '▼ Sold PEPE', t: '8m' }
+            { s: 'MOON', p: 0.00089, ch: 245, v: 2.4, mc: 15, vol: '$2.4M', network: 'SOL' },
+            { s: 'DOGE', p: 0.0015, ch: 178, v: 1.8, mc: 42, vol: '$1.8M', network: 'SOL' },
+            { s: 'PEPE', p: 0.0000045, ch: 95, v: 3.2, mc: 125, vol: '$3.2M', network: 'ETH' },
+            { s: 'CAT', p: 0.00025, ch: 132, v: 0.65, mc: 5.2, vol: '$650K', network: 'SOL' },
+            { s: 'WIF', p: 0.0245, ch: 156, v: 1.2, mc: 18, vol: '$1.2M', network: 'SOL' },
+            { s: 'BONK', p: 0.000125, ch: 89, v: 0.42, mc: 2.1, vol: '$420K', network: 'SOL' }
         ];
 
         let signals = [];
+        let alerts_list = [];
 
-        function render() {
+        function renderTicker() {
             document.getElementById('ticker').innerHTML = coins.map(c => `
                 <div class="ticker-row" onclick="selectCoin('${c.s}')">
                     <div class="ticker-symbol">${c.s}</div>
                     <div>$${c.p.toFixed(6)}</div>
                     <div class="${c.ch > 0 ? 'green' : 'red'}">▲ ${Math.abs(c.ch).toFixed(0)}%</div>
-                    <div>$${c.v.toFixed(1)}M</div>
+                    <div>${c.vol}</div>
                 </div>
             `).join('');
+        }
 
-            document.getElementById('signals').innerHTML = signals.slice(0, 5).map(s => `
+        function renderSignals() {
+            document.getElementById('signals').innerHTML = [
+                { title: '▲ MOON BREAKOUT', msg: 'Price broke $0.00085 resistance | Score: 92', blink: true },
+                { title: '▲ DOGE MOMENTUM', msg: '+178% in 24h | Volume spike detected', blink: false },
+                { title: '◄ WHALE ALERT', msg: '2.5M tokens moved to exchange', blink: false }
+            ].map((s, i) => `
                 <div class="alert ${s.blink ? 'blink' : ''}">
-                    <strong>▲ ${s.title}</strong><br>
-                    <small>${s.msg}</small>
+                    <strong>${s.title}</strong><br><small>${s.msg}</small>
                 </div>
             `).join('');
+        }
 
-            document.getElementById('whales').innerHTML = whales.map(w => `
-                <div class="whale-item">
-                    <div><strong>${w.a}</strong><br>${w.ac}</div>
-                    <div style="color: var(--text-secondary);">${w.t}</div>
-                </div>
-            `).join('');
+        function renderMomentum() {
+            document.getElementById('momentum').innerHTML = `
+                <div class="alert"><strong>▲ MOON</strong> +245% - Strong Buy</div>
+                <div class="alert"><strong>▲ WIF</strong> +156% - Accumulating</div>
+                <div class="alert"><strong>◄ PEPE</strong> +95% - Mixed</div>
+            `;
+        }
 
-            document.getElementById('portfolio-list').innerHTML = `
-                <div class="alert" style="border-left: 2px solid var(--accent);">
-                    <strong>MOON</strong> - $0.00089<br>
-                    Entry: 50K | Current: $44.5 | P&L: <span class="green">+$245</span>
-                </div>
-                <div class="alert" style="border-left: 2px solid var(--accent);">
-                    <strong>DOGE</strong> - $0.0015<br>
-                    Entry: 25K | Current: $37.5 | P&L: <span class="green">+$180</span>
+        function renderPlatforms() {
+            document.getElementById('platforms').innerHTML = `
+                <div style="font-size: 10px; line-height: 1.8; color: var(--text-secondary);">
+                    <strong style="color: var(--accent);">DEXSCREENER:</strong> MOON $847.2M Vol | Liquidity $12.4M<br>
+                    <strong style="color: var(--accent);">TWITTER:</strong> 2.4K mentions | 78% bullish sentiment<br>
+                    <strong style="color: var(--accent);">AXIOM:</strong> Score 92/100 | High Signal Quality
                 </div>
             `;
+        }
 
-            document.getElementById('signals-list').innerHTML = `
-                <div class="alert blink"><strong>▲ MOON BREAKOUT</strong><br>Price broke $0.00085 resistance | Score: 92</div>
-                <div class="alert"><strong>▲ DOGE MOMENTUM</strong><br>+178% in 24h | Volume spike detected</div>
-                <div class="alert"><strong>◄ WHALE ALERT</strong><br>2.5M tokens moved to exchange</div>
+        function renderTwitter() {
+            document.getElementById('twitter').innerHTML = `
+                <div style="font-size: 10px; line-height: 1.8;">
+                    <div class="green">◄ @cryptobull: MOON is the next 100x! Accumulating heavy</div>
+                    <div class="green">◄ @web3analyst: Technical setup looks bullish, RSI at 78</div>
+                    <div class="red">▼ @bearishTim: PEPE dump incoming, volume decreasing</div>
+                    <div style="color: var(--yellow); margin-top: 8px;">⚠ Sentiment: 78% Bullish | Engagement: Very High</div>
+                </div>
             `;
+        }
+
+        function renderPortfolio() {
+            document.getElementById('portfolio-content').innerHTML = `
+                <div style="font-size: 10px; line-height: 2;">
+                    <div class="alert" style="border-left: 2px solid var(--green);">
+                        <strong>MOON</strong> | Entry: $0.00035 | Current: $0.00089 | Qty: 50K<br>
+                        P&L: <span class="green">+$27.00 (+245%)</span> | Value: $44.5
+                    </div>
+                    <div class="alert" style="border-left: 2px solid var(--green);">
+                        <strong>DOGE</strong> | Entry: $0.00085 | Current: $0.0015 | Qty: 25K<br>
+                        P&L: <span class="green">+$17.50 (+178%)</span> | Value: $37.5
+                    </div>
+                    <div style="padding: 8px; background: rgba(157, 125, 212, 0.1); margin-top: 8px; border-radius: 2px;">
+                        Total Balance: <strong class="green">$97,450</strong> | Profit: <strong class="green">+$12,450</strong>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderAlerts() {
+            document.getElementById('alerts-content').innerHTML = `
+                <div style="font-size: 10px; line-height: 2;">
+                    <div class="alert blink" style="border-left: 2px solid var(--green);">
+                        <strong>BUY SIGNAL: MOON</strong> - Score 92/100 - Breakout above resistance
+                    </div>
+                    <div class="alert" style="border-left: 2px solid var(--yellow);">
+                        <strong>HOLD: DOGE</strong> - RSI 78 (Overbought) - Wait for pullback
+                    </div>
+                    <div class="alert" style="border-left: 2px solid var(--red);">
+                        <strong>SELL: PEPE</strong> - Whale dump detected - 2.5M tokens moved
+                    </div>
+                </div>
+            `;
+        }
+
+        function drawCandlesticks() {
+            const container = document.getElementById('chart');
+            const w = container.clientWidth;
+            const h = container.clientHeight;
+
+            const ohlcData = [
+                { o: 0.0008, h: 0.00085, l: 0.0007, c: 0.00082, t: '10:00' },
+                { o: 0.00082, h: 0.00088, l: 0.00081, c: 0.00087, t: '11:00' },
+                { o: 0.00087, h: 0.0009, l: 0.00086, c: 0.00089, t: '12:00' },
+                { o: 0.00089, h: 0.00095, l: 0.00088, c: 0.00093, t: '13:00' },
+                { o: 0.00093, h: 0.00098, l: 0.0009, c: 0.00095, t: '14:00' }
+            ];
+
+            const minPrice = 0.0006;
+            const maxPrice = 0.001;
+            const range = maxPrice - minPrice;
+            const padding = 40;
+            const chartW = w - padding * 2;
+            const chartH = h - padding * 2;
+            const candleW = chartW / (ohlcData.length * 1.5);
+
+            let svgHtml = `<svg style="width:100%; height:100%; background: rgba(0,0,0,0.2);">`;
+            svgHtml += `<defs><style>text { font-family: 'IBM Plex Mono', monospace; font-size: 10px; }</style></defs>`;
+
+            // Grid lines
+            for (let i = 0; i <= 4; i++) {
+                const y = padding + (chartH / 4) * i;
+                svgHtml += `<line x1="${padding}" y1="${y}" x2="${w - padding}" y2="${y}" stroke="rgba(58,58,58,0.3)" stroke-width="0.5"/>`;
+                const price = maxPrice - (range / 4) * i;
+                svgHtml += `<text x="5" y="${y + 4}" fill="var(--text-secondary)">${price.toFixed(6)}</text>`;
+            }
+
+            // Candlesticks
+            ohlcData.forEach((candle, i) => {
+                const x = padding + (i * chartW / ohlcData.length) + (chartW / (ohlcData.length * 2));
+                const o = (candle.o - minPrice) / range;
+                const h = (candle.h - minPrice) / range;
+                const l = (candle.l - minPrice) / range;
+                const c = (candle.c - minPrice) / range;
+
+                const yO = padding + chartH - (o * chartH);
+                const yH = padding + chartH - (h * chartH);
+                const yL = padding + chartH - (l * chartH);
+                const yC = padding + chartH - (c * chartH);
+
+                const isUp = candle.c >= candle.o;
+                const color = isUp ? '#4ade80' : '#ef4444';
+                const bodyTop = Math.min(yO, yC);
+                const bodyBottom = Math.max(yO, yC);
+                const bodyHeight = Math.max(bodyBottom - bodyTop, 2);
+
+                // Wick (mèche)
+                svgHtml += `<line x1="${x}" y1="${yH}" x2="${x}" y2="${yL}" stroke="${color}" stroke-width="1"/>`;
+                // Body (corps)
+                svgHtml += `<rect x="${x - candleW/2}" y="${bodyTop}" width="${candleW}" height="${bodyHeight}" fill="${color}" stroke="${color}" stroke-width="1"/>`;
+                // Time label
+                if (i < ohlcData.length) {
+                    svgHtml += `<text x="${x - 10}" y="${h + 20}" fill="var(--text-secondary)">${candle.t}</text>`;
+                }
+            });
+
+            svgHtml += `</svg>`;
+            container.innerHTML = svgHtml;
         }
 
         function selectCoin(s) {
             coins.forEach(c => c.selected = c.s === s);
-            updateChart(s);
+            drawCandlesticks();
         }
 
-        function updateChart(coin) {
-            if (window.ch) window.ch.destroy();
-            const ctx = document.getElementById('candleChart');
-
-            // OHLC data for candlesticks
-            const ohlcData = [
-                {x: '10:00', o: 0.0008, h: 0.00085, l: 0.0007, c: 0.00082},
-                {x: '11:00', o: 0.00082, h: 0.00088, l: 0.00081, c: 0.00087},
-                {x: '12:00', o: 0.00087, h: 0.0009, l: 0.00086, c: 0.00089},
-                {x: '13:00', o: 0.00089, h: 0.00095, l: 0.00088, c: 0.00093},
-                {x: '14:00', o: 0.00093, h: 0.00098, l: 0.0009, c: 0.00095}
-            ];
-
-            window.ch = new Chart(ctx, {
-                type: 'ohlc',
-                data: { datasets: [{
-                    label: coin,
-                    data: ohlcData,
-                    color: { up: '#4ade80', down: '#ef4444'}
-                }]},
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false }}
-                }
-            });
-        }
-
-        function switchView(v) {
-            ['overview', 'portfolio', 'signals', 'settings'].forEach(x => {
-                document.getElementById(x).style.display = x === v ? 'grid' : 'none';
+        function switchPage(page) {
+            ['market', 'portfolio', 'alerts'].forEach(p => {
+                document.getElementById(p).style.display = p === page ? 'grid' : 'none';
             });
             document.querySelectorAll('.nav-item').forEach(x => x.classList.remove('active'));
             event.target.classList.add('active');
         }
 
-        function analyze() {
-            coins.forEach(c => {
-                if (c.ch > 80 && !signals.find(s => s.title === c.s)) {
-                    signals.unshift({
-                        title: c.s + ' SURGE',
-                        msg: c.s + ' showing momentum +' + c.ch + '%',
-                        blink: true
-                    });
-                    setTimeout(() => signals[0].blink = false, 3000);
-                }
-            });
-            render();
+        function refresh() {
+            coins.forEach(c => { c.ch += (Math.random() - 0.5) * 20; });
+            renderTicker();
+            renderSignals();
         }
 
-        function refresh() { coins.forEach(c => { c.ch += (Math.random() - 0.5) * 10; }); render(); analyze(); }
-        function engage() { alert('▲ Monitoring Engaged'); }
-
         window.addEventListener('load', () => {
-            render();
+            renderTicker();
+            renderSignals();
+            renderMomentum();
+            renderPlatforms();
+            renderTwitter();
+            renderPortfolio();
+            renderAlerts();
             selectCoin('MOON');
-            setInterval(() => { refresh(); }, 3000);
+            setInterval(refresh, 3000);
         });
     </script>
 </body>
