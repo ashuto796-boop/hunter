@@ -15,13 +15,33 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ data }) => {
     const chart = createChart(containerRef.current, {
       layout: {
         background: { type: ColorType.Solid, color: "#030712" },
-        textColor: "#9ca3af",
+        textColor: "#b0b0b0",
+        fontFamily: '"IBM Plex Mono", monospace',
+        fontSize: 13,
       },
       width: containerRef.current.clientWidth,
       height: containerRef.current.clientHeight,
-      timeScale: { timeVisible: true, secondsVisible: false },
+      timeScale: {
+        timeVisible: true,
+        secondsVisible: false,
+        fixLeftEdge: true,
+        fixRightEdge: true,
+      },
+      rightPriceScale: {
+        autoScale: true,
+        scaleMargins: { top: 0.2, bottom: 0.2 },
+      },
     });
 
+    // Enhanced grid
+    chart.applyOptions({
+      grid: {
+        horzLines: { color: "rgba(58, 58, 58, 0.4)", style: 1, visible: true },
+        vertLines: { color: "rgba(58, 58, 58, 0.4)", style: 1, visible: true },
+      },
+    });
+
+    // Create candlestick series with LARGE candles
     const candlestickSeries = chart.addCandlestickSeries({
       upColor: "#4ade80",
       downColor: "#ef4444",
@@ -29,6 +49,8 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ data }) => {
       borderDownColor: "#dc2626",
       wickUpColor: "#4ade80",
       wickDownColor: "#ef4444",
+      openTickMark: true,
+      closeTickMark: true,
     });
 
     candlestickSeries.setData(
@@ -42,6 +64,11 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ data }) => {
     );
 
     chart.timeScale().fitContent();
+
+    // Add crosshair with large font
+    chart.subscribeCrosshairMove((param) => {
+      // Native crosshair from lightweight-charts
+    });
 
     const handleResize = () => {
       if (containerRef.current) {
@@ -59,5 +86,5 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ data }) => {
     };
   }, [data]);
 
-  return <div ref={containerRef} className="w-full h-full" />;
+  return <div ref={containerRef} className="w-full h-full bg-dark-950" />;
 };

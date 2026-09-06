@@ -1,48 +1,58 @@
 import React from "react";
-import { mockAlerts } from "../data/mockData";
 import { useAppStore } from "../store/appStore";
 
 export const Alerts: React.FC = () => {
-  const { openSignalModal } = useAppStore();
+  const { alerts } = useAppStore();
 
   return (
-    <div className="h-full p-4 overflow-hidden">
-      <div className="bg-dark-800 border border-dark-700 rounded overflow-hidden flex flex-col h-full hover:border-neon-purple transition">
-        <div className="px-6 py-4 border-b border-dark-700 bg-dark-950/50">
-          <h3 className="text-sm font-bold text-neon-purple uppercase">⚠ TRADE ALERTS</h3>
-        </div>
+    <div className="p-6 h-full overflow-y-auto">
+      <h1 className="text-4xl font-bold text-white mb-8">ALERTS & SIGNALS</h1>
 
-        <div className="p-4 space-y-3 overflow-y-auto flex-1">
-          {mockAlerts.map((alert) => {
-            const bgColor = alert.type === "BUY" ? "bg-neon-green/10 border-l-neon-green" : alert.type === "SELL" ? "bg-neon-red/10 border-l-neon-red" : "bg-neon-yellow/10 border-l-neon-yellow";
-
-            return (
-              <div
-                key={alert.id}
-                onClick={() =>
-                  openSignalModal({
-                    id: alert.id,
-                    type: alert.type as any,
-                    title: alert.title,
-                    message: alert.description,
-                    score: 85,
-                    timestamp: alert.timestamp,
-                    coinSymbol: alert.coinSymbol,
-                  })
-                }
-                className={`${bgColor} border-l-4 p-4 rounded cursor-pointer hover:shadow-glow transition`}
-              >
-                <div className="flex justify-between items-start mb-2">
-                  <h4 className="font-bold text-white">{alert.title}</h4>
-                  <span className={`text-xs font-bold px-2 py-1 rounded ${alert.severity === "high" ? "bg-neon-red text-white" : "bg-neon-yellow text-dark-900"}`}>
-                    {alert.severity.toUpperCase()}
-                  </span>
-                </div>
-                <p className="text-xs text-gray-400">{alert.description}</p>
+      <div className="space-y-4">
+        {alerts.map((alert) => (
+          <div
+            key={alert.id}
+            className={`border-l-4 p-6 rounded cursor-pointer transition-all hover:shadow-glow ${
+              alert.type === "SIGNAL"
+                ? "bg-neon-green/10 border-neon-green"
+                : alert.type === "PUMP"
+                ? "bg-neon-yellow/10 border-neon-yellow"
+                : "bg-neon-red/10 border-neon-red"
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <h3 className="text-2xl font-bold text-white">{alert.coin}</h3>
+                <p className="text-gray-400 text-base mt-2">{alert.message}</p>
               </div>
-            );
-          })}
-        </div>
+
+              <div className="flex items-center gap-8">
+                <div>
+                  <p className="text-gray-400 text-sm uppercase font-bold">Severity</p>
+                  <div className="mt-2">
+                    <span className={`px-4 py-2 rounded font-bold text-base ${
+                      alert.severity === "HIGH"
+                        ? "bg-neon-red text-dark-950"
+                        : "bg-neon-yellow text-dark-950"
+                    }`}>
+                      {alert.severity}
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-gray-400 text-sm uppercase font-bold">Type</p>
+                  <p className="text-xl font-bold text-neon-purple mt-2 uppercase">{alert.type}</p>
+                </div>
+
+                <div>
+                  <p className="text-gray-400 text-sm uppercase font-bold">Time</p>
+                  <p className="text-lg font-bold text-gray-400 mt-2">{alert.timestamp}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
