@@ -24,10 +24,10 @@ export const TickerTable: React.FC<TickerTableProps> = ({ coins }) => {
         >
           <div className="font-bold text-neon-purple text-lg">{coin.symbol}</div>
           <div className="text-white text-lg font-bold">${coin.price.toFixed(6)}</div>
-          <div className={`text-lg font-bold ${coin.change24h > 0 ? "text-neon-green" : "text-neon-red"}`}>
-            {coin.change24h > 0 ? "▲" : "▼"} {Math.abs(coin.change24h)}%
+          <div className={`text-lg font-bold ${coin.change > 0 ? "text-neon-green" : "text-neon-red"}`}>
+            {coin.change > 0 ? "▲" : "▼"} {Math.abs(coin.change)}%
           </div>
-          <div className="text-gray-400 text-lg">${coin.volume24h.toFixed(1)}M</div>
+          <div className="text-gray-400 text-lg">${(coin.volume / 1e6).toFixed(1)}M</div>
         </div>
       ))}
     </div>
