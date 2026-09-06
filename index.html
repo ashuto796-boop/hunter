@@ -102,30 +102,32 @@
         .panel.span-2 { grid-column: span 2; }
         .panel.span-full { grid-column: span 4; }
         .panel-header {
-            padding: 8px 12px;
-            border-bottom: 1px solid var(--border);
-            background: rgba(0, 0, 0, 0.4);
-            font-size: 9px;
-            font-weight: 700;
+            padding: 10px 12px;
+            border-bottom: 2px solid var(--accent);
+            background: rgba(157, 125, 212, 0.05);
+            font-size: 10px;
+            font-weight: 800;
             text-transform: uppercase;
-            color: var(--accent);
+            color: var(--accent-light);
+            letter-spacing: 1px;
         }
         .panel-content { flex: 1; overflow-y: auto; padding: 8px; }
         .ticker-row {
             display: grid;
             grid-template-columns: 1.5fr 1fr 1fr 1fr;
             gap: 8px;
-            padding: 8px;
-            border-bottom: 1px solid rgba(58, 58, 58, 0.3);
+            padding: 10px 8px;
+            border-bottom: 1px solid rgba(58, 58, 58, 0.5);
             cursor: pointer;
             transition: all 0.2s;
-            font-size: 10px;
+            font-size: 11px;
+            font-weight: 600;
         }
-        .ticker-row:hover { background: rgba(157, 125, 212, 0.1); }
-        .ticker-symbol { font-weight: 700; }
+        .ticker-row:hover { background: rgba(157, 125, 212, 0.15); border-left: 2px solid var(--accent); }
+        .ticker-symbol { font-weight: 800; font-size: 12px; color: var(--accent-light); }
         .green { color: var(--green); }
         .red { color: var(--red); }
-        .alert { padding: 8px; border-left: 2px solid var(--green); background: rgba(0,0,0,0.2); margin-bottom: 6px; border-radius: 2px; font-size: 9px; }
+        .alert { padding: 10px; border-left: 3px solid var(--green); background: rgba(74,222,128,0.08); margin-bottom: 8px; border-radius: 2px; font-size: 10px; font-weight: 600; color: var(--text-primary); }
         .metric-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
         .metric-box { background: rgba(0,0,0,0.3); padding: 8px; border-radius: 2px; border: 1px solid var(--border); }
         .metric-label { font-size: 8px; color: var(--text-secondary); margin-bottom: 3px; }
@@ -374,53 +376,70 @@
                 { o: 0.00093, h: 0.00098, l: 0.0009, c: 0.00095, t: '14:00' }
             ];
 
-            const minPrice = 0.0006;
-            const maxPrice = 0.001;
+            const minPrice = 0.00065;
+            const maxPrice = 0.00105;
             const range = maxPrice - minPrice;
-            const padding = 40;
+            const padding = 60;
             const chartW = w - padding * 2;
             const chartH = h - padding * 2;
-            const candleW = chartW / (ohlcData.length * 1.5);
+            const candleW = (chartW / (ohlcData.length)) * 0.6;
+            const spacing = chartW / ohlcData.length;
 
-            let svgHtml = `<svg style="width:100%; height:100%; background: rgba(0,0,0,0.2);">`;
-            svgHtml += `<defs><style>text { font-family: 'IBM Plex Mono', monospace; font-size: 10px; }</style></defs>`;
+            let svgHtml = `<svg style="width:100%; height:100%; background: linear-gradient(to bottom, rgba(15,15,35,0.8), rgba(10,10,10,0.9));">`;
+            svgHtml += `<defs><style>
+                .price-text { font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: bold; fill: var(--text-secondary); }
+                .time-text { font-family: 'IBM Plex Mono', monospace; font-size: 11px; fill: var(--text-secondary); }
+                .grid-line { stroke: rgba(100,100,150,0.15); stroke-width: 1; }
+            </style></defs>`;
 
-            // Grid lines
-            for (let i = 0; i <= 4; i++) {
-                const y = padding + (chartH / 4) * i;
-                svgHtml += `<line x1="${padding}" y1="${y}" x2="${w - padding}" y2="${y}" stroke="rgba(58,58,58,0.3)" stroke-width="0.5"/>`;
-                const price = maxPrice - (range / 4) * i;
-                svgHtml += `<text x="5" y="${y + 4}" fill="var(--text-secondary)">${price.toFixed(6)}</text>`;
+            // Horizontal grid lines avec prix
+            for (let i = 0; i <= 5; i++) {
+                const y = padding + (chartH / 5) * i;
+                const price = maxPrice - (range / 5) * i;
+                svgHtml += `<line class="grid-line" x1="${padding}" y1="${y}" x2="${w - 20}" y2="${y}"/>`;
+                svgHtml += `<text class="price-text" x="${w - 18}" y="${y + 5}">${price.toFixed(5)}</text>`;
             }
 
-            // Candlesticks
+            // Vertical grid lines
+            for (let i = 0; i < ohlcData.length; i++) {
+                const x = padding + (i * spacing) + (spacing / 2);
+                svgHtml += `<line class="grid-line" x1="${x}" y1="${padding}" x2="${x}" y2="${h - padding}"/>`;
+            }
+
+            // Candlesticks avec vraie apparence TradingView
             ohlcData.forEach((candle, i) => {
-                const x = padding + (i * chartW / ohlcData.length) + (chartW / (ohlcData.length * 2));
+                const x = padding + (i * spacing) + (spacing / 2);
                 const o = (candle.o - minPrice) / range;
-                const h = (candle.h - minPrice) / range;
-                const l = (candle.l - minPrice) / range;
+                const h_val = (candle.h - minPrice) / range;
+                const l_val = (candle.l - minPrice) / range;
                 const c = (candle.c - minPrice) / range;
 
                 const yO = padding + chartH - (o * chartH);
-                const yH = padding + chartH - (h * chartH);
-                const yL = padding + chartH - (l * chartH);
+                const yH = padding + chartH - (h_val * chartH);
+                const yL = padding + chartH - (l_val * chartH);
                 const yC = padding + chartH - (c * chartH);
 
                 const isUp = candle.c >= candle.o;
-                const color = isUp ? '#4ade80' : '#ef4444';
+                const wickColor = isUp ? '#26a65b' : '#e74c3c';
+                const bodyColor = isUp ? '#2ecc71' : '#e74c3c';
+                const bodyStroke = isUp ? '#27ae60' : '#c0392b';
+
                 const bodyTop = Math.min(yO, yC);
                 const bodyBottom = Math.max(yO, yC);
-                const bodyHeight = Math.max(bodyBottom - bodyTop, 2);
+                const bodyHeight = Math.max(bodyBottom - bodyTop, 3);
 
-                // Wick (mèche)
-                svgHtml += `<line x1="${x}" y1="${yH}" x2="${x}" y2="${yL}" stroke="${color}" stroke-width="1"/>`;
-                // Body (corps)
-                svgHtml += `<rect x="${x - candleW/2}" y="${bodyTop}" width="${candleW}" height="${bodyHeight}" fill="${color}" stroke="${color}" stroke-width="1"/>`;
-                // Time label
-                if (i < ohlcData.length) {
-                    svgHtml += `<text x="${x - 10}" y="${h + 20}" fill="var(--text-secondary)">${candle.t}</text>`;
-                }
+                // Wick (mèche) - ligne verticale
+                svgHtml += `<line x1="${x}" y1="${yH}" x2="${x}" y2="${yL}" stroke="${wickColor}" stroke-width="2" stroke-linecap="round"/>`;
+
+                // Body (corps) - rectangle épais
+                svgHtml += `<rect x="${x - candleW/2}" y="${bodyTop}" width="${candleW}" height="${bodyHeight}" fill="${bodyColor}" stroke="${bodyStroke}" stroke-width="1.5" rx="1"/>`;
+
+                // Time label en bas
+                svgHtml += `<text class="time-text" x="${x - 15}" y="${h - padding + 20}">${candle.t}</text>`;
             });
+
+            // Title
+            svgHtml += `<text style="font-family: 'IBM Plex Mono'; font-size: 14px; font-weight: bold; fill: var(--accent);" x="${padding}" y="25">MOON/USD - 5m Chart</text>`;
 
             svgHtml += `</svg>`;
             container.innerHTML = svgHtml;
