@@ -3,12 +3,11 @@ export interface Coin {
   symbol: string;
   name: string;
   price: number;
-  change24h: number;
-  volume24h: number;
+  change: number;
+  volume: number;
   marketCap: number;
   network: "SOL" | "ETH" | "BNB";
-  sentiment?: number;
-  whaleActivity?: number;
+  sentiment: number;
 }
 
 export interface Signal {
@@ -18,7 +17,7 @@ export interface Signal {
   message: string;
   score: number;
   timestamp: Date;
-  coinSymbol: string;
+  coin: string;
 }
 
 export interface CandleData {
@@ -27,7 +26,7 @@ export interface CandleData {
   high: number;
   low: number;
   close: number;
-  volume: number;
+  volume?: number;
 }
 
 export interface Portfolio {
@@ -42,16 +41,14 @@ export interface Portfolio {
 
 export interface Alert {
   id: string;
-  type: "BUY" | "SELL" | "HOLD" | "WHALE";
-  title: string;
-  description: string;
-  coinSymbol: string;
-  severity: "high" | "medium" | "low";
-  timestamp: Date;
+  type: "SIGNAL" | "PUMP" | "DUMP";
+  coin: string;
+  message: string;
+  severity: "HIGH" | "MEDIUM";
+  timestamp: string;
 }
 
 export interface ModalState {
-  type: "coin" | "signal" | "alert" | null;
-  data: Coin | Signal | Alert | null;
-  isOpen: boolean;
+  type: "coin" | "signal" | null;
+  data: Coin | Signal | null;
 }

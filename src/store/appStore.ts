@@ -1,12 +1,13 @@
 import { create } from "zustand";
-import { Coin, Signal, ModalState } from "../types/index";
-import { mockCoins, mockSignals } from "../data/mockData";
+import { Coin, Signal, ModalState, Alert } from "../types/index";
+import { mockCoins, mockSignals, mockAlerts } from "../data/mockData";
 
 interface AppState {
   coins: Coin[];
   signals: Signal[];
+  alerts: Alert[];
   selectedCoin: Coin | null;
-  modal: ModalState;
+  modalState: ModalState;
   activePage: "market" | "portfolio" | "alerts";
   setCoins: (coins: Coin[]) => void;
   setSelectedCoin: (coin: Coin | null) => void;
@@ -19,13 +20,14 @@ interface AppState {
 export const useAppStore = create<AppState>((set) => ({
   coins: mockCoins,
   signals: mockSignals,
+  alerts: mockAlerts,
   selectedCoin: mockCoins[0],
-  modal: { type: null, data: null, isOpen: false },
+  modalState: { type: null, data: null },
   activePage: "market",
   setCoins: (coins) => set({ coins }),
   setSelectedCoin: (coin) => set({ selectedCoin: coin }),
-  openCoinModal: (coin) => set({ modal: { type: "coin", data: coin, isOpen: true } }),
-  openSignalModal: (signal) => set({ modal: { type: "signal", data: signal, isOpen: true } }),
-  closeModal: () => set({ modal: { type: null, data: null, isOpen: false } }),
+  openCoinModal: (coin) => set({ modalState: { type: "coin", data: coin } }),
+  openSignalModal: (signal) => set({ modalState: { type: "signal", data: signal } }),
+  closeModal: () => set({ modalState: { type: null, data: null } }),
   setActivePage: (page) => set({ activePage: page }),
 }));
