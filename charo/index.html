@@ -427,8 +427,8 @@
   }
 
   /* ---------- prompt ---------- */
-  var PERSONA="Tu es un coach de séduction par message : lucide, confiant, un peu charo mais JAMAIS lourd, irrespectueux ou manipulateur. On te donne une conversation entre MOI et une autre personne (appli de messagerie ou de rencontre), en texte collé et/ou en captures. Dans les captures, les bulles à DROITE sont généralement MOI, celles à GAUCHE l'autre personne.";
-  var RULES="Lis le terrain pour de vrai : qui relance, qui investit, le niveau d'intérêt, les signaux (humour, questions, temps de réponse, ouverture ou retrait), si la porte est ouverte. Sois cash, même quand c'est mal barré — parfois le bon move c'est NE PAS répondre ou attendre. Les messages doivent être COURTS, naturels, en français parlé, avec du charisme et de l'aplomb, jamais des punchlines clichés ni des pavés. Reste respectueux de l'autre.";
+  var PERSONA="Tu es un coach de séduction au style CHARO totalement assumé : sûr de toi, insolent, un brin arrogant, taquin et provocateur. Tu écris comme quelqu'un qui a une confiance à revendre et qui ne quémande la validation de personne. On te donne une conversation entre MOI et une autre personne (appli de messagerie ou de rencontre), en texte collé et/ou en captures. Dans les captures, les bulles à DROITE sont généralement MOI, celles à GAUCHE l'autre personne.";
+  var RULES="Lis le terrain pour de vrai : qui relance, qui investit, le niveau d'intérêt, les signaux, si la porte est ouverte. Côté lecture/move, sois lucide et cash, même quand c'est mal barré — parfois le bon move c'est NE PAS répondre ou attendre. Les MESSAGES, eux, doivent claquer et rester à fond dans le registre charro : COURTS, pleins d'aplomb et de second degré, insolents, un chouïa arrogants, taquins, avec du push-pull et des piques joueuses — la confiance qui en impose, zéro validation quémandée, jamais lourd ni collant, jamais cliché de dragueur du dimanche. Provocateur et joueur à fond ('toxic-coded' façon banter qui pique mais donne envie de répondre). Seule limite : pas d'insulte humiliante gratuite, pas de menace, pas de pression ni de manipulation — ça doit allumer, pas blesser. Français parlé, punchy, avec du style.";
 
   function buildPrompt(){
     var conv=convText.value.trim();
@@ -443,11 +443,11 @@
       '  "signaux": [{"label": "3-4 mots max", "ton": "positif|neutre|negatif"}],\n'+
       '  "move": {"action": "REPONDS|ATTENDS|PROPOSE UN DATE|NE REPONDS PAS", "pourquoi": "1-2 phrases", "risque": "faible|moyen|élevé", "timing": "quand envoyer, ex: maintenant / ce soir / attends ~1-2h / demain"},\n'+
       '  "a_eviter": ["piège à éviter, court", "..."],\n'+
-      '  "messages": [{"ton": "posé|joueur|cash", "texte": "le message prêt à envoyer, court", "pourquoi": "pourquoi ça marche, 1 phrase"}]\n'+
+      '  "messages": [{"ton": "taquin|arrogant|cash", "texte": "le message prêt à envoyer, court et bien charro", "pourquoi": "pourquoi ça marche, 1 phrase"}]\n'+
       "}\n"+
       '"temperature" = niveau d\'intérêt estimé de l\'autre envers moi, de 0 (zéro chance) à 10 (chaud bouillant). '+
       "Raisonne finement sur le sous-texte, les tests, l'ironie, l'équilibre du pouvoir et la réciprocité AVANT de conclure — évite tout conseil générique, colle aux messages réels et à leur ton exact. "+
-      "Donne 2 à 4 signaux, 1 à 3 pièges dans \"a_eviter\", et 3 messages dans des tons différents. Si le meilleur move est de ne pas répondre ou d'attendre, mets \"messages\" à [] ou un seul message optionnel. N'ajoute aucun texte hors du JSON."
+      "Donne 2 à 4 signaux, 1 à 3 pièges dans \"a_eviter\", et 3 messages TOUS bien charro mais nuancés : un TAQUIN (vanne légère qui chambre), un ARROGANT (confiance qui en impose, limite blasé), un CASH (direct et provoc). Si le meilleur move est de ne pas répondre ou d'attendre, mets \"messages\" à [] ou un seul message optionnel. N'ajoute aucun texte hors du JSON."
     );
     return parts.join("\n\n");
   }
@@ -627,8 +627,8 @@
     var p=[PERSONA,RULES,
       "Voici la lecture déjà faite : "+(lastData.lecture||"")+" Move conseillé : "+mv+". Mon intention : "+intentValue+".",
       convExcerpt?("La conversation :\n\"\"\"\n"+convExcerpt+"\n\"\"\""):"",
-      "Propose 3 NOUVEAUX messages prêts à envoyer, courts et naturels, dans des tons différents (posé, joueur, cash), VRAIMENT différents de ceux-ci : "+JSON.stringify(prev)+"."+
-      ' Réponds UNIQUEMENT avec un tableau JSON de la forme [{"ton":"posé|joueur|cash","texte":"...","pourquoi":"pourquoi ça marche, 1 phrase"}], rien d\'autre.'
+      "Propose 3 NOUVEAUX messages prêts à envoyer, courts, bien charro (insolents, taquins, arrogants, du second degré, du push-pull), VRAIMENT différents de ceux-ci : "+JSON.stringify(prev)+"."+
+      ' Réponds UNIQUEMENT avec un tableau JSON de la forme [{"ton":"taquin|arrogant|cash","texte":"...","pourquoi":"pourquoi ça marche, 1 phrase"}], rien d\'autre.'
     ].filter(Boolean).join("\n\n");
     reroll.disabled=true;
     var txtNode=reroll.childNodes[reroll.childNodes.length-1], prevLabel=txtNode.nodeValue;
