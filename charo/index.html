@@ -295,6 +295,19 @@
   .temp.hot .score{text-shadow:0 0 18px rgba(255,46,116,.6);}
   .temp.hot .gauge>i{box-shadow:0 0 24px rgba(255,46,116,.9);}
 
+  /* onglets intention / où / intensité */
+  .tabs{display:flex; gap:8px; margin-bottom:16px;}
+  .tab{flex:1 1 0; min-width:0; display:flex; flex-direction:column; align-items:flex-start; gap:3px; background:rgba(22,15,19,.5); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); border:1px solid var(--line); border-radius:14px; padding:11px 13px; cursor:pointer; text-align:left; transition:border-color .15s, background .15s, box-shadow .15s;}
+  .tab .tl{font-family:var(--font-mono); font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted);}
+  .tab .tv{font-family:var(--font-disp); font-weight:700; font-size:14px; color:var(--fg); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;}
+  .tab.on{border-color:var(--acc); background:linear-gradient(180deg,rgba(255,46,116,.14),rgba(255,46,116,.04)); box-shadow:0 0 16px rgba(255,46,116,.18);}
+  .tab.on .tl{color:var(--acc);}
+  .tab:active{transform:scale(.98);}
+  .panel{display:none;}
+  .panel.on{display:block; animation:panelin .3s ease both;}
+  @keyframes panelin{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:none;}}
+  @media (prefers-reduced-motion:reduce){ .panel.on{animation:none;} }
+
   [hidden]{display:none !important;}
 </style>
 </head>
@@ -362,39 +375,44 @@
       </div>
 
       <div class="field">
-        <span class="field-label">Mon intention</span>
-        <div class="chips" id="intents">
-          <button type="button" class="pick" aria-pressed="true" data-v="savoir où j'en suis">lire le jeu</button>
-          <button type="button" class="pick" aria-pressed="false" data-v="la/le relancer sans être lourd">relancer</button>
-          <button type="button" class="pick" aria-pressed="false" data-v="proposer un date">fixer un date</button>
-          <button type="button" class="pick" aria-pressed="false" data-v="reprendre la main / calmer le jeu">reprendre la main</button>
-          <button type="button" class="pick" aria-pressed="false" data-v="conclure">conclure</button>
-          <button type="button" class="pick" aria-pressed="false" data-v="la chambrer / la faire rire">chambrer</button>
-          <button type="button" class="pick" aria-pressed="false" data-v="me rattraper après une boulette ou un froid">me rattraper</button>
-          <button type="button" class="pick" aria-pressed="false" data-v="relancer après un vent / un ghost">relancer un ghost</button>
-          <button type="button" class="pick" aria-pressed="false" data-v="créer du manque, garder du mystère">créer du manque</button>
-          <button type="button" class="pick" aria-pressed="false" data-v="passer de l'appli au numéro ou au snap">avoir son num</button>
-          <button type="button" class="pick" aria-pressed="false" data-v="pimenter la conv, flirter plus franchement">pimenter</button>
-          <button type="button" class="pick" aria-pressed="false" data-v="tester si elle/il est vraiment intéressé(e)">la tester</button>
+        <div class="tabs" id="prefTabs">
+          <button type="button" class="tab on" id="tabIntent" data-panel="pIntent"><span class="tl">Intention</span><span class="tv" id="tvIntent">lire le jeu</span></button>
+          <button type="button" class="tab" id="tabPlatform" data-panel="pPlatform"><span class="tl">Où</span><span class="tv" id="tvPlatform">Tinder</span></button>
+          <button type="button" class="tab" id="tabLevel" data-panel="pLevel"><span class="tl">Intensité</span><span class="tv" id="tvLevel">charro</span></button>
         </div>
-      </div>
 
-      <div class="field">
-        <span class="field-label">Où ça se passe</span>
-        <div class="chips" id="platforms">
-          <button type="button" class="pick" aria-pressed="true" data-v="Tinder / appli de rencontre">Tinder</button>
-          <button type="button" class="pick" aria-pressed="false" data-v="Instagram, en DM">Insta</button>
-          <button type="button" class="pick" aria-pressed="false" data-v="Snapchat">Snap</button>
-          <button type="button" class="pick" aria-pressed="false" data-v="SMS / WhatsApp">SMS</button>
+        <div class="panel on" id="pIntent">
+          <div class="chips" id="intents">
+            <button type="button" class="pick" aria-pressed="true" data-v="savoir où j'en suis">lire le jeu</button>
+            <button type="button" class="pick" aria-pressed="false" data-v="la/le relancer sans être lourd">relancer</button>
+            <button type="button" class="pick" aria-pressed="false" data-v="proposer un date">fixer un date</button>
+            <button type="button" class="pick" aria-pressed="false" data-v="reprendre la main / calmer le jeu">reprendre la main</button>
+            <button type="button" class="pick" aria-pressed="false" data-v="conclure">conclure</button>
+            <button type="button" class="pick" aria-pressed="false" data-v="la chambrer / la faire rire">chambrer</button>
+            <button type="button" class="pick" aria-pressed="false" data-v="me rattraper après une boulette ou un froid">me rattraper</button>
+            <button type="button" class="pick" aria-pressed="false" data-v="relancer après un vent / un ghost">relancer un ghost</button>
+            <button type="button" class="pick" aria-pressed="false" data-v="créer du manque, garder du mystère">créer du manque</button>
+            <button type="button" class="pick" aria-pressed="false" data-v="passer de l'appli au numéro ou au snap">avoir son num</button>
+            <button type="button" class="pick" aria-pressed="false" data-v="pimenter la conv, flirter plus franchement">pimenter</button>
+            <button type="button" class="pick" aria-pressed="false" data-v="tester si elle/il est vraiment intéressé(e)">la tester</button>
+          </div>
         </div>
-      </div>
 
-      <div class="field">
-        <span class="field-label">Intensité</span>
-        <div class="chips" id="levels">
-          <button type="button" class="pick" aria-pressed="false" data-v="soft">soft</button>
-          <button type="button" class="pick" aria-pressed="true" data-v="charro">charro</button>
-          <button type="button" class="pick" aria-pressed="false" data-v="sans pitié">sans pitié</button>
+        <div class="panel" id="pPlatform">
+          <div class="chips" id="platforms">
+            <button type="button" class="pick" aria-pressed="true" data-v="Tinder / appli de rencontre">Tinder</button>
+            <button type="button" class="pick" aria-pressed="false" data-v="Instagram, en DM">Insta</button>
+            <button type="button" class="pick" aria-pressed="false" data-v="Snapchat">Snap</button>
+            <button type="button" class="pick" aria-pressed="false" data-v="SMS / WhatsApp">SMS</button>
+          </div>
+        </div>
+
+        <div class="panel" id="pLevel">
+          <div class="chips" id="levels">
+            <button type="button" class="pick" aria-pressed="false" data-v="soft">soft</button>
+            <button type="button" class="pick" aria-pressed="true" data-v="charro">charro</button>
+            <button type="button" class="pick" aria-pressed="false" data-v="sans pitié">sans pitié</button>
+          </div>
         </div>
       </div>
 
@@ -500,6 +518,41 @@
   function getKey(){return (lsGet(LS_KEY,"")||"").trim();}
   function getModel(){return (lsGet(LS_MODEL,"")||"").trim()||DEFAULT_MODEL;}
 
+  /* ---- effets sonores synthétisés (originaux) + haptique ---- */
+  var _ac=null;
+  function ac(){
+    try{
+      if(!_ac){ var AC=window.AudioContext||window.webkitAudioContext; if(!AC) return null; _ac=new AC(); }
+      if(_ac.state==="suspended" && _ac.resume) _ac.resume();
+      return _ac;
+    }catch(e){ return null; }
+  }
+  function tone(a,freq,at,dur,type,gain){
+    try{
+      var o=a.createOscillator(), g=a.createGain();
+      o.type=type||"sine"; o.frequency.setValueAtTime(freq,at);
+      g.gain.setValueAtTime(0.0001,at);
+      g.gain.linearRampToValueAtTime(gain,at+0.015);
+      g.gain.exponentialRampToValueAtTime(0.0001,at+dur);
+      o.connect(g); g.connect(a.destination);
+      o.start(at); o.stop(at+dur+0.03);
+    }catch(e){}
+  }
+  function playEnter(){
+    var a=ac(); if(!a) return; var t=a.currentTime;
+    try{
+      var o=a.createOscillator(), g=a.createGain();
+      o.type="sawtooth"; o.frequency.setValueAtTime(170,t); o.frequency.exponentialRampToValueAtTime(760,t+0.28);
+      g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(0.11,t+0.05); g.gain.exponentialRampToValueAtTime(0.0001,t+0.34);
+      o.connect(g); g.connect(a.destination); o.start(t); o.stop(t+0.37);
+    }catch(e){}
+    tone(a,880, t+0.26,0.5,"triangle",0.16);
+    tone(a,1320,t+0.27,0.5,"sine",0.10);
+    tone(a,1760,t+0.28,0.45,"sine",0.06);
+  }
+  function playTick(){ var a=ac(); if(!a) return; tone(a,1250,a.currentTime,0.07,"triangle",0.07); }
+  function buzz(ms){ try{ if(navigator.vibrate) navigator.vibrate(ms); }catch(e){} }
+
   /* ---------- settings modal ---------- */
   var settings=$("settings");
   function openSettings(){
@@ -525,13 +578,25 @@
       b.addEventListener("click",function(){
         Array.prototype.forEach.call(c.querySelectorAll(".pick"),function(o){o.setAttribute("aria-pressed","false");});
         b.setAttribute("aria-pressed","true");
-        setter(b.getAttribute("data-v"));
+        setter(b.getAttribute("data-v"), b);
       });
     });
   }
-  wireChips("intents",function(v){intentValue=v;});
-  wireChips("platforms",function(v){platformValue=v;});
-  wireChips("levels",function(v){levelValue=v;});
+  function setTab(id,b){ var el=document.getElementById(id); if(el&&b) el.textContent=b.textContent; }
+  wireChips("intents",function(v,b){intentValue=v; setTab("tvIntent",b);});
+  wireChips("platforms",function(v,b){platformValue=v; setTab("tvPlatform",b);});
+  wireChips("levels",function(v,b){levelValue=v; setTab("tvLevel",b);});
+
+  function activateTab(tab){
+    if(!tab||tab.hidden) return;
+    Array.prototype.forEach.call(document.querySelectorAll("#prefTabs .tab"),function(o){o.classList.remove("on");});
+    tab.classList.add("on");
+    var pid=tab.getAttribute("data-panel");
+    ["pIntent","pPlatform","pLevel"].forEach(function(p){ var el=document.getElementById(p); if(el) el.classList.toggle("on", p===pid); });
+  }
+  Array.prototype.forEach.call(document.querySelectorAll("#prefTabs .tab"),function(tab){
+    tab.addEventListener("click",function(){ activateTab(tab); });
+  });
 
   function applyMode(m){
     mode=m;
@@ -542,8 +607,8 @@
     convText.placeholder = acc
       ? "Colle sa bio, ou décris-la en 2 mots…\n\nex : bio « voyages & vin », photo au ski\n(ou ajoute juste un screen de son profil)"
       : "Colle la conversation ici…\n\nmoi : tu fais quoi jeudi ?\nelle : jsp encore, pourquoi\nmoi : …";
-    var intentField = document.getElementById("intents").parentNode;
-    if(intentField) intentField.hidden = acc; // l'intention ne sert pas pour une accroche
+    var tabIntent=document.getElementById("tabIntent");
+    if(tabIntent){ tabIntent.hidden=acc; if(acc && tabIntent.classList.contains("on")) activateTab(document.getElementById("tabPlatform")); }
   }
   wireChips("modes",function(v){applyMode(v);});
 
@@ -833,7 +898,7 @@
   }
 
   function doCopy(text,btn){
-    function ok(){btn.classList.add("done"); btn.querySelector("span").textContent="copié"; setTimeout(function(){btn.classList.remove("done"); btn.querySelector("span").textContent="copier";},1500);}
+    function ok(){playTick(); buzz(12); btn.classList.add("done"); btn.querySelector("span").textContent="copié"; setTimeout(function(){btn.classList.remove("done"); btn.querySelector("span").textContent="copier";},1500);}
     if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(text).then(ok,function(){fallback(text,ok);});} else fallback(text,ok);
   }
   function fallback(text,ok){try{var ta=document.createElement("textarea"); ta.value=text; ta.style.position="fixed"; ta.style.opacity="0"; document.body.appendChild(ta); ta.focus(); ta.select(); document.execCommand("copy"); document.body.removeChild(ta); ok();}catch(e){}}
@@ -928,6 +993,7 @@
     setFavs(a);
   }
   function favCopy(text,btn){
+    playTick(); buzz(12);
     var o=btn.textContent; btn.textContent="copié"; setTimeout(function(){btn.textContent=o;},1200);
     if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(null,function(){fallback(text,function(){});}); } else fallback(text,function(){});
   }
@@ -958,7 +1024,7 @@
     var txt=msgs.map(function(m){return m&&(m.texte||m.text);}).filter(Boolean).join("\n\n");
     if(!txt) return;
     var btn=this, old=btn.textContent;
-    function ok(){ btn.textContent="Copié ✓"; setTimeout(function(){btn.textContent=old;},1500); }
+    function ok(){ playTick(); buzz(12); btn.textContent="Copié ✓"; setTimeout(function(){btn.textContent=old;},1500); }
     if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(txt).then(ok,function(){fallback(txt,ok);}); } else fallback(txt,ok);
   });
 
@@ -976,6 +1042,7 @@
       ["Last chance","You're coming in, or you're coming in?"]
     ];
     function enter(){
+      playEnter(); buzz(30);
       try{ sessionStorage.setItem("aura_gate","1"); }catch(e){}
       gate.classList.add("out");
       setTimeout(function(){ if(gate.parentNode) gate.remove(); }, 520);
