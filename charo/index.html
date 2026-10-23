@@ -12,7 +12,7 @@
 <link rel="icon" type="image/png" href="Mode-Charo-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap">
 <style>
   :root {
     --bg:#0a0608; --panel:#160f13; --panel-2:#1e141a; --line:#2c1e26;
@@ -21,8 +21,8 @@
     --radius:18px;
     color-scheme:dark;
     --grad:linear-gradient(90deg,var(--acc-2),var(--acc) 55%,var(--gold));
-    --font-disp:"Archivo","Helvetica Neue",Arial,sans-serif;
-    --font-mono:"Space Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+    --font-disp:"Bricolage Grotesque","Archivo","Helvetica Neue",Arial,sans-serif;
+    --font-mono:"Archivo","Helvetica Neue",Arial,sans-serif;
     --sat:env(safe-area-inset-top,0px);
     --sab:env(safe-area-inset-bottom,0px);
     --sal:env(safe-area-inset-left,0px);
@@ -43,10 +43,10 @@
 
   /* fond animé original (lueurs néon qui ondulent) */
   #bg{position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden;}
-  #bg .blob{position:absolute; border-radius:50%; filter:blur(72px); opacity:.26; mix-blend-mode:screen; will-change:transform;}
+  #bg .blob{position:absolute; border-radius:50%; filter:blur(66px); opacity:.42; mix-blend-mode:screen; will-change:transform;}
   #bg .b1{width:62vw; height:62vw; left:-14vw; top:-8vh;  background:radial-gradient(circle,#ff2e74,transparent 68%); animation:drift1 26s ease-in-out infinite;}
   #bg .b2{width:58vw; height:58vw; right:-16vw; bottom:-10vh; background:radial-gradient(circle,#b65cff,transparent 68%); animation:drift2 32s ease-in-out infinite;}
-  #bg .b3{width:42vw; height:42vw; left:28vw; top:40vh; background:radial-gradient(circle,#ffc24a,transparent 70%); opacity:.13; animation:drift3 38s ease-in-out infinite;}
+  #bg .b3{width:46vw; height:46vw; left:26vw; top:40vh; background:radial-gradient(circle,#ffc24a,transparent 70%); opacity:.22; animation:drift3 38s ease-in-out infinite;}
   @keyframes drift1{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(10vw,8vh) scale(1.15)}}
   @keyframes drift2{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-12vw,-6vh) scale(1.1)}}
   @keyframes drift3{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-8vw,6vh) scale(1.2)}}
@@ -579,14 +579,37 @@
       img.src=url;
     });
   }
+  function repairJSON(t){
+    var inStr=false, esc=false, stack=[];
+    for(var i=0;i<t.length;i++){
+      var c=t[i];
+      if(inStr){ if(esc){esc=false;} else if(c==="\\"){esc=true;} else if(c==='"'){inStr=false;} continue; }
+      if(c==='"'){inStr=true;}
+      else if(c==="{"){stack.push("}");}
+      else if(c==="["){stack.push("]");}
+      else if(c==="}"||c==="]"){ stack.pop(); }
+    }
+    if(!stack.length && !inStr) return null;
+    var cut=t;
+    if(inStr) cut+='"';
+    cut=cut.replace(/,\s*"[^"]*"?\s*:?\s*$/,"");
+    cut=cut.replace(/,\s*$/,"");
+    for(var j=stack.length-1;j>=0;j--) cut+=stack[j];
+    return cut;
+  }
   function extractJSON(text){
     var t=(text||"").trim();
-    try{return JSON.parse(t);}catch(e){}
     var fence=t.match(/```(?:json)?\s*([\s\S]*?)```/i);
-    if(fence){try{return JSON.parse(fence[1].trim());}catch(e){}}
-    var s=t.search(/[\{\[]/), eCurly=t.lastIndexOf("}"), eSq=t.lastIndexOf("]");
-    var end=Math.max(eCurly,eSq);
-    if(s>=0&&end>s){try{return JSON.parse(t.slice(s,end+1));}catch(e){}}
+    if(fence) t=fence[1].trim();
+    var s=t.search(/[\{\[]/);
+    if(s>0) t=t.slice(s);
+    var cands=[t, t.replace(/,\s*([}\]])/g,"$1")];
+    for(var i=0;i<cands.length;i++){ try{return JSON.parse(cands[i]);}catch(e){} }
+    var rep=repairJSON(t);
+    if(rep){
+      try{return JSON.parse(rep);}catch(e){}
+      try{return JSON.parse(rep.replace(/,\s*([}\]])/g,"$1"));}catch(e){}
+    }
     throw {code:"invalid_json",text:t};
   }
   async function askClaude(prompt,imageFiles,maxTokens,signal){
@@ -736,7 +759,7 @@
     var old=document.querySelector(".error"); if(old) old.remove();
     show("loading"); startStatusCycle();
     try{
-      var data=await askClaude(mode==="accroche"?buildAccroche():buildPrompt(),imgs,1600,ctl.signal);
+      var data=await askClaude(mode==="accroche"?buildAccroche():buildPrompt(),imgs,4096,ctl.signal);
       stopStatusCycle();
       if(mode==="accroche") renderAccroche(data); else renderResult(data);
     }catch(err){
@@ -771,7 +794,7 @@
     var txtNode=reroll.childNodes[reroll.childNodes.length-1], prevLabel=txtNode.nodeValue;
     txtNode.nodeValue=" je réécris…";
     try{
-      var arr=await askClaude(p,null,1200,null);
+      var arr=await askClaude(p,null,3000,null);
       if(!Array.isArray(arr)&&arr&&Array.isArray(arr.messages)) arr=arr.messages;
       if(Array.isArray(arr)&&arr.length){lastData.messages=arr; renderMessages(arr);}
     }catch(e){
