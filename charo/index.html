@@ -170,7 +170,7 @@
   .temp .score span{font-size:15px; color:var(--muted); font-weight:600;}
   .temp .word{font-family:var(--font-mono); font-size:12px; letter-spacing:.1em; text-transform:uppercase;}
   .gauge{height:10px; border-radius:999px; background:var(--panel-2); border:1px solid var(--line); overflow:hidden; position:relative;}
-  .gauge>i{display:block; height:100%; width:0; background:var(--grad); border-radius:999px; box-shadow:0 0 14px rgba(255,46,116,.6); transition:width .6s cubic-bezier(.2,.7,.2,1);}
+  .gauge>i{display:block; height:100%; width:0; background:linear-gradient(90deg,var(--acc-2),var(--acc),var(--gold),var(--acc)); background-size:200% 100%; border-radius:999px; box-shadow:0 0 14px rgba(255,46,116,.6); transition:width .6s cubic-bezier(.2,.7,.2,1); animation:shimmer 3s linear infinite;}
 
   .signals{display:flex; flex-wrap:wrap; gap:9px;}
   .sig{font-family:var(--font-mono); font-size:11px; letter-spacing:.06em; text-transform:uppercase; border-radius:999px; padding:7px 12px; border:1px solid var(--line); color:var(--muted);}
@@ -239,6 +239,24 @@
   ::-webkit-scrollbar-thumb:hover{background:#3a2a33;}
   @media (prefers-reduced-motion:reduce){ .brand .mark,.cta{animation:none;} #result.on section{animation:none;} }
 
+  /* polish visuel additif */
+  #grain{position:fixed; inset:0; z-index:50; pointer-events:none; opacity:.05; mix-blend-mode:overlay; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); background-size:140px;}
+  .chip:not(.idle) .led{animation:ledpulse 1.6s ease-in-out infinite;}
+  @keyframes ledpulse{0%,100%{opacity:1; box-shadow:0 0 6px var(--acc);}50%{opacity:.55; box-shadow:0 0 13px var(--acc);}}
+  .move{animation:moveglow 4.5s ease-in-out infinite;}
+  @keyframes moveglow{0%,100%{box-shadow:0 8px 30px rgba(255,46,116,.12);}50%{box-shadow:0 10px 44px rgba(255,46,116,.24);}}
+  .msg.t-taquin{border-left:3px solid var(--gold);}
+  .msg.t-taquin .tone{color:var(--gold);}
+  .msg.t-arrogant{border-left:3px solid var(--acc-2);}
+  .msg.t-arrogant .tone{color:var(--acc-2);}
+  .msg.t-cash{border-left:3px solid var(--acc);}
+  .msg.t-cash .tone{color:var(--acc);}
+  .msg.t-ose{border-left:3px solid #ff5aa0;}
+  .msg.t-ose .tone{color:#ff5aa0;}
+  .msg.t-sansfiltre{border-left:3px solid var(--neg);}
+  .msg.t-sansfiltre .tone{color:var(--neg);}
+  @media (prefers-reduced-motion:reduce){ .chip .led, .move, .gauge>i{animation:none;} }
+
   /* écran de lancement */
   #splash{position:fixed; inset:0; z-index:200; display:flex; align-items:center; justify-content:center; gap:14px; background:var(--bg); animation:splashOut .55s ease 1.05s forwards;}
   #splash .smark{font-family:var(--font-disp); font-weight:800; font-size:clamp(36px,12vw,52px); letter-spacing:.14em; background:linear-gradient(90deg,var(--acc-2),var(--acc),var(--gold)); -webkit-background-clip:text; background-clip:text; color:transparent; animation:splashIn .6s cubic-bezier(.2,.7,.2,1) both;}
@@ -268,6 +286,7 @@
 <video id="bgvid" aria-hidden="true" autoplay loop muted playsinline preload="auto"><source src="aura-bg.mp4" type="video/mp4"></video>
 <div id="bg" aria-hidden="true"></div>
 <div id="scrim" aria-hidden="true"></div>
+<div id="grain" aria-hidden="true"></div>
 <button id="soundBtn" type="button" aria-label="Activer le son" title="Son">&#128264;</button>
 
 <div id="splash" aria-hidden="true"><span class="sorb"></span><span class="smark">AURA</span></div>
@@ -704,13 +723,22 @@
     var w=tempWord(n), wEl=$("tempWord"); wEl.textContent=w[0]; wEl.style.color=w[1];
     var bar=$("tempBar"); bar.style.width="0"; requestAnimationFrame(function(){bar.style.width=(n*10)+"%";});
   }
+  function toneClass(t){
+    var s=String(t||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
+    if(s.indexOf("taquin")>=0) return "t-taquin";
+    if(s.indexOf("arrogant")>=0) return "t-arrogant";
+    if(s.indexOf("cash")>=0) return "t-cash";
+    if(s.indexOf("filtre")>=0) return "t-sansfiltre";
+    if(s.indexOf("ose")>=0) return "t-ose";
+    return "";
+  }
   function renderMessages(msgs){
     var box=$("messages"); box.innerHTML=""; msgs=msgs||[];
     if(!msgs.length){var none=document.createElement("p"); none.className="mwhy"; none.style.color="var(--muted)"; none.textContent="Pas de message à envoyer là, maintenant. Laisse mariner."; box.appendChild(none); return;}
     msgs.forEach(function(m){
       if(!m) return;
       var txt=String(m.texte||m.text||""); if(!txt) return;
-      var card=document.createElement("div"); card.className="msg";
+      var card=document.createElement("div"); card.className="msg "+toneClass(m.ton);
       var top=document.createElement("div"); top.className="top";
       var tone=document.createElement("span"); tone.className="tone"; tone.textContent=String(m.ton||"message");
       var copy=document.createElement("button"); copy.className="copy"; copy.type="button";
