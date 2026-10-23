@@ -257,12 +257,23 @@
   .msg.t-sansfiltre .tone{color:var(--neg);}
   @media (prefers-reduced-motion:reduce){ .chip .led, .move, .gauge>i{animation:none;} }
 
-  /* écran de lancement */
-  #splash{position:fixed; inset:0; z-index:200; display:flex; align-items:center; justify-content:center; gap:14px; background:var(--bg); animation:splashOut .55s ease 1.05s forwards;}
-  #splash .smark{font-family:var(--font-disp); font-weight:800; font-size:clamp(36px,12vw,52px); letter-spacing:.14em; background:linear-gradient(90deg,var(--acc-2),var(--acc),var(--gold)); -webkit-background-clip:text; background-clip:text; color:transparent; animation:splashIn .6s cubic-bezier(.2,.7,.2,1) both;}
-  #splash .sorb{width:16px; height:16px; border-radius:50%; background:var(--grad); box-shadow:0 0 26px var(--acc); animation:splashIn .6s cubic-bezier(.2,.7,.2,1) both;}
-  @keyframes splashIn{from{opacity:0; transform:scale(.8);} to{opacity:1; transform:none;}}
+  /* SAS d'entrée : assumer ou pas */
+  #gate{position:fixed; inset:0; z-index:300; display:flex; align-items:center; justify-content:center; background:var(--bg); padding:24px; text-align:center;}
+  #gate.out{animation:splashOut .5s ease forwards;}
+  .gate-in{max-width:420px; width:100%; animation:splashIn .6s cubic-bezier(.2,.7,.2,1) both;}
+  .gate-brand{display:flex; align-items:center; justify-content:center; gap:12px; margin-bottom:30px;}
+  .gate-brand .smark{font-family:var(--font-disp); font-weight:800; font-size:clamp(32px,11vw,46px); letter-spacing:.14em; background:linear-gradient(90deg,var(--acc-2),var(--acc),var(--gold)); -webkit-background-clip:text; background-clip:text; color:transparent;}
+  .gate-brand .sorb{width:15px; height:15px; border-radius:50%; background:var(--grad); box-shadow:0 0 26px var(--acc);}
+  .gate-q{font-family:var(--font-disp); font-weight:800; font-size:clamp(30px,9.5vw,44px); line-height:1.02; letter-spacing:-.02em; margin:0 0 10px; text-wrap:balance;}
+  .gate-sub{color:var(--muted); font-size:16px; margin:0 0 30px;}
+  .gate-btns{display:flex; flex-direction:column; gap:12px;}
+  .gate-yes{border:none; border-radius:999px; background:linear-gradient(90deg,var(--acc-2),var(--acc),var(--gold),var(--acc),var(--acc-2)); background-size:200% 100%; color:#140309; font-family:var(--font-disp); font-weight:800; font-size:18px; letter-spacing:.08em; text-transform:uppercase; padding:18px; cursor:pointer; box-shadow:0 10px 38px rgba(255,46,116,.34); animation:shimmer 6s linear infinite;}
+  .gate-no{border:1px solid var(--line); border-radius:999px; background:rgba(22,15,19,.5); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); color:var(--muted); font-family:var(--font-disp); font-weight:700; font-size:15px; letter-spacing:.04em; padding:15px; cursor:pointer; transition:all .14s;}
+  .gate-no:hover{color:var(--fg); border-color:var(--acc-2);}
+  .gate-yes:active,.gate-no:active{transform:translateY(1px) scale(.99);}
+  @keyframes splashIn{from{opacity:0; transform:scale(.9);} to{opacity:1; transform:none;}}
   @keyframes splashOut{to{opacity:0; visibility:hidden;}}
+  @media (prefers-reduced-motion:reduce){ .gate-in{animation:none;} .gate-yes{animation:none;} }
 
   /* favoris */
   .acts{display:flex; align-items:center; gap:10px;}
@@ -296,7 +307,17 @@
 <div id="cursor" aria-hidden="true"></div>
 <button id="soundBtn" type="button" aria-label="Activer le son" title="Son">&#128264;</button>
 
-<div id="splash" aria-hidden="true"><span class="sorb"></span><span class="smark">AURA</span></div>
+<div id="gate">
+  <div class="gate-in">
+    <div class="gate-brand"><span class="sorb"></span><span class="smark">AURA</span></div>
+    <h2 class="gate-q" id="gateQ">You own it&nbsp;?</h2>
+    <p class="gate-sub" id="gateSub">Before you step in. Be real.</p>
+    <div class="gate-btns" id="gateBtns">
+      <button type="button" class="gate-yes" id="gateYes">I own it &#128293;</button>
+      <button type="button" class="gate-no" id="gateNo">I don't &#128560;</button>
+    </div>
+  </div>
+</div>
 
 <header>
   <div class="wrap bar">
@@ -941,12 +962,38 @@
     if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(txt).then(ok,function(){fallback(txt,ok);}); } else fallback(txt,ok);
   });
 
-  /* ---- écran de lancement ---- */
+  /* ---- SAS d'entrée : assumer ou pas ---- */
   (function(){
-    var s=document.getElementById("splash"); if(!s) return;
-    var seen=false; try{ seen=!!sessionStorage.getItem("aura_splash"); sessionStorage.setItem("aura_splash","1"); }catch(e){}
-    if(seen){ s.remove(); return; }
-    setTimeout(function(){ if(s&&s.parentNode) s.remove(); }, 1700);
+    var gate=document.getElementById("gate"); if(!gate) return;
+    var seen=false; try{ seen=!!sessionStorage.getItem("aura_gate"); }catch(e){}
+    if(seen){ gate.remove(); return; }
+    var yes=document.getElementById("gateYes"), no=document.getElementById("gateNo"),
+        q=document.getElementById("gateQ"), sub=document.getElementById("gateSub"), btns=document.getElementById("gateBtns");
+    var dodge=0;
+    var lines=[
+      ["Cap. 😏","You're already here. So you own it."],
+      ["Come on…","It's just for you. No one will ever know."],
+      ["Last chance","You're coming in, or you're coming in?"]
+    ];
+    function enter(){
+      try{ sessionStorage.setItem("aura_gate","1"); }catch(e){}
+      gate.classList.add("out");
+      setTimeout(function(){ if(gate.parentNode) gate.remove(); }, 520);
+    }
+    yes.addEventListener("click", enter);
+    no.addEventListener("click", function(){
+      var l=lines[Math.min(dodge,lines.length-1)];
+      q.textContent=l[0]; sub.textContent=l[1];
+      dodge++;
+      if(dodge>=lines.length){
+        btns.innerHTML="";
+        var b=document.createElement("button"); b.type="button"; b.className="gate-yes"; b.innerHTML="Fine, I own it &#128293;";
+        b.addEventListener("click", enter);
+        btns.appendChild(b);
+      } else {
+        no.innerHTML = dodge===1 ? "Still don't 🙈" : "Okay… maybe 👀";
+      }
+    });
   })();
 
   /* ---- aura qui suit le doigt / la souris ---- */
