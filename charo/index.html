@@ -239,6 +239,27 @@
   ::-webkit-scrollbar-thumb:hover{background:#3a2a33;}
   @media (prefers-reduced-motion:reduce){ .brand .mark,.cta{animation:none;} #result.on section{animation:none;} }
 
+  /* écran de lancement */
+  #splash{position:fixed; inset:0; z-index:200; display:flex; align-items:center; justify-content:center; gap:14px; background:var(--bg); animation:splashOut .55s ease 1.05s forwards;}
+  #splash .smark{font-family:var(--font-disp); font-weight:800; font-size:clamp(36px,12vw,52px); letter-spacing:.14em; background:linear-gradient(90deg,var(--acc-2),var(--acc),var(--gold)); -webkit-background-clip:text; background-clip:text; color:transparent; animation:splashIn .6s cubic-bezier(.2,.7,.2,1) both;}
+  #splash .sorb{width:16px; height:16px; border-radius:50%; background:var(--grad); box-shadow:0 0 26px var(--acc); animation:splashIn .6s cubic-bezier(.2,.7,.2,1) both;}
+  @keyframes splashIn{from{opacity:0; transform:scale(.8);} to{opacity:1; transform:none;}}
+  @keyframes splashOut{to{opacity:0; visibility:hidden;}}
+
+  /* favoris */
+  .acts{display:flex; align-items:center; gap:10px;}
+  .fav{background:none; border:none; color:var(--muted); font-size:19px; line-height:1; cursor:pointer; padding:2px; transition:color .14s, transform .08s;}
+  .fav.on{color:var(--gold);}
+  .fav:active{transform:scale(1.2);}
+  .copyall{width:100%; margin:0 0 10px; background:none; border:1px solid var(--line); color:var(--muted); border-radius:999px; font-family:var(--font-mono); font-weight:600; font-size:12px; letter-spacing:.1em; text-transform:uppercase; padding:12px; cursor:pointer; transition:all .14s;}
+  .copyall:hover{color:var(--fg); border-color:var(--acc-2);}
+  .favrow{display:flex; align-items:center; gap:10px; border:1px solid var(--line); border-radius:14px; background:rgba(22,15,19,.55); padding:12px 14px; margin-bottom:10px;}
+  .favrow .ft{flex:1; min-width:0; font-size:15px; font-weight:500;}
+  .favrow button{flex:0 0 auto; background:none; border:1px solid var(--line); color:var(--muted); border-radius:999px; padding:6px 11px; font-family:var(--font-mono); font-size:11px; text-transform:uppercase; letter-spacing:.06em; cursor:pointer;}
+  .favrow button:hover{color:var(--acc); border-color:var(--acc);}
+  .favempty{color:var(--faint); font-size:14px; text-align:center; padding:24px 0;}
+  @media (prefers-reduced-motion:reduce){ #splash{animation:splashOut .3s ease .25s forwards;} }
+
   [hidden]{display:none !important;}
 </style>
 </head>
@@ -249,10 +270,13 @@
 <div id="scrim" aria-hidden="true"></div>
 <button id="soundBtn" type="button" aria-label="Activer le son" title="Son">&#128264;</button>
 
+<div id="splash" aria-hidden="true"><span class="sorb"></span><span class="smark">AURA</span></div>
+
 <header>
   <div class="wrap bar">
     <div class="brand"><span class="flame"></span><span class="mark">AURA</span></div>
     <div class="hgroup">
+      <button class="gear" id="favBtn" aria-label="Favoris" title="Favoris">&#9733;</button>
       <button class="gear" id="gear" aria-label="Réglages" title="Réglages">&#9881;</button>
       <div class="chip idle" id="status"><span class="led"></span><span id="statusText">prêt</span></div>
     </div>
@@ -369,6 +393,7 @@
     <section id="msgSection">
       <p class="eyebrow"><b>04</b><span class="sep">/</span><span class="tag" id="tag04">envoie ça</span></p>
       <div id="messages"></div>
+      <button class="copyall" id="copyAll" type="button">Copier les 5</button>
       <button class="reroll" id="reroll">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v6h6M21 12a9 9 0 1 1-3-6.7L21 8"/></svg>
         D'autres messages
@@ -398,6 +423,15 @@
       <button class="again" id="closeSettings" type="button">Fermer</button>
       <button class="cta" id="saveSettings" type="button">Enregistrer</button>
     </div>
+  </div>
+</div>
+
+<div class="modal" id="favs" hidden>
+  <div class="sheet">
+    <h2>Mes favoris</h2>
+    <p class="mnote">Tes meilleures lignes, gardées sur cet iPhone. Tape l'étoile ⭐ sur un message pour l'ajouter.</p>
+    <div id="favList"></div>
+    <div class="mrow"><button class="again" id="closeFavs" type="button">Fermer</button></div>
   </div>
 </div>
 
@@ -679,7 +713,11 @@
       var copy=document.createElement("button"); copy.className="copy"; copy.type="button";
       copy.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg><span>copier</span>';
       copy.addEventListener("click",function(){doCopy(txt,copy);});
-      top.appendChild(tone); top.appendChild(copy);
+      var fav=document.createElement("button"); fav.type="button"; fav.setAttribute("aria-label","Favori");
+      fav.className="fav"+(isFav(txt)?" on":""); fav.innerHTML=isFav(txt)?"&#9733;":"&#9734;";
+      fav.addEventListener("click",function(){ toggleFav({texte:txt,ton:String(m.ton||"")},fav); });
+      var acts=document.createElement("div"); acts.className="acts"; acts.appendChild(fav); acts.appendChild(copy);
+      top.appendChild(tone); top.appendChild(acts);
       var body=document.createElement("div"); body.className="text"; body.textContent=txt;
       card.appendChild(top); card.appendChild(body);
       var why=m.pourquoi||m.why;
@@ -809,6 +847,60 @@
 
   $("stop").addEventListener("click",function(){if(ctl) ctl.abort(); stopStatusCycle(); show("input");});
   $("again").addEventListener("click",function(){show("input");});
+
+  /* ---- favoris ---- */
+  function getFavs(){ try{ var a=JSON.parse(lsGet("aura_favs","[]")); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
+  function setFavs(a){ lsSet("aura_favs", JSON.stringify(a)); }
+  function isFav(t){ var a=getFavs(); for(var i=0;i<a.length;i++){ if(a[i]&&a[i].texte===t) return true; } return false; }
+  function toggleFav(item,btn){
+    var a=getFavs(), idx=-1;
+    for(var i=0;i<a.length;i++){ if(a[i]&&a[i].texte===item.texte){ idx=i; break; } }
+    if(idx>=0){ a.splice(idx,1); btn.className="fav"; btn.innerHTML="&#9734;"; }
+    else { a.unshift({texte:item.texte, ton:item.ton}); btn.className="fav on"; btn.innerHTML="&#9733;"; }
+    setFavs(a);
+  }
+  function favCopy(text,btn){
+    var o=btn.textContent; btn.textContent="copié"; setTimeout(function(){btn.textContent=o;},1200);
+    if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(null,function(){fallback(text,function(){});}); } else fallback(text,function(){});
+  }
+  function renderFavList(){
+    var box=$("favList"); box.innerHTML="";
+    var a=getFavs();
+    if(!a.length){ var e=document.createElement("div"); e.className="favempty"; e.textContent="Aucun favori pour l'instant. Tape l'étoile sur un message que tu kiffes."; box.appendChild(e); return; }
+    a.forEach(function(it){
+      if(!it||!it.texte) return;
+      var row=document.createElement("div"); row.className="favrow";
+      var t=document.createElement("div"); t.className="ft"; t.textContent=it.texte;
+      var c=document.createElement("button"); c.type="button"; c.textContent="copier";
+      c.addEventListener("click",function(){ favCopy(it.texte,c); });
+      var d=document.createElement("button"); d.type="button"; d.innerHTML="&times;"; d.setAttribute("aria-label","Retirer");
+      d.addEventListener("click",function(){ var arr=getFavs(); for(var i=0;i<arr.length;i++){ if(arr[i]&&arr[i].texte===it.texte){ arr.splice(i,1); break; } } setFavs(arr); renderFavList(); });
+      row.appendChild(t); row.appendChild(c); row.appendChild(d);
+      box.appendChild(row);
+    });
+  }
+  var favsModal=$("favs");
+  $("favBtn").addEventListener("click",function(){ renderFavList(); favsModal.hidden=false; });
+  $("closeFavs").addEventListener("click",function(){ favsModal.hidden=true; });
+  favsModal.addEventListener("click",function(e){ if(e.target===favsModal) favsModal.hidden=true; });
+
+  /* ---- copier les 5 ---- */
+  $("copyAll").addEventListener("click",function(){
+    var msgs=(lastData&&lastData.messages)||[];
+    var txt=msgs.map(function(m){return m&&(m.texte||m.text);}).filter(Boolean).join("\n\n");
+    if(!txt) return;
+    var btn=this, old=btn.textContent;
+    function ok(){ btn.textContent="Copié ✓"; setTimeout(function(){btn.textContent=old;},1500); }
+    if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(txt).then(ok,function(){fallback(txt,ok);}); } else fallback(txt,ok);
+  });
+
+  /* ---- écran de lancement ---- */
+  (function(){
+    var s=document.getElementById("splash"); if(!s) return;
+    var seen=false; try{ seen=!!sessionStorage.getItem("aura_splash"); sessionStorage.setItem("aura_splash","1"); }catch(e){}
+    if(seen){ s.remove(); return; }
+    setTimeout(function(){ if(s&&s.parentNode) s.remove(); }, 1700);
+  })();
 
   /* first run: no key -> open settings */
   if(!getKey()) openSettings();
