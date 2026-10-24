@@ -1031,8 +1031,6 @@
   /* ---- SAS d'entrée : assumer ou pas ---- */
   (function(){
     var gate=document.getElementById("gate"); if(!gate) return;
-    var seen=false; try{ seen=!!sessionStorage.getItem("aura_gate"); }catch(e){}
-    if(seen){ gate.remove(); return; }
     var yes=document.getElementById("gateYes"), no=document.getElementById("gateNo"),
         q=document.getElementById("gateQ"), sub=document.getElementById("gateSub"), btns=document.getElementById("gateBtns");
     var dodge=0;
@@ -1043,7 +1041,6 @@
     ];
     function enter(){
       playEnter(); buzz(30);
-      try{ sessionStorage.setItem("aura_gate","1"); }catch(e){}
       gate.classList.add("out");
       setTimeout(function(){ if(gate.parentNode) gate.remove(); }, 520);
     }
