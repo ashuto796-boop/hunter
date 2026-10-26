@@ -308,6 +308,15 @@
   @keyframes panelin{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:none;}}
   @media (prefers-reduced-motion:reduce){ .panel.on{animation:none;} }
 
+  /* boutons par message : éditer / autre version */
+  .acts{align-items:center;}
+  .mini{background:none; border:none; color:var(--muted); font-size:16px; line-height:1; cursor:pointer; padding:2px 3px; transition:color .14s, transform .3s;}
+  .mini:hover{color:var(--acc);}
+  .mini.on{color:var(--acc);}
+  .mini.spin{animation:spin .8s linear infinite;}
+  .mini:disabled{opacity:.5; cursor:progress;}
+  .text.editing{outline:none; border-radius:10px; box-shadow:0 0 0 2px rgba(255,46,116,.45); background:rgba(255,46,116,.06); padding:8px 10px; margin:-8px -10px;}
+
   [hidden]{display:none !important;}
 </style>
 </head>
@@ -395,6 +404,12 @@
             <button type="button" class="pick" aria-pressed="false" data-v="passer de l'appli au numéro ou au snap">avoir son num</button>
             <button type="button" class="pick" aria-pressed="false" data-v="pimenter la conv, flirter plus franchement">pimenter</button>
             <button type="button" class="pick" aria-pressed="false" data-v="tester si elle/il est vraiment intéressé(e)">la tester</button>
+            <button type="button" class="pick" aria-pressed="false" data-v="réagir à sa story ou à son vocal">réagir à sa story</button>
+            <button type="button" class="pick" aria-pressed="false" data-v="désamorcer un clash ou m'excuser avec classe">désamorcer</button>
+            <button type="button" class="pick" aria-pressed="false" data-v="l'amener à un appel ou un FaceTime">passer en appel</button>
+            <button type="button" class="pick" aria-pressed="false" data-v="savoir si c'est sérieux entre nous">c'est sérieux ?</button>
+            <button type="button" class="pick" aria-pressed="false" data-v="la relancer après un premier date">après un date</button>
+            <button type="button" class="pick" aria-pressed="false" data-v="répondre quand elle me teste ou me chambre">elle me teste</button>
           </div>
         </div>
 
@@ -404,6 +419,9 @@
             <button type="button" class="pick" aria-pressed="false" data-v="Instagram, en DM">Insta</button>
             <button type="button" class="pick" aria-pressed="false" data-v="Snapchat">Snap</button>
             <button type="button" class="pick" aria-pressed="false" data-v="SMS / WhatsApp">SMS</button>
+            <button type="button" class="pick" aria-pressed="false" data-v="Hinge ou Bumble">Hinge</button>
+            <button type="button" class="pick" aria-pressed="false" data-v="Discord">Discord</button>
+            <button type="button" class="pick" aria-pressed="false" data-v="en vrai, par texto après s'être vus">en vrai</button>
           </div>
         </div>
 
@@ -412,6 +430,9 @@
             <button type="button" class="pick" aria-pressed="false" data-v="soft">soft</button>
             <button type="button" class="pick" aria-pressed="true" data-v="charro">charro</button>
             <button type="button" class="pick" aria-pressed="false" data-v="sans pitié">sans pitié</button>
+            <button type="button" class="pick" aria-pressed="false" data-v="classe">classe</button>
+            <button type="button" class="pick" aria-pressed="false" data-v="drôle">drôle</button>
+            <button type="button" class="pick" aria-pressed="false" data-v="mystérieux">mystérieux</button>
           </div>
         </div>
       </div>
@@ -674,11 +695,15 @@
     return "IMPÉRATIF — RESPECTE MON INTENTION À LA LETTRE. Tout (le move conseillé ET les 5 messages) doit servir UNIQUEMENT à « "+intentValue+" », rien d'autre. Ne propose un rendez-vous, une date, un lieu ou un horaire QUE si mon intention est « proposer un date » ou « conclure ». Pour toute autre intention (lire le jeu, relancer, chambrer, créer du manque, etc.), NE propose AUCUN plan concret ni date, et ne t'engage pas sur une sortie que l'autre évoque si je ne l'ai pas demandée — reste pile sur l'objectif.";
   }
   function levelLine(){
-    return levelValue==="soft"
-      ? "INTENSITÉ : soft — charmeur et léger, plus de finesse que de provoc, classe plutôt que cru."
-      : (levelValue==="sans pitié"
-        ? "INTENSITÉ : sans pitié — pousse le charro au MAXIMUM, le plus insolent, arrogant, cru et gonflé possible, zéro filtre (en respectant les limites fixées plus haut)."
-        : "INTENSITÉ : charro — bien insolent, cru, taquin et sûr de toi (réglage par défaut).");
+    var map={
+      "soft":"STYLE : soft — charmeur et léger, plus de finesse que de provoc, classe plutôt que cru.",
+      "charro":"STYLE : charro — bien insolent, cru, taquin et sûr de toi (réglage par défaut).",
+      "sans pitié":"STYLE : sans pitié — pousse le charro au MAXIMUM, le plus insolent, arrogant, cru et gonflé possible, zéro filtre (en respectant les limites fixées plus haut).",
+      "classe":"STYLE : classe — élégant, posé, charme raffiné et confiance tranquille, sans vulgarité.",
+      "drôle":"STYLE : drôle — l'humour d'abord : vannes, second degré et autodérision qui font rire et détendent, tout en restant charmeur.",
+      "mystérieux":"STYLE : mystérieux — énigmatique, tu en dis peu, tu crées du manque et de l'intrigue, elle veut en savoir plus."
+    };
+    return map[levelValue] || ("STYLE : "+levelValue+" — colle à ce style.");
   }
 
   function buildAccroche(){
@@ -769,7 +794,7 @@
     }
     throw {code:"invalid_json",text:t};
   }
-  async function askClaude(prompt,imageFiles,maxTokens,signal){
+  async function apiText(prompt,imageFiles,maxTokens,signal){
     var key=getKey(); if(!key) throw {code:"no_key"};
     var content=[{type:"text",text:prompt}];
     if(imageFiles&&imageFiles.length){
@@ -801,8 +826,10 @@
       throw {code:code,status:res.status,detail:detail};
     }
     var data=await res.json();
-    var text=(data&&data.content?data.content:[]).filter(function(b){return b.type==="text";}).map(function(b){return b.text;}).join("");
-    return extractJSON(text);
+    return (data&&data.content?data.content:[]).filter(function(b){return b.type==="text";}).map(function(b){return b.text;}).join("");
+  }
+  async function askClaude(prompt,imageFiles,maxTokens,signal){
+    return extractJSON(await apiText(prompt,imageFiles,maxTokens,signal));
   }
 
   var STATUSES=["lecture du terrain…","je creuse le sous-texte…","qui kiffe qui…","je jauge la température…","je repère les pièges…","je calcule le move…","j'écris du lourd…"];
@@ -837,6 +864,26 @@
     if(s.indexOf("ose")>=0) return "t-ose";
     return "";
   }
+  async function regenOne(m, body, btn){
+    if(!getKey()) return;
+    var cur=body.textContent, ton=String(m&&m.ton||"");
+    var ctxLine = (lastMode==="accroche")
+      ? ("Contexte : une accroche pour aborder cette personne. Angle : "+((lastData&&lastData.angle)||"")+".")
+      : ("Contexte : lecture = "+((lastData&&lastData.lecture)||"")+" ; move = "+((lastData&&lastData.move&&lastData.move.action)||"")+" ; intention = "+intentValue+".");
+    var src = convExcerpt ? ((lastMode==="accroche"?"Infos sur la personne :\n":"La conversation :\n")+"\"\"\"\n"+convExcerpt+"\n\"\"\"") : "";
+    var p=[PERSONA,RULES, ctxLine+" Plateforme : "+platformValue+".", levelLine(), src,
+      "Réécris UNE SEULE nouvelle version de ce message, dans le même ton « "+ton+" », VRAIMENT différente de : « "+cur+" ». Réponds UNIQUEMENT avec le texte du message, rien d'autre : pas de guillemets, pas d'explication."
+    ].filter(Boolean).join("\n\n");
+    btn.disabled=true; btn.classList.add("spin"); body.style.opacity=".45";
+    try{
+      var res=await apiText(p, null, 400, null);
+      var clean=(res||"").trim().replace(/^[\s«"'`]+/,"").replace(/[\s»"'`]+$/,"").trim();
+      if(clean){ body.textContent=clean; if(m) m.texte=clean; playTick(); }
+    }catch(e){
+      var mm=codeToMsg(e&&e.code, e&&e.status);
+      if(mm){ var el=document.querySelector(".error"); if(!el){ el=document.createElement("div"); el.className="error"; var ms=$("msgSection"), ca=$("copyAll"); if(ms&&ca) ms.insertBefore(el,ca); else if(ms) ms.appendChild(el); } el.textContent=mm; setTimeout(function(){ if(el&&el.parentNode) el.remove(); },4000); }
+    }finally{ btn.disabled=false; btn.classList.remove("spin"); body.style.opacity=""; }
+  }
   function renderMessages(msgs){
     var box=$("messages"); box.innerHTML=""; msgs=msgs||[];
     if(!msgs.length){var none=document.createElement("p"); none.className="mwhy"; none.style.color="var(--muted)"; none.textContent="Pas de message à envoyer là, maintenant. Laisse mariner."; box.appendChild(none); return;}
@@ -846,15 +893,32 @@
       var card=document.createElement("div"); card.className="msg "+toneClass(m.ton);
       var top=document.createElement("div"); top.className="top";
       var tone=document.createElement("span"); tone.className="tone"; tone.textContent=String(m.ton||"message");
+      var body=document.createElement("div"); body.className="text"; body.textContent=txt;
+
       var copy=document.createElement("button"); copy.className="copy"; copy.type="button";
       copy.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg><span>copier</span>';
-      copy.addEventListener("click",function(){doCopy(txt,copy);});
+      copy.addEventListener("click",function(){doCopy(body.textContent,copy);});
+
+      var edit=document.createElement("button"); edit.type="button"; edit.className="mini"; edit.title="Modifier"; edit.setAttribute("aria-label","Modifier"); edit.innerHTML="&#9998;";
+      edit.addEventListener("click",function(){
+        var on=body.getAttribute("contenteditable")==="true";
+        body.setAttribute("contenteditable", on?"false":"true");
+        body.classList.toggle("editing", !on);
+        edit.classList.toggle("on", !on);
+        if(!on){ body.focus(); try{ var r=document.createRange(); r.selectNodeContents(body); r.collapse(false); var s=window.getSelection(); s.removeAllRanges(); s.addRange(r); }catch(e){} }
+      });
+      body.addEventListener("input",function(){ if(m) m.texte=body.textContent; });
+
+      var regen=document.createElement("button"); regen.type="button"; regen.className="mini"; regen.title="Autre version"; regen.setAttribute("aria-label","Autre version"); regen.innerHTML="&#8635;";
+      regen.addEventListener("click",function(){ regenOne(m, body, regen); });
+
       var fav=document.createElement("button"); fav.type="button"; fav.setAttribute("aria-label","Favori");
       fav.className="fav"+(isFav(txt)?" on":""); fav.innerHTML=isFav(txt)?"&#9733;":"&#9734;";
-      fav.addEventListener("click",function(){ toggleFav({texte:txt,ton:String(m.ton||"")},fav); });
-      var acts=document.createElement("div"); acts.className="acts"; acts.appendChild(fav); acts.appendChild(copy);
+      fav.addEventListener("click",function(){ toggleFav({texte:body.textContent,ton:String(m.ton||"")},fav); });
+
+      var acts=document.createElement("div"); acts.className="acts";
+      acts.appendChild(edit); acts.appendChild(regen); acts.appendChild(fav); acts.appendChild(copy);
       top.appendChild(tone); top.appendChild(acts);
-      var body=document.createElement("div"); body.className="text"; body.textContent=txt;
       card.appendChild(top); card.appendChild(body);
       var why=m.pourquoi||m.why;
       if(why){var w=document.createElement("div"); w.className="why"; w.textContent=String(why); card.appendChild(w);}
