@@ -317,6 +317,19 @@
   .mini:disabled{opacity:.5; cursor:progress;}
   .text.editing{outline:none; border-radius:10px; box-shadow:0 0 0 2px rgba(255,46,116,.45); background:rgba(255,46,116,.06); padding:8px 10px; margin:-8px -10px;}
 
+  /* interrupteurs réglages */
+  .setrow{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:13px 0; border-top:1px solid var(--line);}
+  .setrow span{font-size:15px; font-weight:500;}
+  .tog{min-width:60px; border:1px solid var(--line); background:rgba(22,15,19,.5); color:var(--muted); border-radius:999px; font-family:var(--font-mono); font-size:12px; letter-spacing:.1em; padding:8px 14px; cursor:pointer; transition:all .14s;}
+  .tog.on{color:#140309; background:var(--acc); border-color:var(--acc); font-weight:700;}
+  /* historique */
+  .histrow{border:1px solid var(--line); border-radius:14px; background:rgba(22,15,19,.55); padding:13px 14px; margin-bottom:10px;}
+  .histrow .hh{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:7px;}
+  .histrow .hmeta{font-family:var(--font-mono); font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted);}
+  .histrow .hopen{background:none; border:1px solid var(--acc-2); color:var(--acc-2); border-radius:999px; padding:6px 12px; font-family:var(--font-mono); font-size:11px; text-transform:uppercase; letter-spacing:.06em; cursor:pointer;}
+  .histrow .hopen:hover{color:var(--fg); border-color:var(--acc-2);}
+  .histrow .hsnip{font-size:14px; color:var(--fg); font-weight:500; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;}
+
   [hidden]{display:none !important;}
 </style>
 </head>
@@ -345,6 +358,7 @@
   <div class="wrap bar">
     <div class="brand"><span class="flame"></span><span class="mark">AURA</span></div>
     <div class="hgroup">
+      <button class="gear" id="histBtn" aria-label="Historique" title="Historique"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></button>
       <button class="gear" id="favBtn" aria-label="Favoris" title="Favoris">&#9733;</button>
       <button class="gear" id="gear" aria-label="Réglages" title="Réglages">&#9881;</button>
       <div class="chip idle" id="status"><span class="led"></span><span id="statusText">prêt</span></div>
@@ -509,6 +523,8 @@
       <input type="text" id="apiModel" placeholder="claude-sonnet-5-5" autocapitalize="off" autocorrect="off" spellcheck="false">
     </label>
     <a class="getkey" href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">→ créer une clé (console.anthropic.com)</a>
+    <div class="setrow"><span>Effets sonores</span><button class="tog" id="togSfx" type="button">ON</button></div>
+    <div class="setrow"><span>Fond vidéo</span><button class="tog" id="togVid" type="button">ON</button></div>
     <div class="mrow">
       <button class="again" id="closeSettings" type="button">Fermer</button>
       <button class="cta" id="saveSettings" type="button">Enregistrer</button>
@@ -522,6 +538,18 @@
     <p class="mnote">Tes meilleures lignes, gardées sur cet iPhone. Tape l'étoile ⭐ sur un message pour l'ajouter.</p>
     <div id="favList"></div>
     <div class="mrow"><button class="again" id="closeFavs" type="button">Fermer</button></div>
+  </div>
+</div>
+
+<div class="modal" id="hist" hidden>
+  <div class="sheet">
+    <h2>Historique</h2>
+    <p class="mnote">Tes dernières analyses, gardées sur cet iPhone. Tape « rouvrir » pour revoir un move et ses messages.</p>
+    <div id="histList"></div>
+    <div class="mrow">
+      <button class="again" id="closeHist" type="button">Fermer</button>
+      <button class="again" id="clearHist" type="button" style="color:var(--neg); border-color:rgba(255,90,68,.4);">Vider</button>
+    </div>
   </div>
 </div>
 
@@ -544,6 +572,7 @@
   function getModel(){return (lsGet(LS_MODEL,"")||"").trim()||DEFAULT_MODEL;}
 
   /* ---- effets sonores synthétisés (originaux) + haptique ---- */
+  var sfxOn=(lsGet("aura_sfx","on")!=="off");
   var _ac=null;
   function ac(){
     try{
@@ -564,6 +593,7 @@
     }catch(e){}
   }
   function playEnter(){
+    if(!sfxOn) return;
     var a=ac(); if(!a) return; var t=a.currentTime;
     try{
       var o=a.createOscillator(), g=a.createGain();
@@ -575,8 +605,8 @@
     tone(a,1320,t+0.27,0.5,"sine",0.10);
     tone(a,1760,t+0.28,0.45,"sine",0.06);
   }
-  function playTick(){ var a=ac(); if(!a) return; tone(a,1250,a.currentTime,0.07,"triangle",0.07); }
-  function buzz(ms){ try{ if(navigator.vibrate) navigator.vibrate(ms); }catch(e){} }
+  function playTick(){ if(!sfxOn) return; var a=ac(); if(!a) return; tone(a,1250,a.currentTime,0.07,"triangle",0.07); }
+  function buzz(ms){ if(!sfxOn) return; try{ if(navigator.vibrate) navigator.vibrate(ms); }catch(e){} }
 
   /* ---------- settings modal ---------- */
   var settings=$("settings");
@@ -1004,6 +1034,7 @@
       var data=await askClaude(mode==="accroche"?buildAccroche():buildPrompt(),imgs,4096,ctl.signal);
       stopStatusCycle();
       if(mode==="accroche") renderAccroche(data); else renderResult(data);
+      saveHist(data, mode);
     }catch(err){
       stopStatusCycle();
       var m=codeToMsg(err&&err.code,err&&err.status);
@@ -1022,7 +1053,7 @@
     show("loading"); startStatusCycle();
     try{
       var data=await askClaude(prompt, imgs, 4096, ctl.signal);
-      stopStatusCycle(); renderResult(data);
+      stopStatusCycle(); renderResult(data); saveHist(data,"repondre");
     }catch(err){
       stopStatusCycle();
       var m=codeToMsg(err&&err.code, err&&err.status);
@@ -1104,6 +1135,55 @@
   $("favBtn").addEventListener("click",function(){ renderFavList(); favsModal.hidden=false; });
   $("closeFavs").addEventListener("click",function(){ favsModal.hidden=true; });
   favsModal.addEventListener("click",function(e){ if(e.target===favsModal) favsModal.hidden=true; });
+
+  /* ---- historique ---- */
+  function getHist(){ try{ var a=JSON.parse(lsGet("aura_hist","[]")); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
+  function saveHist(data,m){
+    try{ if(!data) return; var a=getHist(); a.unshift({t:Date.now(),mode:m,data:data}); if(a.length>20) a=a.slice(0,20); lsSet("aura_hist",JSON.stringify(a)); }catch(e){}
+  }
+  function timeAgo(ts){
+    var s=Math.floor((Date.now()-ts)/1000);
+    if(s<60) return "à l'instant";
+    var mn=Math.floor(s/60); if(mn<60) return "il y a "+mn+" min";
+    var h=Math.floor(mn/60); if(h<24) return "il y a "+h+" h";
+    return "il y a "+Math.floor(h/24)+" j";
+  }
+  function renderHistList(){
+    var box=$("histList"); box.innerHTML="";
+    var a=getHist();
+    if(!a.length){ var e=document.createElement("div"); e.className="favempty"; e.textContent="Rien pour l'instant. Tes analyses s'enregistrent ici toutes seules."; box.appendChild(e); return; }
+    a.forEach(function(it){
+      if(!it||!it.data) return;
+      var d=it.data, acc=(it.mode==="accroche");
+      var snip=acc?(d.angle||"accroches"):(d.lecture||"");
+      var tag=acc?"Accroche":((d.move&&d.move.action)||"Move");
+      var row=document.createElement("div"); row.className="histrow";
+      var hh=document.createElement("div"); hh.className="hh";
+      var meta=document.createElement("span"); meta.className="hmeta"; meta.textContent=String(tag)+" · "+timeAgo(it.t);
+      var open=document.createElement("button"); open.type="button"; open.className="hopen"; open.textContent="rouvrir";
+      open.addEventListener("click",function(){ if(acc) renderAccroche(d); else renderResult(d); histModal.hidden=true; });
+      hh.appendChild(meta); hh.appendChild(open);
+      var sn=document.createElement("div"); sn.className="hsnip"; sn.textContent=String(snip);
+      row.appendChild(hh); row.appendChild(sn);
+      box.appendChild(row);
+    });
+  }
+  var histModal=$("hist");
+  $("histBtn").addEventListener("click",function(){ renderHistList(); histModal.hidden=false; });
+  $("closeHist").addEventListener("click",function(){ histModal.hidden=true; });
+  $("clearHist").addEventListener("click",function(){ try{ lsSet("aura_hist","[]"); }catch(e){} renderHistList(); });
+  histModal.addEventListener("click",function(e){ if(e.target===histModal) histModal.hidden=true; });
+
+  /* ---- interrupteurs son / fond vidéo ---- */
+  function applyVid(on){ var v=document.getElementById("bgvid"); if(v) v.style.display = on ? "" : "none"; }
+  (function(){
+    var vidOn=(lsGet("aura_vid","on")!=="off"); applyVid(vidOn);
+    var ts=$("togSfx"), tv=$("togVid");
+    function paint(){ if(ts){ ts.classList.toggle("on",sfxOn); ts.textContent=sfxOn?"ON":"OFF"; } if(tv){ tv.classList.toggle("on",vidOn); tv.textContent=vidOn?"ON":"OFF"; } }
+    paint();
+    if(ts) ts.addEventListener("click",function(){ sfxOn=!sfxOn; try{lsSet("aura_sfx",sfxOn?"on":"off");}catch(e){} if(sfxOn) playTick(); paint(); });
+    if(tv) tv.addEventListener("click",function(){ vidOn=!vidOn; try{lsSet("aura_vid",vidOn?"on":"off");}catch(e){} applyVid(vidOn); paint(); });
+  })();
 
   /* ---- copier les 5 ---- */
   $("copyAll").addEventListener("click",function(){
