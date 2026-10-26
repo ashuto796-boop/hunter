@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { createChart, ColorType } from "lightweight-charts";
+import { createChart, ColorType, UTCTimestamp } from "lightweight-charts";
 import { CandleData } from "../types/index";
 
 interface CandlestickChartProps {
@@ -49,13 +49,11 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ data }) => {
       borderDownColor: "#dc2626",
       wickUpColor: "#4ade80",
       wickDownColor: "#ef4444",
-      openTickMark: true,
-      closeTickMark: true,
     });
 
     candlestickSeries.setData(
       data.map((d) => ({
-        time: d.time,
+        time: d.time as UTCTimestamp,
         open: d.open,
         high: d.high,
         low: d.low,
@@ -64,11 +62,6 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ data }) => {
     );
 
     chart.timeScale().fitContent();
-
-    // Add crosshair with large font
-    chart.subscribeCrosshairMove((param) => {
-      // Native crosshair from lightweight-charts
-    });
 
     const handleResize = () => {
       if (containerRef.current) {

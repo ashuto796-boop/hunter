@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "dev:gold": "vite --config vite.gold.config.ts",
+    "build:gold": "tsc && vite build --config vite.gold.config.ts"
   },
   "dependencies": {
     "react": "^18.2.0",

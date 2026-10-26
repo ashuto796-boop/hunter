@@ -1,4 +1,3 @@
-import React from "react";
 import { Sidebar } from "./components/Sidebar";
 import { Header } from "./components/Header";
 import { CoinModal } from "./components/CoinModal";
@@ -9,7 +8,7 @@ import { Alerts } from "./pages/Alerts";
 import { useAppStore } from "./store/appStore";
 
 function App() {
-  const { activePage, modalState } = useAppStore();
+  const { activePage } = useAppStore();
 
   return (
     <div className="flex h-screen bg-dark-950 text-white overflow-hidden">
