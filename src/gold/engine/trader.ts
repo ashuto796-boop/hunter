@@ -1,7 +1,7 @@
 // Paper broker + trade management. Fills include the spread, stops are checked before targets
 // inside a candle (worst case), and every closed trade feeds the brain's memory.
 import { Candle, Decision, Dir, ExitReason, Plan, Position, Settings, Trade, TraderState } from "./types";
-import { AnalyseEnv, analyse, emptyBrain } from "./brain";
+import { AnalyseEnv, analyse, ctxKey, emptyBrain } from "./brain";
 import { Market } from "./features";
 import { tradingDay, weekendRisk } from "./context";
 
@@ -14,6 +14,7 @@ export function newTraderState(capital: number): TraderState {
     position: null,
     trades: [],
     brain: emptyBrain(),
+    ctx: {},
     day: { key: "", pnl: 0, trades: 0, startBalance: capital },
     lossStreak: 0,
     cooldownUntil: 0,
@@ -64,6 +65,8 @@ export function openPosition(st: TraderState, plan: Plan, mid: number, t: number
     contributors: plan.contributors,
     reasons: plan.reasons,
     replay,
+    regime: plan.regime,
+    session: plan.session,
   };
   st.position = p;
   st.day.trades++;
@@ -73,10 +76,13 @@ export function openPosition(st: TraderState, plan: Plan, mid: number, t: number
 function learn(st: TraderState, tr: Trade) {
   for (const id of tr.contributors) {
     const w = id === tr.primary ? 1 : 0.5;
-    const s = st.brain[id];
-    s.n += w;
-    s.sumR += tr.r * w;
-    if (tr.r > 0) s.wins += w;
+    const stats = [st.brain[id]];
+    if (tr.regime) stats.push((st.ctx[ctxKey(id, tr.regime)] ??= { n: 0, wins: 0, sumR: 0 }));
+    for (const s of stats) {
+      s.n += w;
+      s.sumR += tr.r * w;
+      if (tr.r > 0) s.wins += w;
+    }
   }
 }
 
@@ -104,6 +110,8 @@ export function closePosition(st: TraderState, exitFill: number, t: number, reas
     contributors: p.contributors,
     reasons: p.reasons,
     replay: p.replay,
+    regime: p.regime,
+    session: p.session,
   };
   st.position = null;
   st.balance += pnl;

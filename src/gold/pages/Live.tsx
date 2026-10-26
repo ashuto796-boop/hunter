@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useGold } from "../store";
 import { bot } from "../bot";
 import { Chart } from "../ui/Chart";
@@ -9,7 +10,7 @@ import { MODULE_INFO } from "../engine/modules";
 import { lots, pct, price, rr, side, time, tone, usd } from "../ui/format";
 import { askNotifications } from "../device";
 
-const MODE_LABEL = { prudent: "Prudent", equilibre: "Équilibré", agressif: "Agressif" } as const;
+const MODE_LABEL = { auto: "Auto", prudent: "Prudent", equilibre: "Équilibré", agressif: "Agressif" } as const;
 
 function Hero() {
   const p = useGold((s) => s.price);
@@ -42,6 +43,7 @@ function Hero() {
 function Autopilot() {
   const on = useGold((s) => s.autopilot);
   const st = useGold((s) => s.settings);
+  const threshold = useGold((s) => s.threshold);
   const toggle = async () => {
     if (!on && st.notify) await askNotifications();
     bot.setAutopilot(!on);
@@ -55,6 +57,7 @@ function Autopilot() {
         <div className="autopilot-title">Pilote automatique {on ? "activé" : "coupé"}</div>
         <div className="autopilot-sub">
           {on ? "L'IA trade seule" : "L'IA analyse sans trader"} · risque {st.riskPct} % · {MODE_LABEL[st.mode]}
+          {st.mode === "auto" && ` (seuil ${threshold})`}
         </div>
       </div>
       <div className={`switch ${on ? "on" : ""}`} />
@@ -216,12 +219,66 @@ function TodayStats() {
   );
 }
 
+// Mobile browsers only keep the trader alive in an installed app with the screen on
+function InstallHint() {
+  const [hidden, setHidden] = useState(() => {
+    try {
+      return localStorage.getItem("aurum.installHint") === "0";
+    } catch {
+      return false;
+    }
+  });
+  const [prompt, setPrompt] = useState<(Event & { prompt(): Promise<void> }) | null>(null);
+  useEffect(() => {
+    const on = (e: Event) => {
+      e.preventDefault();
+      setPrompt(e as Event & { prompt(): Promise<void> });
+    };
+    window.addEventListener("beforeinstallprompt", on);
+    return () => window.removeEventListener("beforeinstallprompt", on);
+  }, []);
+  const standalone = window.matchMedia?.("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone;
+  if (hidden || standalone) return null;
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const close = () => {
+    setHidden(true);
+    try {
+      localStorage.setItem("aurum.installHint", "0");
+    } catch {
+      /* private mode */
+    }
+  };
+  return (
+    <div className="banner warn" style={{ alignItems: "center" }}>
+      <span style={{ fontSize: 20 }}>📲</span>
+      <span style={{ flex: 1 }}>
+        {ios ? (
+          <>
+            Installe AURUM : touche <b>Partager</b> puis <b>Sur l'écran d'accueil</b>. Notifications et plein écran en plus.
+          </>
+        ) : (
+          <>Installe AURUM sur ton téléphone pour l'ouvrir comme une vraie app, avec les notifications.</>
+        )}
+      </span>
+      {prompt && (
+        <button className="btn gold" style={{ padding: "8px 12px" }} onClick={() => prompt.prompt().then(close)}>
+          Installer
+        </button>
+      )}
+      <button aria-label="Masquer" onClick={close} className="muted" style={{ padding: 4, fontSize: 18 }}>
+        ×
+      </button>
+    </div>
+  );
+}
+
 export function Live() {
   const source = useGold((s) => s.source);
   const tf = useGold((s) => s.settings.tf);
   return (
     <div className="page">
       <Hero />
+      <InstallHint />
       {source === "sim" && (
         <div className="banner">
           <span>ℹ️</span>

@@ -1,6 +1,7 @@
 // Market data: Binance gold perpetual (XAUUSDT) first, tokenised gold (PAXG) as fallback,
 // and a local simulator when no exchange is reachable. All endpoints are public (no API key).
 import { Candle, NewsEvent } from "../engine/types";
+import { Peers } from "../engine/features";
 import { GoldSimulator } from "../engine/sim";
 
 export type SourceId = "xau" | "paxg" | "sim";
@@ -45,7 +46,14 @@ export const SOURCES: Record<SourceId, Source> = {
   },
 };
 
-const interval = (tf: number) => `${tf}m`;
+// Correlated markets for the intermarket radar (H1): silver perpetual and EUR/USD (dollar proxy)
+type Endpoint = Pick<Source, "rest" | "symbol" | "maxLimit">;
+const PEERS: Record<keyof Peers, Endpoint> = {
+  xag: { rest: SOURCES.xau.rest, symbol: "XAGUSDT", maxLimit: 1500 },
+  eur: { rest: SOURCES.paxg.rest, symbol: "EURUSDT", maxLimit: 1000 },
+};
+
+const interval = (tf: number) => (tf % 60 === 0 ? `${tf / 60}h` : `${tf}m`);
 
 async function getJson(url: string, timeoutMs = 10000): Promise<unknown> {
   const ctl = new AbortController();
@@ -60,7 +68,7 @@ async function getJson(url: string, timeoutMs = 10000): Promise<unknown> {
 }
 
 // Returns candles oldest first; the last one may still be forming.
-export async function fetchKlines(src: Source, tf: number, opts: { start?: number; limit?: number } = {}): Promise<Candle[]> {
+export async function fetchKlines(src: Endpoint, tf: number, opts: { start?: number; limit?: number } = {}): Promise<Candle[]> {
   let url = `${src.rest}?symbol=${src.symbol}&interval=${interval(tf)}&limit=${opts.limit ?? src.maxLimit}`;
   if (opts.start !== undefined) url += `&startTime=${opts.start}`;
   const rows = (await getJson(url)) as (string | number)[][];
@@ -76,7 +84,7 @@ export async function probe(src: Source, tf: number): Promise<boolean> {
   }
 }
 
-export async function fetchHistory(src: Source, tf: number, days: number, onProgress?: (p: number) => void): Promise<Candle[]> {
+export async function fetchHistory(src: Endpoint, tf: number, days: number, onProgress?: (p: number) => void): Promise<Candle[]> {
   const ms = tf * 60000;
   const now = Date.now();
   const from = now - days * 864e5;
@@ -235,6 +243,36 @@ export class SimFeed implements Feed {
     f.v += Math.round(5 + Math.random() * 20);
     this.h.onTick({ ...f });
   }
+}
+
+const closedOnly = (c: Candle[], tf: number) => c.filter((k) => k.t + tf * 60000 <= Date.now());
+
+// Best effort: a missing peer just leaves the radar neutral
+export async function fetchPeers(days: number): Promise<Peers> {
+  const get = (e: Endpoint) => fetchHistory(e, 60, days).then((c) => closedOnly(c, 60)).catch(() => [] as Candle[]);
+  const [xag, eur] = await Promise.all([get(PEERS.xag), get(PEERS.eur)]);
+  return { xag, eur };
+}
+
+// Appends the latest closed H1 bars; returns true when something changed
+export async function refreshPeers(peers: Peers, maxLen: number): Promise<boolean> {
+  let changed = false;
+  for (const key of ["xag", "eur"] as const) {
+    const list = peers[key];
+    if (!list?.length) continue;
+    try {
+      const fresh = closedOnly(await fetchKlines(PEERS[key], 60, { limit: 6 }), 60);
+      for (const k of fresh) {
+        if (k.t <= list[list.length - 1].t) continue;
+        list.push(k);
+        changed = true;
+      }
+      if (list.length > maxLen) list.splice(0, list.length - maxLen);
+    } catch {
+      /* keep the previous bars */
+    }
+  }
+  return changed;
 }
 
 // High-impact USD events from the public ForexFactory weekly calendar (best effort)

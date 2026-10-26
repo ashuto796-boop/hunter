@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { BrainMemory, DayState, Decision, Position, Settings, Trade } from "./engine/types";
+import { BrainMemory, ContextMemory, DayState, Decision, Position, Settings, Trade } from "./engine/types";
 import { Stats } from "./engine/stats";
 import { SourceId } from "./data/feed";
 import { emptyBrain } from "./engine/brain";
@@ -10,6 +10,22 @@ export interface Thought {
   t: number;
   kind: "info" | "scan" | "entry" | "exit" | "warn" | "learn";
   text: string;
+}
+
+export interface CalibrationRow {
+  th: number;
+  learnN: number;
+  learnR: number;
+  valN: number;
+  valR: number;
+  valWin: number;
+}
+
+// Auto mode: thresholds compared on the first 70 % of the history, checked on the last 30 %
+export interface Calibration {
+  chosen: number;
+  splitT: number;
+  rows: CalibrationRow[];
 }
 
 export interface TrainingResult {
@@ -23,12 +39,13 @@ export interface TrainingResult {
   stats: Stats;
   curve: { t: number; v: number }[];
   trades: Trade[];
+  calibration: Calibration | null;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
   capital: 10000,
   riskPct: 1,
-  mode: "equilibre",
+  mode: "auto",
   tf: 15,
   spread: 0.3,
   maxTradesDay: 4,
@@ -42,6 +59,7 @@ export const DEFAULT_SETTINGS: Settings = {
 
 export interface GoldState {
   phase: "boot" | "loading" | "training" | "ready" | "error";
+  threshold: number;
   bootMsg: string;
   progress: number;
   source: SourceId | null;
@@ -59,6 +77,7 @@ export interface GoldState {
   thoughts: Thought[];
   day: DayState;
   brain: BrainMemory;
+  ctx: ContextMemory;
   training: TrainingResult | null;
   settings: Settings;
   autopilot: boolean;
@@ -68,6 +87,7 @@ export interface GoldState {
 
 export const useGold = create<GoldState>(() => ({
   phase: "boot",
+  threshold: 61,
   bootMsg: "Démarrage…",
   progress: 0,
   source: null,
@@ -85,6 +105,7 @@ export const useGold = create<GoldState>(() => ({
   thoughts: [],
   day: { key: "", pnl: 0, trades: 0, startBalance: DEFAULT_SETTINGS.capital },
   brain: emptyBrain(),
+  ctx: {},
   training: null,
   settings: DEFAULT_SETTINGS,
   autopilot: true,

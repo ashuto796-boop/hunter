@@ -60,6 +60,7 @@ function Toggle({ on, onChange, label }: { on: boolean; onChange: (v: boolean) =
 export function SettingsPage() {
   const s = useGold((x) => x.settings);
   const source = useGold((x) => x.source);
+  const threshold = useGold((x) => x.threshold);
   const set = (p: Partial<Settings>) => bot.updateSettings(p);
 
   return (
@@ -69,6 +70,7 @@ export function SettingsPage() {
         <Seg
           value={s.mode}
           options={[
+            ["auto", "Auto"],
             ["prudent", "Prudent"],
             ["equilibre", "Équilibré"],
             ["agressif", "Agressif"],
@@ -76,8 +78,16 @@ export function SettingsPage() {
           onChange={(mode) => set({ mode })}
         />
         <p className="note" style={{ marginTop: 10 }}>
-          Seuil de confiance pour entrer : {THRESHOLDS[s.mode]}/100.{" "}
-          {s.mode === "prudent" ? "Peu de trades, seulement les meilleures confluences." : s.mode === "equilibre" ? "Le réglage recommandé." : "Plus de trades, plus de bruit."}
+          {s.mode === "auto" ? (
+            <>
+              Seuil choisi par l'IA : {threshold}/100. Elle compare plusieurs seuils sur 70 % de l'historique puis vérifie son choix sur les 30 % restants (résultat dans le Labo).
+            </>
+          ) : (
+            <>
+              Seuil de confiance pour entrer : {THRESHOLDS[s.mode]}/100.{" "}
+              {s.mode === "prudent" ? "Peu de trades, seulement les meilleures confluences." : s.mode === "equilibre" ? "Un bon compromis." : "Plus de trades, plus de bruit."}
+            </>
+          )}
         </p>
       </section>
 

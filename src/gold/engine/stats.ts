@@ -95,3 +95,24 @@ export function equityCurve(trades: Trade[], start: number, t0: number): { t: nu
   }
   return out;
 }
+
+export interface RSummary {
+  n: number;
+  sumR: number;
+  winRate: number;
+  maxDDR: number; // deepest drop of the cumulative R curve
+}
+
+export function rSummary(trades: Trade[]): RSummary {
+  let sumR = 0;
+  let peak = 0;
+  let maxDDR = 0;
+  let wins = 0;
+  for (const t of trades) {
+    sumR += t.r;
+    if (t.r > 0) wins++;
+    peak = Math.max(peak, sumR);
+    maxDDR = Math.max(maxDDR, peak - sumR);
+  }
+  return { n: trades.length, sumR, winRate: trades.length ? wins / trades.length : 0, maxDDR };
+}

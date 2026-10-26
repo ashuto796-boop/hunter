@@ -31,11 +31,13 @@ Application mobile (PWA) dédiée à l'or : une IA autonome qui analyse XAU/USD 
 URL : https://ashuto796-boop.github.io/hunter/gold/ (sur téléphone : « Ajouter à l'écran d'accueil »)
 
 - **Données** : contrat perpétuel or `XAUUSDT` de Binance Futures (public, sans clé), repli sur `PAXGUSDT`, puis marché simulé si aucun flux n'est joignable.
-- **Cerveau** : 7 stratégies spécialistes (balayage de liquidité + cassure de structure, repli de tendance, ouverture de Londres, squeeze, momentum, retour à la moyenne, divergence RSI), pondérées selon le régime de marché, le biais H1/H4, la session et leurs propres résultats (apprentissage bayésien).
+- **Cerveau** : 7 stratégies spécialistes (balayage de liquidité + cassure de structure, repli de tendance, ouverture de Londres, squeeze, momentum, retour à la moyenne, divergence RSI), pondérées selon le régime de marché, le biais H1/H4, la session et leurs propres résultats dans chaque régime (mémoire contextuelle bayésienne).
+- **Radar intermarché** : l'argent (`XAGUSDT`) et le dollar (via `EURUSDT`) en H1 confirment ou freinent chaque décision (±8 % de confiance).
+- **Mode Auto** : l'IA compare plusieurs seuils de confiance sur 70 % de l'historique et vérifie son choix sur les 30 % restants (validation hors échantillon affichée dans le Labo).
 - **Risque** : sizing au % du capital, stop structurel, TP partiel à 1R + break-even, stop suiveur, limite de perte journalière, quota de trades, pause après 2 pertes, pas d'entrée autour des news US / FOMC / NFP ni avant le week-end.
 - **Entraînement** : au démarrage l'IA rejoue 30 à 180 jours d'historique bougie par bougie (walk-forward, spread inclus) ; à la réouverture elle rejoue les bougies manquées comme un serveur 24/7.
 
-Code : `src/gold/` (moteur dans `src/gold/engine/`), page d'entrée `gold/index.html`.
+Code : `src/gold/` (moteur dans `src/gold/engine/`). GitHub Pages sert la branche `main` telle quelle : après une modification, lancer `npm run build:gold` et committer le dossier `gold/` généré (`npm run dev:gold` pour développer).
 
 ## Local Development
 

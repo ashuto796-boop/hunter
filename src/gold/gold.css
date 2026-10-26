@@ -882,3 +882,36 @@ select {
     transition: none !important;
   }
 }
+
+/* ---------- calibration table ---------- */
+.calib {
+  display: grid;
+  grid-template-columns: 52px 1fr 1fr;
+  gap: 8px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+.calib-head {
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  padding-bottom: 4px;
+}
+.calib.chosen {
+  background: var(--gold-soft);
+  box-shadow: inset 0 0 0 1px rgba(232, 194, 106, 0.3);
+}
+
+/* ---------- intermarket ---------- */
+.peer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.peer:last-child {
+  border-bottom: none;
+}

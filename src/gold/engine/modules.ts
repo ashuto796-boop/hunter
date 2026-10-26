@@ -125,6 +125,9 @@ function getViews(m: Market): [View, View] {
 }
 
 const fmt = (p: number) => p.toFixed(2);
+// "au-dessus de" with French elision: du plus haut, d'un sommet
+const above = (label: string) =>
+  label.startsWith("le ") ? `au-dessus du ${label.slice(3)}` : label.startsWith("un ") ? `au-dessus d'${label}` : `au-dessus de ${label}`;
 const pick = (d: Dir, long: string, short: string) => (d === 1 ? long : short);
 
 function minLow(v: View, from: number, to: number): number {
@@ -210,7 +213,7 @@ const sweep: ModuleFn = (v, i, x) => {
     const sl = v.l(j) - 0.25 * a;
     const tg = target(v, i, entry, entry - sl, 1.8, 2.5);
     const reasons = [
-      `Balayage de liquidité ${pick(v.d, "sous", "au-dessus de")} ${L.label} (${fmt(v.real(L.p))})`,
+      `Balayage de liquidité ${v.d === 1 ? `sous ${L.label}` : above(L.label)} (${fmt(v.real(L.p))})`,
       `Changement de structure : clôture ${pick(v.d, "au-dessus de", "sous")} ${fmt(v.real(mss))}`,
     ];
     if (x.killzone) reasons.push(`Pendant la ${x.killzone}`);

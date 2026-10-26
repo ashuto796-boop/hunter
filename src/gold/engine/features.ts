@@ -50,6 +50,16 @@ export interface Market {
   h4: Series;
   m1: number[]; // entry index -> last closed H1 index (-1 if none)
   m4: number[];
+  xag: Series | null; // silver, H1
+  eur: Series | null; // EUR/USD (dollar proxy), H1
+  mx: number[];
+  me: number[];
+}
+
+// Correlated markets used as confirmation, as H1 candles
+export interface Peers {
+  xag?: Candle[];
+  eur?: Candle[];
 }
 
 export function computeSeries(c: Candle[], tf: number): Series {
@@ -126,7 +136,7 @@ function mapHtf(c: Candle[], tf: number, h: Candle[], htf: number): number[] {
   return out;
 }
 
-export function buildMarket(c: Candle[], tf: number): Market {
+export function buildMarket(c: Candle[], tf: number, peers: Peers = {}): Market {
   const base = computeSeries(c, tf);
   const n = c.length;
   const session: Session[] = new Array(n);
@@ -201,6 +211,10 @@ export function buildMarket(c: Candle[], tf: number): Market {
     h4: computeSeries(h4c, 240),
     m1: mapHtf(c, tf, h1c, 60),
     m4: mapHtf(c, tf, h4c, 240),
+    xag: peers.xag?.length ? computeSeries(peers.xag, 60) : null,
+    eur: peers.eur?.length ? computeSeries(peers.eur, 60) : null,
+    mx: peers.xag?.length ? mapHtf(c, tf, peers.xag, 60) : [],
+    me: peers.eur?.length ? mapHtf(c, tf, peers.eur, 60) : [],
   };
 }
 

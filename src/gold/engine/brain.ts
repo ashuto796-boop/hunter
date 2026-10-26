@@ -1,13 +1,15 @@
 // The meta-brain: reads the regime and the higher-timeframe bias, weighs the seven specialists
 // by how well they fit the current market and by what they have learned from their own results,
 // then applies the professional risk guards before producing a decision.
-import { BrainMemory, Decision, Dir, ModuleId, ModuleStats, Mode, NewsEvent, Plan, Regime, Settings, TraderState, WeightedVote } from "./types";
-import { Market, knownPivots } from "./features";
+import { BrainMemory, ContextMemory, Decision, Dir, Intermarket, ModuleId, ModuleStats, Mode, NewsEvent, Plan, Regime, Settings, TraderState, WeightedVote } from "./types";
+import { Market, Series, knownPivots } from "./features";
 import { pctRank } from "./indicators";
 import { MODULE_IDS, MODULE_INFO, runModules } from "./modules";
 import { SESSION_LABEL, SESSION_QUALITY, killzone, newsBlock, sessionAt, weekendRisk } from "./context";
 
-export const THRESHOLDS: Record<Mode, number> = { prudent: 70, equilibre: 61, agressif: 53 };
+// "auto" starts at the balanced value until the calibration picks its own threshold
+export const THRESHOLDS: Record<Mode, number> = { auto: 61, prudent: 70, equilibre: 61, agressif: 53 };
+export const AUTO_CANDIDATES = [53, 57, 61, 65, 70];
 
 const clamp = (x: number, a: number, b: number) => Math.max(a, Math.min(b, x));
 
@@ -17,12 +19,44 @@ export function emptyBrain(): BrainMemory {
   return b;
 }
 
+const PRIOR_N = 10;
+const PRIOR_R = 0.15;
+const expectancy = (s: ModuleStats, priorN: number, priorR: number) => (s.sumR + priorN * priorR) / (s.n + priorN);
+const toMult = (exp: number) => clamp(1 + (exp - PRIOR_R), 0.35, 1.6);
+
 // Bayesian-shrunk expectancy -> weight multiplier. Few trades = stays close to the expert prior.
 export function learnedMult(s: ModuleStats): number {
-  const PRIOR_N = 10;
-  const PRIOR_R = 0.15;
-  const exp = (s.sumR + PRIOR_N * PRIOR_R) / (s.n + PRIOR_N);
-  return clamp(1 + (exp - PRIOR_R), 0.35, 1.6);
+  return toMult(expectancy(s, PRIOR_N, PRIOR_R));
+}
+
+type RegimeKey = "TREND" | "RANGE" | "SQUEEZE" | "VOLATILE";
+const regimeKey = (r: Regime): RegimeKey => (r === "TREND_UP" || r === "TREND_DOWN" ? "TREND" : r);
+export const ctxKey = (id: ModuleId, r: Regime) => `${id}:${regimeKey(r)}`;
+
+// Contextual memory: the module's record in this regime, shrunk toward its overall record
+export function contextMult(brain: BrainMemory, ctx: ContextMemory, id: ModuleId, r: Regime): number {
+  const global = expectancy(brain[id], PRIOR_N, PRIOR_R);
+  const c = ctx[ctxKey(id, r)];
+  return toMult(c ? expectancy(c, 6, global) : global);
+}
+
+// Trend of a correlated market on H1: -1..1, null when missing or stale
+function peerTrend(s: Series | null, map: number[], i: number, t: number): number | null {
+  const j = map[i];
+  if (!s || j === undefined || j < 50 || Number.isNaN(s.ema50[j]) || !(s.atr[j] > 0)) return null;
+  if (t - (s.c[j].t + 3_600_000) > 3 * 3_600_000) return null;
+  const trend = s.ema20[j] > s.ema50[j] ? 0.5 : -0.5;
+  const mom = (s.close[j] - s.close[j - 4]) / (2 * s.atr[j]);
+  return clamp(trend + clamp(mom, -0.5, 0.5), -1, 1);
+}
+
+export function computeIntermarket(m: Market, i: number): Intermarket | null {
+  const t = m.ltf.c[i].t + m.ltf.tf * 60000;
+  const silver = peerTrend(m.xag, m.mx, i, t);
+  const usd = peerTrend(m.eur, m.me, i, t);
+  if (silver === null && usd === null) return null;
+  const score = silver !== null && usd !== null ? 0.6 * silver + 0.4 * usd : (silver ?? usd)!;
+  return { silver, usd, score };
 }
 
 export function computeBias(m: Market, i: number): number {
@@ -72,7 +106,6 @@ export const REGIME_LABEL: Record<Regime, string> = {
   VOLATILE: "Volatilité extrême",
 };
 
-type RegimeKey = "TREND" | "RANGE" | "SQUEEZE" | "VOLATILE";
 const FIT: Record<ModuleId, Record<RegimeKey, number>> = {
   sweep: { TREND: 0.85, RANGE: 1, SQUEEZE: 0.7, VOLATILE: 0.5 },
   pullback: { TREND: 1, RANGE: 0.45, SQUEEZE: 0.5, VOLATILE: 0.3 },
@@ -85,8 +118,7 @@ const FIT: Record<ModuleId, Record<RegimeKey, number>> = {
 const REVERSAL: ModuleId[] = ["sweep", "reversion", "divergence"];
 
 function regimeFit(id: ModuleId, regime: Regime, dir: Dir): number {
-  const key: RegimeKey = regime === "TREND_UP" || regime === "TREND_DOWN" ? "TREND" : regime;
-  let f = FIT[id][key];
+  let f = FIT[id][regimeKey(regime)];
   const trendDir = regime === "TREND_UP" ? 1 : regime === "TREND_DOWN" ? -1 : 0;
   if (trendDir && trendDir !== dir) f *= REVERSAL.includes(id) ? 0.75 : 0.5;
   return f;
@@ -124,6 +156,7 @@ export interface AnalyseEnv {
   m: Market;
   settings: Settings;
   news: NewsEvent[];
+  threshold?: number; // overrides the mode's threshold (auto-calibration)
 }
 
 export function analyse(env: AnalyseEnv, st: TraderState, i: number): Decision {
@@ -137,12 +170,13 @@ export function analyse(env: AnalyseEnv, st: TraderState, i: number): Decision {
   const bias = computeBias(m, i);
   const session = sessionAt(t);
   const kz = killzone(t);
-  const threshold = THRESHOLDS[settings.mode];
+  const threshold = env.threshold ?? THRESHOLDS[settings.mode];
+  const inter = computeIntermarket(m, i);
 
   const votes = runModules(m, i, (d) => ({ bias: d * bias, regime, session, killzone: kz }));
   const weighted: WeightedVote[] = votes.map((v) => {
     const fit = regimeFit(v.id, regime, v.dir);
-    const learned = learnedMult(st.brain[v.id]);
+    const learned = contextMult(st.brain, st.ctx, v.id, regime);
     return { ...v, fit, learned, weight: 0.85 * v.strength * MODULE_INFO[v.id].base * fit * learned };
   });
 
@@ -157,7 +191,8 @@ export function analyse(env: AnalyseEnv, st: TraderState, i: number): Decision {
     const sess = SESSION_QUALITY[session];
     const atrP = pctRank(s.atr, i, 300);
     const vol = atrP < 0.05 ? 0.85 : regime === "VOLATILE" ? 0.75 : 1;
-    return clamp(Math.round(100 * raw * htf * sess * vol), 0, 99);
+    const peers = inter ? 1 + 0.08 * d * inter.score : 1;
+    return clamp(Math.round(100 * raw * htf * sess * vol * peers), 0, 99);
   };
   const scoreLong = sideScore(1);
   const scoreShort = sideScore(-1);
@@ -173,6 +208,14 @@ export function analyse(env: AnalyseEnv, st: TraderState, i: number): Decision {
     if (b >= 0.4) pros.push(`Unités supérieures (H1/H4) alignées (${(b * 100).toFixed(0)}%)`);
     else if (b <= -0.3) cons.push(`Contre la tendance de fond H1/H4 (${(b * 100).toFixed(0)}%)`);
     for (const v of weighted.filter((w) => w.dir !== dir)) cons.push(`Signal contraire : ${MODULE_INFO[v.id].name}`);
+    if (inter) {
+      const parts: string[] = [];
+      if (inter.silver !== null && Math.abs(inter.silver) >= 0.4) parts.push(`l'argent ${dir * inter.silver > 0 ? "suit" : "ne suit pas"}`);
+      if (inter.usd !== null && Math.abs(inter.usd) >= 0.4) parts.push(`le dollar ${dir * inter.usd > 0 ? "aide" : "freine"}`);
+      const x = dir * inter.score;
+      if (x >= 0.35) pros.push(`Intermarché aligné : ${parts.join(", ") || "argent et dollar favorables"}`);
+      else if (x <= -0.35) cons.push(`Intermarché contraire : ${parts.join(", ") || "argent et dollar défavorables"}`);
+    }
   }
   if (SESSION_QUALITY[session] >= 0.97) pros.push(`${SESSION_LABEL[session]} : liquidité maximale`);
   else if (session === "ASIE") cons.push("Session asiatique : liquidité faible");
@@ -233,6 +276,8 @@ export function analyse(env: AnalyseEnv, st: TraderState, i: number): Decision {
           score,
           riskMult: score >= 85 ? 1.25 : score >= threshold + 8 ? 1 : 0.75,
           reasons: pros.slice(0, 7),
+          regime,
+          session,
         };
       }
     }
@@ -257,6 +302,7 @@ export function analyse(env: AnalyseEnv, st: TraderState, i: number): Decision {
     bias,
     session,
     killzone: kz,
+    intermarket: inter,
     votes: weighted,
     pros: pros.slice(0, 7),
     cons: cons.slice(0, 5),

@@ -5,6 +5,36 @@ import { MODULE_IDS, MODULE_INFO } from "../engine/modules";
 import { EquityChart } from "../ui/EquityChart";
 import { TradeRow } from "./Trades";
 import { dateTime, pct, rr, tone, usd } from "../ui/format";
+import { Session, Trade } from "../engine/types";
+import { SESSION_LABEL } from "../engine/context";
+import { rSummary } from "../engine/stats";
+
+const plural = (n: number, w: string) => `${n} ${w}${n > 1 ? "s" : ""}`;
+
+const SESSIONS: Session[] = ["ASIE", "LONDRES", "OVERLAP", "NEW_YORK"];
+
+function SessionStats({ trades }: { trades: Trade[] }) {
+  const rows = SESSIONS.map((sess) => ({ sess, ...rSummary(trades.filter((t) => t.session === sess)) })).filter((r) => r.n > 0);
+  if (!rows.length) return null;
+  return (
+    <section className="card">
+      <div className="card-title">Performance par session</div>
+      <div className="list">
+        {rows.map((r) => (
+          <div className="row" key={r.sess}>
+            <div className="row-main">
+              <div className="row-title">{SESSION_LABEL[r.sess]}</div>
+              <div className="row-sub num">
+                {plural(r.n, "trade")} · {(r.winRate * 100).toFixed(0)} % réussite
+              </div>
+            </div>
+            <div className={`row-title num ${tone(r.sumR)}`}>{rr(r.sumR)}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
 
 export function Lab() {
   const tr = useGold((s) => s.training);
@@ -13,13 +43,12 @@ export function Lab() {
   const [busy, setBusy] = useState(false);
   const [showAll, setShowAll] = useState(false);
 
-  const rerun = (d?: number) => {
+  const rerun = async (d?: number) => {
     setBusy(true);
-    setTimeout(() => {
-      if (d && d !== days) bot.updateSettings({ trainDays: d });
-      else bot.retrain();
-      setBusy(false);
-    }, 30);
+    await new Promise((r) => setTimeout(r, 30));
+    if (d && d !== days) bot.updateSettings({ trainDays: d });
+    else await bot.retrain();
+    setBusy(false);
   };
 
   if (!tr) return <div className="page"><div className="empty">Entraînement en cours…</div></div>;
@@ -74,6 +103,62 @@ export function Lab() {
         </div>
       </div>
 
+      {tr.calibration && (
+        <section className="card">
+          <div className="card-title">
+            <span>Calibration auto</span>
+            <span className="chip gold">seuil {tr.calibration.chosen}</span>
+          </div>
+          <p className="note" style={{ marginBottom: 10 }}>
+            Choix du seuil sur la période d'apprentissage (avant le {dateTime(tr.calibration.splitT)}), puis contrôle sur la période de validation, jamais utilisée pour choisir.
+          </p>
+          <div className="calib calib-head">
+            <span>Seuil</span>
+            <span>Apprentissage</span>
+            <span>Validation</span>
+          </div>
+          {tr.calibration.rows.map((r) => (
+            <div className={`calib num ${r.th === tr.calibration!.chosen ? "chosen" : ""}`} key={r.th}>
+              <span>{r.th}</span>
+              <span>
+                <span className={tone(r.learnR)}>{rr(r.learnR)}</span> <span className="muted">· {r.learnN}</span>
+              </span>
+              <span>
+                <span className={tone(r.valR)}>{rr(r.valR)}</span> <span className="muted">· {r.valN}</span>
+              </span>
+            </div>
+          ))}
+          {(() => {
+            const row = tr.calibration.rows.find((r) => r.th === tr.calibration!.chosen);
+            if (!row) return null;
+            if (row.valN < 10)
+              return (
+                <div className="banner" style={{ marginTop: 12 }}>
+                  <span>ℹ️</span>
+                  <span>
+                    Seulement {plural(row.valN, "trade")} en validation : trop peu pour conclure ({rr(row.valR)}). Laisse tourner l'IA en démo ou entraîne-la sur plus de jours.
+                  </span>
+                </div>
+              );
+            return row.valR > 0 ? (
+              <div className="banner" style={{ marginTop: 12 }}>
+                <span>✅</span>
+                <span>
+                  Validation positive : {rr(row.valR)} sur {row.valN} trades jamais vus pendant la calibration ({(row.valWin * 100).toFixed(0)} % de réussite).
+                </span>
+              </div>
+            ) : (
+              <div className="banner warn" style={{ marginTop: 12 }}>
+                <span>⚠️</span>
+                <span>Validation non concluante ({rr(row.valR)} sur {row.valN} trades) : l'avantage n'est pas confirmé sur la période récente. Reste en démo.</span>
+              </div>
+            );
+          })()}
+        </section>
+      )}
+
+      <SessionStats trades={tr.trades} />
+
       <section className="card">
         <div className="card-title">Performance par spécialiste</div>
         <div className="list">
@@ -86,7 +171,7 @@ export function Lab() {
                   <div className="row-main">
                     <div className="row-title">{MODULE_INFO[id].name}</div>
                     <div className="row-sub num">
-                      {p.n} trades · {(p.winRate * 100).toFixed(0)} % réussite
+                      {plural(p.n, "trade")} · {(p.winRate * 100).toFixed(0)} % réussite
                     </div>
                   </div>
                   <div className="row-right">

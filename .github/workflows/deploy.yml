@@ -1,39 +1,27 @@
-name: Deploy to GitHub Pages
+name: Build check
 
+# GitHub Pages serves the main branch directly (site at /hunter/, AURUM at /hunter/gold/).
+# This job only checks that both apps still compile.
 on:
   push:
     branches: [main]
+  pull_request:
 
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Node
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
 
-      - name: Install and Build
+      - name: Install and build
         run: |
           npm install --legacy-peer-deps
           npm run build
-          echo "Build complete!"
-          ls -la dist/
-
-      - name: Deploy with git
-        run: |
-          git config --global user.email "action@github.com"
-          git config --global user.name "GitHub Action"
-          
-          mkdir -p deploy
-          cp -r dist/* deploy/
-          
-          cd deploy
-          git init
-          git add .
-          git commit -m "Deploy to gh-pages"
-          git push --force https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:gh-pages
+          npm run build:gold

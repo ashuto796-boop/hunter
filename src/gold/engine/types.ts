@@ -24,7 +24,7 @@ export type ModuleId =
   | "reversion"
   | "divergence";
 
-export type Mode = "prudent" | "equilibre" | "agressif";
+export type Mode = "auto" | "prudent" | "equilibre" | "agressif";
 
 export interface Vote {
   id: ModuleId;
@@ -53,6 +53,8 @@ export interface Plan {
   score: number;
   riskMult: number;
   reasons: string[];
+  regime: Regime;
+  session: Session;
 }
 
 export interface Decision {
@@ -67,6 +69,7 @@ export interface Decision {
   bias: number; // -1..1 higher timeframe bias
   session: Session;
   killzone: string | null;
+  intermarket: Intermarket | null;
   votes: WeightedVote[];
   pros: string[];
   cons: string[];
@@ -96,6 +99,8 @@ export interface Position {
   contributors: ModuleId[];
   reasons: string[];
   replay: boolean;
+  regime: Regime;
+  session: Session;
 }
 
 export type ExitReason = "SL" | "TP2" | "BE" | "TRAIL" | "TEMPS" | "WEEKEND" | "MANUEL";
@@ -119,6 +124,8 @@ export interface Trade {
   contributors: ModuleId[];
   reasons: string[];
   replay: boolean;
+  regime?: Regime; // absent on trades saved by older versions
+  session?: Session;
 }
 
 export interface ModuleStats {
@@ -128,6 +135,16 @@ export interface ModuleStats {
 }
 
 export type BrainMemory = Record<ModuleId, ModuleStats>;
+
+// Same statistics split by market context ("sweep:RANGE", "pullback:TREND", ...)
+export type ContextMemory = Record<string, ModuleStats>;
+
+// Silver and the dollar (via EUR/USD) read on H1: +1 = both push gold up, -1 = both push it down
+export interface Intermarket {
+  silver: number | null;
+  usd: number | null; // EUR/USD trend: positive = weak dollar
+  score: number;
+}
 
 export interface Settings {
   capital: number;
@@ -157,6 +174,7 @@ export interface TraderState {
   position: Position | null;
   trades: Trade[];
   brain: BrainMemory;
+  ctx: ContextMemory;
   day: DayState;
   lossStreak: number;
   cooldownUntil: number;

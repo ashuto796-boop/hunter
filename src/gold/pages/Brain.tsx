@@ -1,8 +1,57 @@
 import { useGold } from "../store";
 import { MODULE_IDS, MODULE_INFO } from "../engine/modules";
-import { REGIME_LABEL, learnedMult } from "../engine/brain";
+import { REGIME_LABEL, contextMult, learnedMult } from "../engine/brain";
 import { time, tone } from "../ui/format";
-import { Regime } from "../engine/types";
+import { Intermarket, Regime } from "../engine/types";
+
+function peerText(v: number | null, up: string, down: string) {
+  if (v === null) return { text: "indisponible", cls: "muted" };
+  if (Math.abs(v) < 0.25) return { text: "neutre", cls: "muted" };
+  return v > 0 ? { text: up, cls: "up" } : { text: down, cls: "down" };
+}
+
+function Radar({ im }: { im: Intermarket | null }) {
+  const silver = peerText(im?.silver ?? null, "haussier", "baissier");
+  const usd = peerText(im?.usd ?? null, "dollar faible", "dollar fort");
+  const total = peerText(im?.score ?? null, "favorable à l'or", "défavorable à l'or");
+  return (
+    <section className="card">
+      <div className="card-title">Radar intermarché (H1)</div>
+      {!im ? (
+        <div className="empty" style={{ padding: "4px 0" }}>
+          Données intermarché indisponibles : le radar reste neutre et n'influence pas les décisions.
+        </div>
+      ) : (
+        <>
+          <div className="peer">
+            <div>
+              <div className="row-title">Argent (XAG)</div>
+              <div className="row-sub">Le métal jumeau : il doit confirmer</div>
+            </div>
+            <span className={`chip ${silver.cls}`}>{silver.text}</span>
+          </div>
+          <div className="peer">
+            <div>
+              <div className="row-title">Dollar (via EUR/USD)</div>
+              <div className="row-sub">Un dollar faible pousse l'or</div>
+            </div>
+            <span className={`chip ${usd.cls}`}>{usd.text}</span>
+          </div>
+          <div className="peer">
+            <div className="row-title">Verdict pour l'or</div>
+            <span className={`chip ${total.cls}`}>
+              {total.text} {im.score >= 0 ? "+" : ""}
+              {(im.score * 100).toFixed(0)}
+            </span>
+          </div>
+          <p className="note" style={{ marginTop: 8 }}>
+            Ajuste la confiance de ±8 % au maximum : une confirmation, jamais un déclencheur.
+          </p>
+        </>
+      )}
+    </section>
+  );
+}
 
 const REGIME_HELP: Record<Regime, string> = {
   TREND_UP: "Le marché monte proprement : je privilégie les replis et le momentum à l'achat, je me méfie des ventes.",
@@ -15,6 +64,7 @@ const REGIME_HELP: Record<Regime, string> = {
 export function Brain() {
   const d = useGold((s) => s.decision);
   const brain = useGold((s) => s.brain);
+  const ctx = useGold((s) => s.ctx);
   const thoughts = useGold((s) => s.thoughts);
   const training = useGold((s) => s.training);
   const experience = MODULE_IDS.reduce((a, id) => a + brain[id].n, 0);
@@ -48,6 +98,8 @@ export function Brain() {
         )}
       </section>
 
+      <Radar im={d?.intermarket ?? null} />
+
       <section className="card">
         <div className="card-title">
           <span>Les 7 spécialistes</span>
@@ -56,13 +108,13 @@ export function Brain() {
           </span>
         </div>
         <p className="note" style={{ marginBottom: 4 }}>
-          Chaque spécialiste vote. Leur poids dépend du régime de marché et de leurs propres résultats : ceux qui perdent sont écoutés de moins en moins.
+          Chaque spécialiste vote. Son poids dépend du régime de marché et de ses propres résultats dans ce régime : celui qui perd en range mais gagne en tendance n'est écouté qu'en tendance.
         </p>
         <div>
           {MODULE_IDS.map((id) => {
             const info = MODULE_INFO[id];
             const s = brain[id];
-            const w = learnedMult(s);
+            const w = d ? contextMult(brain, ctx, id, d.regime) : learnedMult(s);
             const vote = d?.votes.filter((v) => v.id === id).sort((a, b) => b.weight - a.weight)[0];
             const avgR = s.n ? s.sumR / s.n : 0;
             return (
@@ -86,9 +138,12 @@ export function Brain() {
                   <div style={{ width: `${(w / 1.6) * 100}%` }} />
                 </div>
                 <div className="row-sub num" style={{ marginTop: 6, display: "flex", justifyContent: "space-between" }}>
-                  <span>poids ×{w.toFixed(2)}</span>
                   <span>
-                    {s.n ? `${Math.max(1, Math.round(s.n))} trades · ${((s.wins / s.n) * 100).toFixed(0)} % · ` : "aucun trade · "}
+                    poids ×{w.toFixed(2)}
+                    {d && <span className="muted"> en {REGIME_LABEL[d.regime].toLowerCase()}</span>}
+                  </span>
+                  <span>
+                    {s.n ? `${Math.max(1, Math.round(s.n))} trade${Math.round(s.n) > 1 ? "s" : ""} · ${((s.wins / s.n) * 100).toFixed(0)} % · ` : "aucun trade · "}
                     <span className={tone(avgR)}>
                       {avgR >= 0 ? "+" : ""}
                       {avgR.toFixed(2)}R moy.
