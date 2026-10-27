@@ -39,6 +39,21 @@ URL : https://ashuto796-boop.github.io/hunter/gold/ (sur téléphone : « Ajoute
 
 Code : `src/gold/` (moteur dans `src/gold/engine/`). GitHub Pages sert la branche `main` telle quelle : après une modification, lancer `npm run build:gold` et committer le dossier `gold/` généré (`npm run dev:gold` pour développer).
 
+## Tremplin — idées de SaaS, prompt Claude et plan de lancement
+
+Application web (PWA) : un sondage sur ta situation, puis trois idées de SaaS adaptées, le prompt complet pour les construire avec Claude et un plan d'action des 30 premiers jours.
+
+URL : https://ashuto796-boop.github.io/hunter/saas/
+
+- **Sondage** : 10 questions (prénom, temps disponible, niveau technique, domaines d'expérience, cible, objectif, délai, budget, réseau, problème vécu).
+- **Idées** : catalogue de 36 idées pour le marché français, chacune avec sa tendance (« pourquoi maintenant »), son MVP, son prix et ses canaux d'acquisition. Un score de compatibilité classe les idées selon le profil et évite trois variantes du même thème. « Proposer 3 autres idées » continue dans le classement.
+- **Mode Claude (optionnel)** : avec sa propre clé API Anthropic (Réglages), les idées sont inventées sur mesure par `claude-opus-5-5` (sortie structurée). La clé reste dans le navigateur et part directement vers api.anthropic.com ; en cas d'erreur, l'app retombe sur le catalogue.
+- **Prompt Claude** : contexte produit, périmètre de la v1, stack adaptée au niveau technique (Next.js, Supabase, Stripe, Vercel), règles de travail et première tâche ; plus un prompt pour la page d'attente.
+- **Plan 30 jours** : 4 semaines (valider, construire, premiers utilisateurs, premiers clients) dont les volumes s'adaptent au temps disponible, tâches à cocher, et 4 messages de prospection prêts à envoyer. Export Markdown.
+- **Données** : pas de compte ni de serveur, tout est enregistré dans le navigateur (export JSON dans les Réglages).
+
+Code : `src/saas/` (catalogue dans `src/saas/data/catalog.ts`, logique dans `src/saas/engine/`). Comme pour AURUM : après une modification, lancer `npm run build:saas` et committer le dossier `saas/` généré (`npm run dev:saas` pour développer).
+
 ## Local Development
 
 ```bash

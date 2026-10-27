@@ -1,7 +1,7 @@
 name: Build check
 
-# GitHub Pages serves the main branch directly (site at /hunter/, AURUM at /hunter/gold/).
-# This job only checks that both apps still compile.
+# GitHub Pages serves the main branch directly (site at /hunter/, AURUM at /hunter/gold/,
+# Tremplin at /hunter/saas/). This job only checks that the apps still compile.
 on:
   push:
     branches: [main]
@@ -25,3 +25,4 @@ jobs:
           npm install --legacy-peer-deps
           npm run build
           npm run build:gold
+          npm run build:saas

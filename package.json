@@ -8,14 +8,18 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "dev:gold": "vite --config vite.gold.config.ts",
-    "build:gold": "tsc && vite build --config vite.gold.config.ts"
+    "build:gold": "tsc && vite build --config vite.gold.config.ts",
+    "dev:saas": "vite --config vite.saas.config.ts",
+    "build:saas": "tsc && vite build --config vite.saas.config.ts"
   },
   "dependencies": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "lightweight-charts": "^4.1.0",
     "zustand": "^4.4.0",
-    "date-fns": "^2.30.0"
+    "date-fns": "^2.30.0",
+    "@anthropic-ai/sdk": "^1.3.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/react": "^18.2.43",
