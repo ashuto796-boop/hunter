@@ -330,6 +330,11 @@
   .histrow .hopen:hover{color:var(--fg); border-color:var(--acc-2);}
   .histrow .hsnip{font-size:14px; color:var(--fg); font-weight:500; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;}
 
+  /* chances de réponse */
+  .chances{display:flex; align-items:center; justify-content:space-between; gap:10px; margin:0 0 22px; padding:14px 16px; border:1px solid var(--line); border-radius:14px; background:rgba(22,15,19,.5); -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);}
+  .chances .cl{font-family:var(--font-mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted);}
+  .chances .cv{font-family:var(--font-disp); font-weight:800; font-size:25px; letter-spacing:-.01em; font-variant-numeric:tabular-nums;}
+
   [hidden]{display:none !important;}
 </style>
 </head>
@@ -472,6 +477,10 @@
       <div class="temp" id="temp" hidden>
         <div class="top"><div class="score" id="tempScore">–<span>/10</span></div><div class="word" id="tempWord"></div></div>
         <div class="gauge"><i id="tempBar"></i></div>
+      </div>
+      <div class="chances" id="chances" hidden>
+        <span class="cl">Chances qu'elle réponde</span>
+        <span class="cv" id="chancesVal">–</span>
       </div>
       <div class="signals" id="signals"></div>
     </section>
@@ -761,12 +770,13 @@
       "{\n"+
       '  "lecture": "2 ou 3 phrases qui résument ce qui se joue, cash, en captant le sous-texte",\n'+
       '  "temperature": 7,\n'+
+      '  "chances": 65,\n'+
       '  "signaux": [{"label": "3-4 mots max", "ton": "positif|neutre|negatif"}],\n'+
       '  "move": {"action": "REPONDS|ATTENDS|PROPOSE UN DATE|NE REPONDS PAS", "pourquoi": "1-2 phrases", "risque": "faible|moyen|élevé", "timing": "quand envoyer, ex: maintenant / ce soir / attends ~1-2h / demain"},\n'+
       '  "a_eviter": ["piège à éviter, court", "..."],\n'+
       '  "messages": [{"ton": "taquin|arrogant|cash|osé|sans filtre", "texte": "le message prêt à envoyer, court, charo et cru", "pourquoi": "pourquoi ça marche, 1 phrase"}]\n'+
       "}\n"+
-      '"temperature" = niveau d\'intérêt estimé de l\'autre envers moi, de 0 (zéro chance) à 10 (chaud bouillant). '+
+      '"temperature" = niveau d\'intérêt estimé de l\'autre envers moi, de 0 (zéro chance) à 10 (chaud bouillant). "chances" = probabilité estimée (0 à 100) qu\'elle/il réponde et reste accroché(e) si j\'applique le move. '+
       "Raisonne finement sur le sous-texte, les tests, l'ironie, l'équilibre du pouvoir et la réciprocité AVANT de conclure — évite tout conseil générique, colle aux messages réels et à leur ton exact. "+
       "Donne 2 à 4 signaux, 1 à 3 pièges dans \"a_eviter\", et EXACTEMENT 5 messages TOUS bien charro et crus mais chacun d'un flavor différent : un TAQUIN (chambre), un ARROGANT (confiance blasée), un CASH (direct), un OSÉ (sous-entendu qui chauffe), un SANS FILTRE (le plus gonflé). Si le meilleur move est clairement de ne pas répondre ou d'attendre, mets \"messages\" à [] ou un seul message optionnel. N'ajoute aucun texte hors du JSON."
     );
@@ -963,6 +973,14 @@
     $("tag04").textContent="envoie ça";
     $("read").textContent=data&&data.lecture?String(data.lecture):"Pas assez d'éléments pour lire la dynamique.";
     renderTemp(data);
+    (function(){
+      var ch=data&&data.chances, cbox=$("chances");
+      if(ch!==undefined&&ch!==null&&!isNaN(Number(ch))){
+        var cn=Math.max(0,Math.min(100,Math.round(Number(ch))));
+        cbox.hidden=false; var cv=$("chancesVal"); cv.textContent=cn+"%";
+        cv.style.color = cn>=66?"var(--gold)":(cn>=33?"var(--acc)":"var(--neg)");
+      } else cbox.hidden=true;
+    })();
     var sig=$("signals"); sig.innerHTML="";
     ((data&&data.signaux)||[]).forEach(function(s){
       if(!s) return;
@@ -986,6 +1004,7 @@
     lastData=data||{};
     lastMode="accroche";
     $("temp").hidden=true;
+    $("chances").hidden=true;
     $("signals").innerHTML="";
     $("moveSection").hidden=true;
     $("tag02").textContent="l'angle";
