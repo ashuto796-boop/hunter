@@ -40,6 +40,37 @@ function Hero() {
   );
 }
 
+const since = (t: number) => {
+  const min = Math.max(0, Math.round((Date.now() - t) / 60000));
+  return min < 1 ? "à l'instant" : min < 90 ? `il y a ${min} min` : `il y a ${Math.round(min / 60)} h`;
+};
+
+// Server mode: the AI trades on GitHub every 15 minutes, phone on or off
+function ServerCard() {
+  const remote = useGold((s) => s.remote)!;
+  const trader = useGold((s) => s.trader);
+  const threshold = useGold((s) => s.threshold);
+  useGold((s) => s.tickVersion); // refresh the "x min ago" label with the price stream
+  const late = Date.now() - remote.updatedAt > 45 * 60000;
+  return (
+    <section className={`autopilot ${late ? "" : "on"}`}>
+      <div className="autopilot-icon">
+        <IconBolt width={22} height={22} />
+      </div>
+      <div className="autopilot-text">
+        <div className="autopilot-title">Serveur 24/7 {late ? "en retard" : "actif"}</div>
+        <div className="autopilot-sub">
+          Dernier passage {since(remote.updatedAt)} · risque {trader.riskPct} % · {MODE_LABEL[trader.mode]}
+          {trader.mode === "auto" && ` (seuil ${threshold})`}
+        </div>
+        {late && <div className="autopilot-sub gold">GitHub décale parfois ses passages : l'IA rattrapera toutes les bougies manquées au prochain.</div>}
+        {remote.error && <div className="autopilot-sub">Lecture du serveur : {remote.error}</div>}
+      </div>
+      <span className={`dot ${late ? "warn" : "live"}`} />
+    </section>
+  );
+}
+
 function Autopilot() {
   const on = useGold((s) => s.autopilot);
   const st = useGold((s) => s.settings);
@@ -125,6 +156,7 @@ function AiCard() {
 }
 
 function PositionCard() {
+  const remote = useGold((s) => s.remote);
   const p = useGold((s) => s.position);
   const pnl = useGold((s) => s.unrealized);
   const px = useGold((s) => s.price);
@@ -187,9 +219,15 @@ function PositionCard() {
       <div className="note" style={{ marginTop: 12 }}>
         Module principal : <span className="gold">{MODULE_INFO[p.primary].name}</span> · score {p.score}
       </div>
-      <button className="btn danger block" style={{ marginTop: 14 }} onClick={() => confirm("Clôturer la position maintenant ?") && bot.closeNow()}>
-        Clôturer maintenant
-      </button>
+      {remote ? (
+        <p className="note" style={{ marginTop: 10 }}>
+          Gérée par le serveur 24/7 : stop, prise de profit et stop suiveur s'appliquent même téléphone éteint.
+        </p>
+      ) : (
+        <button className="btn danger block" style={{ marginTop: 14 }} onClick={() => confirm("Clôturer la position maintenant ?") && bot.closeNow()}>
+          Clôturer maintenant
+        </button>
+      )}
     </section>
   );
 }
@@ -197,7 +235,7 @@ function PositionCard() {
 function TodayStats() {
   const day = useGold((s) => s.day);
   const equity = useGold((s) => s.equity);
-  const max = useGold((s) => s.settings.maxTradesDay);
+  const max = useGold((s) => s.trader.maxTradesDay);
   return (
     <div className="grid3">
       <div className="stat">
@@ -274,7 +312,9 @@ function InstallHint() {
 
 export function Live() {
   const source = useGold((s) => s.source);
-  const tf = useGold((s) => s.settings.tf);
+  const tf = useGold((s) => s.trader.tf);
+  const remote = useGold((s) => s.remote);
+  const serverNote = useGold((s) => s.serverNote);
   return (
     <div className="page">
       <Hero />
@@ -285,7 +325,13 @@ export function Live() {
           <span>Le flux de prix réel n'est pas joignable depuis ce réseau : l'IA tourne sur un marché simulé. Elle repassera sur l'or réel au prochain lancement si la connexion le permet.</span>
         </div>
       )}
-      <Autopilot />
+      {serverNote && (
+        <div className="banner warn">
+          <span>⚠️</span>
+          <span>{serverNote}</span>
+        </div>
+      )}
+      {remote ? <ServerCard /> : <Autopilot />}
       <AiCard />
       <PositionCard />
       <section className="card chart-card">

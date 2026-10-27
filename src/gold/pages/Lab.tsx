@@ -39,7 +39,8 @@ function SessionStats({ trades }: { trades: Trade[] }) {
 export function Lab() {
   const tr = useGold((s) => s.training);
   const days = useGold((s) => s.settings.trainDays);
-  const capital = useGold((s) => s.settings.capital);
+  const capital = useGold((s) => s.trader.capital);
+  const remote = useGold((s) => s.remote);
   const [busy, setBusy] = useState(false);
   const [showAll, setShowAll] = useState(false);
 
@@ -51,7 +52,12 @@ export function Lab() {
     setBusy(false);
   };
 
-  if (!tr) return <div className="page"><div className="empty">Entraînement en cours…</div></div>;
+  if (!tr)
+    return (
+      <div className="page">
+        <div className="empty">Entraînement en cours…</div>
+      </div>
+    );
   const s = tr.stats;
   const pf = Number.isFinite(s.pf) ? s.pf.toFixed(2) : "∞";
 
@@ -63,7 +69,8 @@ export function Lab() {
           <span className="chip">{tr.source === "sim" ? "données simulées" : tr.source === "paxg" ? "PAXG réel" : "XAU réel"}</span>
         </div>
         <p style={{ fontSize: 14, marginBottom: 12 }}>
-          L'IA a revécu <b>{tr.days.toFixed(0)} jours</b> d'or bougie par bougie ({tr.candles.toLocaleString("fr-FR")} bougies), sans jamais voir le futur, avec spread et glissement inclus.
+          L'IA a revécu <b>{tr.days.toFixed(0)} jours</b> d'or bougie par bougie ({tr.candles.toLocaleString("fr-FR")} bougies), sans jamais voir le futur, avec
+          spread et glissement inclus.
         </p>
         <div className={`pnl-big num ${tone(s.pnl)}`}>{pct(s.netPct, true, 1)}</div>
         <div className="muted num" style={{ fontSize: 13, marginBottom: 12 }}>
@@ -110,7 +117,8 @@ export function Lab() {
             <span className="chip gold">seuil {tr.calibration.chosen}</span>
           </div>
           <p className="note" style={{ marginBottom: 10 }}>
-            Choix du seuil sur la période d'apprentissage (avant le {dateTime(tr.calibration.splitT)}), puis contrôle sur la période de validation, jamais utilisée pour choisir.
+            Choix du seuil sur la période d'apprentissage (avant le {dateTime(tr.calibration.splitT)}), puis contrôle sur la période de validation, jamais
+            utilisée pour choisir.
           </p>
           <div className="calib calib-head">
             <span>Seuil</span>
@@ -136,7 +144,8 @@ export function Lab() {
                 <div className="banner" style={{ marginTop: 12 }}>
                   <span>ℹ️</span>
                   <span>
-                    Seulement {plural(row.valN, "trade")} en validation : trop peu pour conclure ({rr(row.valR)}). Laisse tourner l'IA en démo ou entraîne-la sur plus de jours.
+                    Seulement {plural(row.valN, "trade")} en validation : trop peu pour conclure ({rr(row.valR)}). Laisse tourner l'IA en démo ou entraîne-la
+                    sur plus de jours.
                   </span>
                 </div>
               );
@@ -150,7 +159,9 @@ export function Lab() {
             ) : (
               <div className="banner warn" style={{ marginTop: 12 }}>
                 <span>⚠️</span>
-                <span>Validation non concluante ({rr(row.valR)} sur {row.valN} trades) : l'avantage n'est pas confirmé sur la période récente. Reste en démo.</span>
+                <span>
+                  Validation non concluante ({rr(row.valR)} sur {row.valN} trades) : l'avantage n'est pas confirmé sur la période récente. Reste en démo.
+                </span>
               </div>
             );
           })()}
@@ -185,22 +196,31 @@ export function Lab() {
         </div>
       </section>
 
-      <section className="card">
-        <div className="card-title">Relancer l'entraînement</div>
-        <div className="seg" style={{ marginBottom: 12 }}>
-          {[30, 60, 90, 180].map((d) => (
-            <button key={d} className={d === days ? "on" : ""} onClick={() => rerun(d)} disabled={busy}>
-              {d} jours
-            </button>
-          ))}
-        </div>
-        <button className="btn gold block" onClick={() => rerun()} disabled={busy}>
-          {busy ? "Entraînement…" : "Ré-entraîner l'IA maintenant"}
-        </button>
-        <p className="note" style={{ marginTop: 10 }}>
-          Plus de jours = plus d'expérience mais un marché plus ancien. Un changement de durée recharge l'historique.
-        </p>
-      </section>
+      {remote ? (
+        <section className="card">
+          <div className="card-title">Entraînement du serveur</div>
+          <p style={{ fontSize: 14 }}>
+            Le serveur 24/7 se ré-entraîne seul environ une fois par jour sur les {tr.days.toFixed(0)} derniers jours. Dernier entraînement : {dateTime(tr.at)}.
+          </p>
+        </section>
+      ) : (
+        <section className="card">
+          <div className="card-title">Relancer l'entraînement</div>
+          <div className="seg" style={{ marginBottom: 12 }}>
+            {[30, 60, 90, 180].map((d) => (
+              <button key={d} className={d === days ? "on" : ""} onClick={() => rerun(d)} disabled={busy}>
+                {d} jours
+              </button>
+            ))}
+          </div>
+          <button className="btn gold block" onClick={() => rerun()} disabled={busy}>
+            {busy ? "Entraînement…" : "Ré-entraîner l'IA maintenant"}
+          </button>
+          <p className="note" style={{ marginTop: 10 }}>
+            Plus de jours = plus d'expérience mais un marché plus ancien. Un changement de durée recharge l'historique.
+          </p>
+        </section>
+      )}
 
       {tr.trades.length > 0 && (
         <section className="card">
@@ -219,7 +239,8 @@ export function Lab() {
       )}
 
       <p className="note">
-        Les résultats passés, même simulés honnêtement, ne garantissent pas les résultats futurs. Laisse tourner l'IA plusieurs semaines en démo avant d'envisager de l'argent réel.
+        Les résultats passés, même simulés honnêtement, ne garantissent pas les résultats futurs. Laisse tourner l'IA plusieurs semaines en démo avant
+        d'envisager de l'argent réel.
       </p>
     </div>
   );

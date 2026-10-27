@@ -915,3 +915,11 @@ select {
 .peer:last-child {
   border-bottom: none;
 }
+
+a.btn {
+  color: inherit;
+  text-decoration: none;
+}
+details summary {
+  cursor: pointer;
+}

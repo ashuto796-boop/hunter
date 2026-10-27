@@ -285,7 +285,7 @@ export function analyse(env: AnalyseEnv, st: TraderState, i: number): Decision {
 
   const side = dir === 1 ? "ACHAT" : "VENTE";
   if (blocked) verdict = blocked;
-  else if (plan) verdict = `J'entre à l'${side === "ACHAT" ? "achat" : "vente"} — confiance ${score}/100`;
+  else if (plan) verdict = `J'entre ${side === "ACHAT" ? "à l'achat" : "à la vente"} — confiance ${score}/100`;
   else if (dir && score >= threshold - 12) verdict = `${side} en préparation (${score}/${threshold}) — j'attends plus de confluence`;
   else if (dir) verdict = `Signal ${side.toLowerCase()} trop faible (${score}/${threshold}) — patience`;
   else verdict = "Aucun setup propre — je ne force rien";

@@ -159,6 +159,8 @@ export interface Settings {
   keepAwake: boolean;
   notify: boolean;
   sound: boolean;
+  server: boolean; // follow the 24/7 server instead of trading on the phone
+  serverUrl: string;
 }
 
 export interface DayState {

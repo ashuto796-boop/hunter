@@ -37,6 +37,16 @@ URL : https://ashuto796-boop.github.io/hunter/gold/ (sur téléphone : « Ajoute
 - **Risque** : sizing au % du capital, stop structurel, TP partiel à 1R + break-even, stop suiveur, limite de perte journalière, quota de trades, pause après 2 pertes, pas d'entrée autour des news US / FOMC / NFP ni avant le week-end.
 - **Entraînement** : au démarrage l'IA rejoue 30 à 180 jours d'historique bougie par bougie (walk-forward, spread inclus) ; à la réouverture elle rejoue les bougies manquées comme un serveur 24/7.
 
+### Serveur 24/7
+
+L'IA tourne aussi sans téléphone : le workflow `.github/workflows/aurum-server.yml` lance `server/main.ts` toutes les 15 minutes sur GitHub Actions. Chaque passage rejoue toutes les bougies clôturées depuis le précédent avec exactement le même moteur que l'app (même résultat qu'un bot jamais arrêté, même si GitHub décale un passage), se ré-entraîne une fois par jour, puis publie `state.json` sur la branche `aurum-data`. L'app lit ce fichier : elle affiche le compte, les trades et les décisions du serveur, et reprend la main toute seule si le serveur ne publie plus.
+
+- **Prix** : les serveurs GitHub sont aux États-Unis, où Binance Futures est bloqué ; le serveur utilise donc PAXG/USDT (1 PAXG = 1 once d'or) via `data-api.binance.vision`, l'API publique de données de marché de Binance, et le dollar (EUR/USDT) pour le radar.
+- **Réglages** : `server/config.json` (capital, risque, mode, unité de temps, spread, limites, `retrainHours`).
+- **Notifications push (optionnel)** : ajouter le secret de dépôt `NTFY_TOPIC` (app ntfy, gratuite) ou `TELEGRAM_TOKEN` + `TELEGRAM_CHAT_ID`.
+- **Repartir de zéro** : supprimer la branche `aurum-data`.
+- **Sur une machine à soi** (VPS, Raspberry Pi…) : `npm run server:loop` tourne en continu et sert l'état sur `http://<machine>:8787/state.json` (à placer derrière HTTPS pour l'app).
+
 Code : `src/gold/` (moteur dans `src/gold/engine/`). GitHub Pages sert la branche `main` telle quelle : après une modification, lancer `npm run build:gold` et committer le dossier `gold/` généré (`npm run dev:gold` pour développer).
 
 ## Tremplin — idées de SaaS, prompt Claude et plan de lancement

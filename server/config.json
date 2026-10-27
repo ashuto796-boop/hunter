@@ -1,0 +1,11 @@
+{
+  "capital": 10000,
+  "riskPct": 1,
+  "mode": "auto",
+  "tf": 15,
+  "spread": 0.3,
+  "maxTradesDay": 4,
+  "maxDailyLossPct": 3,
+  "trainDays": 60,
+  "source": "auto"
+}

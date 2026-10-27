@@ -10,7 +10,10 @@
     "dev:gold": "vite --config vite.gold.config.ts",
     "build:gold": "tsc && vite build --config vite.gold.config.ts",
     "dev:saas": "vite --config vite.saas.config.ts",
-    "build:saas": "tsc && vite build --config vite.saas.config.ts"
+    "build:saas": "tsc && vite build --config vite.saas.config.ts",
+    "server": "tsx server/main.ts",
+    "server:loop": "tsx server/main.ts --loop --port 8787",
+    "check:server": "tsc -p server"
   },
   "dependencies": {
     "react": "^18.2.0",
@@ -29,6 +32,8 @@
     "typescript": "^5.3.3",
     "tailwindcss": "^3.3.6",
     "postcss": "^8.4.32",
-    "autoprefixer": "^10.4.16"
+    "autoprefixer": "^10.4.16",
+    "tsx": "^4.19.2",
+    "@types/node": "^20.11.0"
   }
 }

@@ -1,65 +1,32 @@
 import { create } from "zustand";
 import { BrainMemory, ContextMemory, DayState, Decision, Position, Settings, Trade } from "./engine/types";
-import { Stats } from "./engine/stats";
 import { SourceId } from "./data/feed";
 import { emptyBrain } from "./engine/brain";
+import { DEFAULT_SETTINGS } from "./engine/defaults";
+import { TrainingResult } from "./engine/training";
+import { Thought } from "./engine/narrate";
+
+export { DEFAULT_SETTINGS };
+export type { Thought, TrainingResult };
+export type { Calibration, CalibrationRow } from "./engine/training";
 
 export type Tab = "live" | "brain" | "trades" | "lab" | "settings";
 
-export interface Thought {
-  t: number;
-  kind: "info" | "scan" | "entry" | "exit" | "warn" | "learn";
-  text: string;
+// The phone mirrors the 24/7 server when one is publishing
+export interface RemoteInfo {
+  updatedAt: number;
+  startedAt: number;
+  runs: number;
+  host: string;
+  fetchedAt: number;
+  error: string | null;
 }
-
-export interface CalibrationRow {
-  th: number;
-  learnN: number;
-  learnR: number;
-  valN: number;
-  valR: number;
-  valWin: number;
-}
-
-// Auto mode: thresholds compared on the first 70 % of the history, checked on the last 30 %
-export interface Calibration {
-  chosen: number;
-  splitT: number;
-  rows: CalibrationRow[];
-}
-
-export interface TrainingResult {
-  at: number;
-  source: SourceId;
-  mode: Settings["mode"];
-  from: number;
-  to: number;
-  days: number;
-  candles: number;
-  stats: Stats;
-  curve: { t: number; v: number }[];
-  trades: Trade[];
-  calibration: Calibration | null;
-}
-
-export const DEFAULT_SETTINGS: Settings = {
-  capital: 10000,
-  riskPct: 1,
-  mode: "auto",
-  tf: 15,
-  spread: 0.3,
-  maxTradesDay: 4,
-  maxDailyLossPct: 3,
-  source: "auto",
-  trainDays: 60,
-  keepAwake: true,
-  notify: true,
-  sound: true,
-};
 
 export interface GoldState {
   phase: "boot" | "loading" | "training" | "ready" | "error";
   threshold: number;
+  remote: RemoteInfo | null;
+  serverNote: string | null; // why the phone is trading locally although the server is enabled
   bootMsg: string;
   progress: number;
   source: SourceId | null;
@@ -80,6 +47,7 @@ export interface GoldState {
   ctx: ContextMemory;
   training: TrainingResult | null;
   settings: Settings;
+  trader: Settings; // settings of whoever is trading: the server's in server mode, else the phone's
   autopilot: boolean;
   cooldownUntil: number;
   tab: Tab;
@@ -88,6 +56,8 @@ export interface GoldState {
 export const useGold = create<GoldState>(() => ({
   phase: "boot",
   threshold: 61,
+  remote: null,
+  serverNote: null,
   bootMsg: "Démarrage…",
   progress: 0,
   source: null,
@@ -108,6 +78,7 @@ export const useGold = create<GoldState>(() => ({
   ctx: {},
   training: null,
   settings: DEFAULT_SETTINGS,
+  trader: DEFAULT_SETTINGS,
   autopilot: true,
   cooldownUntil: 0,
   tab: "live",

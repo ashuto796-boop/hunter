@@ -73,7 +73,8 @@ export function TradeRow({ t }: { t: Trade }) {
 export function Trades() {
   const trades = useGold((s) => s.trades);
   const balance = useGold((s) => s.balance);
-  const capital = useGold((s) => s.settings.capital);
+  const capital = useGold((s) => s.trader.capital);
+  const remote = useGold((s) => s.remote);
   const start = useMemo(() => balance - trades.reduce((a, t) => a + t.pnl, 0), [balance, trades]);
   const stats = useMemo(() => computeStats(trades, start), [trades, start]);
   const curve = useMemo(() => {
@@ -87,7 +88,7 @@ export function Trades() {
     <div className="page">
       <section className="card">
         <div className="card-title">
-          <span>Compte démo IA</span>
+          <span>{remote ? "Compte du serveur 24/7" : "Compte démo IA"}</span>
           <span className="num" style={{ textTransform: "none", letterSpacing: 0 }}>
             départ {capital.toLocaleString("fr-FR")} $
           </span>

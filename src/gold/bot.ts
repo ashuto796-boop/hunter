@@ -1,19 +1,26 @@
-// The autonomous trader: loads history, trains the brain walk-forward, replays what happened while
-// the phone was asleep, then trades the live stream on a paper account with real prices.
+// The autonomous trader. Two ways to run:
+// - server mode (default when the 24/7 server publishes): the phone mirrors the server's account,
+//   decisions and journal, and only streams prices for the chart and the live P&L;
+// - local mode: the phone loads history, trains the brain walk-forward, replays what happened while
+//   it was asleep, then trades the live stream itself on a paper account with real prices.
 import { Candle, Decision, Position, Settings, Trade, TraderState } from "./engine/types";
 import { Market, Peers, buildMarket } from "./engine/features";
-import { AUTO_CANDIDATES, AnalyseEnv, REGIME_LABEL, THRESHOLDS, analyse } from "./engine/brain";
+import { AnalyseEnv, THRESHOLDS, analyse } from "./engine/brain";
 import { closePosition, endOfBar, manageBar, newTraderState, openPosition, rollDay, simulate, warmupIndex } from "./engine/trader";
-import { computeStats, equityCurve, rSummary } from "./engine/stats";
+import { train } from "./engine/training";
+import { Thought, closeAlert, closeText, lossText, openAlert, openText, scanText, sideFr, trainingTexts } from "./engine/narrate";
 import { GoldSimulator } from "./engine/sim";
-import { MODULE_INFO } from "./engine/modules";
+import { ServerState } from "./engine/serverState";
 import { BinanceFeed, Feed, SOURCES, Source, SourceId, SimFeed, fetchHistory, fetchKlines, fetchNews, fetchPeers, probe, refreshPeers } from "./data/feed";
-import { Calibration, DEFAULT_SETTINGS, GoldState, Thought, useGold } from "./store";
+import { fetchServerState } from "./data/remote";
+import { DEFAULT_SETTINGS, GoldState, useGold } from "./store";
 import { beep, keepAwake, notify, vibrate } from "./device";
 
 const KEY = "aurum.v1";
 const DAY = 864e5;
 const MAX_THOUGHTS = 120;
+const REMOTE_POLL_MS = 60_000;
+const REMOTE_MAX_AGE = 6 * 3_600_000; // older than this, the phone trades by itself again
 
 interface Saved {
   settings: Settings;
@@ -33,10 +40,10 @@ function load(): Partial<Saved> {
   }
 }
 
-const money = (x: number) => `${x >= 0 ? "+" : "−"}${Math.abs(x).toFixed(2)} $`;
-const px = (x: number) => x.toFixed(2);
-const lots = (oz: number) => (oz / 100).toFixed(2);
-const sideFr = (d: number) => (d === 1 ? "ACHAT" : "VENTE");
+const ago = (t: number) => {
+  const min = Math.round((Date.now() - t) / 60000);
+  return min < 90 ? `${min} min` : `${Math.round(min / 60)} h`;
+};
 
 class Bot {
   settings: Settings;
@@ -53,11 +60,16 @@ class Bot {
   peers: Peers = {};
   market: Market | null = null;
   decision: Decision | null = null;
+  remote: ServerState | null = null;
+  private remoteFetchedAt = 0;
+  private remoteError: string | null = null;
+  private pollTimer: number | undefined;
   private feed: Feed | null = null;
   private news: AnalyseEnv["news"] = [];
   private sim: GoldSimulator | null = null;
   private booting = false;
   private resyncing = false;
+  private polling = false;
   private peersBusy = false;
   private lastTickPublish = 0;
   private candleVersion = 0;
@@ -76,16 +88,19 @@ class Bot {
     this.publish();
   }
 
+  // In server mode only the phone's preferences are saved: the local account is left untouched
   private save() {
-    const data: Saved = {
-      settings: this.settings,
-      st: { ...this.st, trades: this.st.trades.slice(-500) },
-      thoughts: this.thoughts.slice(-MAX_THOUGHTS),
-      lastProcessedT: this.lastProcessedT,
-      autopilot: this.autopilot,
-      source: this.src.id,
-      autoThreshold: this.autoThreshold,
-    };
+    const data: Saved = this.remote
+      ? { ...(load() as Saved), settings: this.settings }
+      : {
+          settings: this.settings,
+          st: { ...this.st, trades: this.st.trades.slice(-500) },
+          thoughts: this.thoughts.slice(-MAX_THOUGHTS),
+          lastProcessedT: this.lastProcessedT,
+          autopilot: this.autopilot,
+          source: this.src.id,
+          autoThreshold: this.autoThreshold,
+        };
     try {
       localStorage.setItem(KEY, JSON.stringify(data));
     } catch {
@@ -99,7 +114,18 @@ class Bot {
   }
 
   private threshold(): number {
+    const r = this.remote;
+    if (r) return r.settings.mode === "auto" ? r.autoThreshold : THRESHOLDS[r.settings.mode];
     return this.settings.mode === "auto" ? this.autoThreshold : THRESHOLDS[this.settings.mode];
+  }
+
+  // timeframe and spread of whoever is trading
+  private tf(): number {
+    return this.remote?.settings.tf ?? this.settings.tf;
+  }
+
+  private spread(): number {
+    return this.remote?.settings.spread ?? this.settings.spread;
   }
 
   private env(): AnalyseEnv {
@@ -108,7 +134,7 @@ class Bot {
 
   // Silver / dollar bars for the intermarket radar; a full reload after a long absence
   private async updatePeers(full = false) {
-    if (this.peersBusy || this.src.id === "sim") return;
+    if (this.peersBusy || this.src.id === "sim" || this.remote) return;
     this.peersBusy = true;
     try {
       if (full) this.peers = await fetchPeers(this.settings.trainDays + 10);
@@ -119,17 +145,17 @@ class Bot {
   }
 
   private rebuild() {
-    this.market = buildMarket(this.candles, this.settings.tf, this.peers);
+    this.market = buildMarket(this.candles, this.tf(), this.peers);
     this.candleVersion++;
   }
 
   private livePrice(): number {
-    return this.forming?.c ?? this.candles[this.candles.length - 1]?.c ?? 0;
+    return this.forming?.c ?? this.candles[this.candles.length - 1]?.c ?? this.remote?.price ?? 0;
   }
 
   private unrealized(p: Position | null): number {
     if (!p) return 0;
-    const exitMid = this.livePrice() - (p.dir * this.settings.spread) / 2;
+    const exitMid = this.livePrice() - (p.dir * this.spread()) / 2;
     return p.realized + p.dir * (exitMid - p.entry) * p.oz;
   }
 
@@ -143,34 +169,40 @@ class Bot {
   }
 
   publish(kind: "all" | "tick" = "all") {
-    const unreal = this.unrealized(this.st.position);
+    const st = this.remote?.st ?? this.st;
+    const unreal = this.unrealized(st.position);
     const base: Partial<GoldState> = {
       price: this.livePrice(),
-      position: this.st.position ? { ...this.st.position } : null,
+      position: st.position ? { ...st.position } : null,
       unrealized: unreal,
-      equity: this.st.balance + unreal,
+      equity: st.balance + unreal,
       tickVersion: ++this.tickVersion,
     };
     if (kind === "tick") {
       useGold.setState(base);
       return;
     }
+    const r = this.remote;
     useGold.setState({
       ...base,
-      source: this.market ? this.src.id : null,
+      source: this.market || r ? this.src.id : null,
       dayOpen: this.dayOpen(),
       candleVersion: this.candleVersion,
-      decision: this.decision,
-      balance: this.st.balance,
-      trades: this.st.trades.slice(),
-      thoughts: this.thoughts.slice(),
-      day: { ...this.st.day },
-      brain: JSON.parse(JSON.stringify(this.st.brain)),
-      ctx: JSON.parse(JSON.stringify(this.st.ctx)),
+      decision: r ? r.decision : this.decision,
+      balance: st.balance,
+      trades: st.trades.slice(),
+      thoughts: (r ? r.thoughts : this.thoughts).slice(),
+      day: { ...st.day },
+      brain: JSON.parse(JSON.stringify(st.brain)),
+      ctx: JSON.parse(JSON.stringify(st.ctx ?? {})),
       settings: { ...this.settings },
+      trader: { ...(r ? r.settings : this.settings) },
       autopilot: this.autopilot,
-      cooldownUntil: this.st.cooldownUntil,
+      cooldownUntil: st.cooldownUntil,
       threshold: this.threshold(),
+      remote: r
+        ? { updatedAt: r.updatedAt, startedAt: r.startedAt, runs: r.runs, host: r.host, fetchedAt: this.remoteFetchedAt, error: this.remoteError }
+        : null,
     });
   }
 
@@ -190,43 +222,28 @@ class Bot {
     this.booting = true;
     this.feed?.stop();
     this.feed = null;
+    window.clearInterval(this.pollTimer);
+    this.pollTimer = undefined;
+    this.remote = null;
+    this.market = null;
+    this.candles = [];
+    this.forming = null;
     try {
-      useGold.setState({ phase: "loading", progress: 0, bootMsg: "Connexion au marché de l'or…", feed: "off" });
-      this.src = await this.chooseSource();
-      const tf = this.settings.tf;
-      const days = this.settings.trainDays + 10;
-      useGold.setState({ bootMsg: `Chargement de ${days} jours d'historique ${this.src.short}…` });
-      const newsP = this.src.id === "sim" ? Promise.resolve([]) : fetchNews();
-      const peersP = this.src.id === "sim" ? Promise.resolve({}) : fetchPeers(days);
-      let all: Candle[];
-      if (this.src.id === "sim") {
-        this.sim = new GoldSimulator(Math.floor(Date.now() / DAY), 4000);
-        all = this.sim.history(Date.now(), Math.round((days * 1440) / tf), tf);
-      } else {
-        all = await fetchHistory(this.src, tf, days, (p) => useGold.setState({ progress: p }));
+      useGold.setState({ phase: "loading", progress: 0, bootMsg: "Connexion au marché de l'or…", feed: "off", serverNote: null, remote: null });
+      if (this.settings.server) {
+        useGold.setState({ bootMsg: "Connexion au serveur 24/7…" });
+        try {
+          const r = await fetchServerState(this.settings.serverUrl);
+          if (Date.now() - r.updatedAt < REMOTE_MAX_AGE) {
+            await this.bootRemote(r);
+            return;
+          }
+          useGold.setState({ serverNote: `Le serveur 24/7 n'a plus tourné depuis ${ago(r.updatedAt)} : l'IA du téléphone prend le relais.` });
+        } catch (e) {
+          useGold.setState({ serverNote: `Serveur 24/7 injoignable (${(e as Error).message}) : l'IA du téléphone trade elle-même.` });
+        }
       }
-      this.news = await newsP;
-      this.peers = await peersP;
-      const now = Date.now();
-      const closed = all.filter((k) => k.t + tf * 60000 <= now);
-      this.forming = all.find((k) => k.t + tf * 60000 > now) ?? null;
-      if (closed.length < 400) throw new Error("Historique insuffisant");
-      this.candles = closed;
-      this.rebuild();
-      this.think("info", `Flux : ${this.src.label}. ${closed.length} bougies M${tf} chargées.`);
-      const radar = [this.peers.xag?.length ? "argent (XAG)" : "", this.peers.eur?.length ? "dollar (EUR/USD)" : ""].filter(Boolean);
-      if (radar.length) this.think("info", `Radar intermarché actif : ${radar.join(" + ")}.`);
-      if (this.news.length) this.think("info", `${this.news.length} annonces US à fort impact cette semaine : je me mettrai à l'écart autour.`);
-
-      useGold.setState({ phase: "training", bootMsg: `Entraînement sur ${this.settings.trainDays} jours d'or…` });
-      await new Promise((r) => setTimeout(r, 60));
-      await this.train();
-      this.catchUp();
-      this.startFeed();
-      useGold.setState({ phase: "ready" });
-      this.publish();
-      this.save();
-      if (this.autopilot && this.settings.keepAwake) keepAwake(true);
+      await this.bootLocal();
     } catch (e) {
       useGold.setState({ phase: "error", bootMsg: `Impossible de démarrer : ${(e as Error).message}` });
     } finally {
@@ -234,83 +251,113 @@ class Bot {
     }
   }
 
-  // Walk-forward training: the brain lives through the whole history candle by candle,
-  // trading it on a separate account, and keeps the per-module memory it built.
-  // In auto mode it also picks its own threshold on the first 70 % of the history
-  // and reports how that choice did on the last 30 % it never optimised on.
-  async train() {
-    const m = this.market!;
-    const capital = this.settings.capital;
-    const from = warmupIndex(m);
-    const to = m.ltf.c.length - 1;
-    const run = (threshold: number) => {
-      const st = newTraderState(capital);
-      simulate({ ...this.env(), threshold }, st, from, to, { replay: false });
-      return st;
-    };
-    let st: TraderState;
-    let calibration: Calibration | null = null;
-    if (this.settings.mode === "auto") {
-      const splitT = m.ltf.c[from + Math.floor((to - from) * 0.7)].t;
-      const candidates = to - from > 20000 ? [57, 61, 65] : AUTO_CANDIDATES;
-      let best: { th: number; st: TraderState; obj: number } | null = null;
-      const rows: Calibration["rows"] = [];
-      for (const [k, th] of candidates.entries()) {
-        useGold.setState({ bootMsg: `Calibration ${k + 1}/${candidates.length} : seuil ${th}…`, progress: k / candidates.length });
-        await new Promise((r) => setTimeout(r, 0));
-        const res = run(th);
-        const learn = rSummary(res.trades.filter((t) => t.openTime < splitT));
-        const val = rSummary(res.trades.filter((t) => t.openTime >= splitT));
-        rows.push({ th, learnN: learn.n, learnR: learn.sumR, valN: val.n, valR: val.sumR, valWin: val.winRate });
-        // robust objective: total R minus half the worst drawdown, with a minimum sample
-        const obj = learn.n >= 6 ? learn.sumR - 0.5 * learn.maxDDR : -Infinity;
-        if (!best || obj > best.obj || (obj === best.obj && th > best.th)) best = { th, st: res, obj };
-      }
-      if (best!.obj === -Infinity) best = { th: THRESHOLDS.auto, st: run(THRESHOLDS.auto), obj: 0 };
-      this.autoThreshold = best!.th;
-      st = best!.st;
-      calibration = { chosen: best!.th, splitT, rows };
-    } else {
-      st = run(THRESHOLDS[this.settings.mode]);
+  // ---------- server mode ----------
+
+  private async bootRemote(r: ServerState) {
+    this.remote = r;
+    this.remoteFetchedAt = Date.now();
+    this.remoteError = null;
+    this.src = SOURCES[(r.source in SOURCES ? r.source : "paxg") as SourceId];
+    const tf = r.settings.tf;
+    useGold.setState({ bootMsg: `Chargement du graphique ${this.src.short}…`, training: r.training });
+    try {
+      const all = await fetchHistory(this.src, tf, 6);
+      const now = Date.now();
+      this.candles = all.filter((k) => k.t + tf * 60000 <= now);
+      this.forming = all.find((k) => k.t + tf * 60000 > now) ?? null;
+    } catch {
+      this.candles = []; // no chart on this network, the account is still mirrored
     }
-    this.st.brain = st.brain;
-    this.st.ctx = st.ctx;
-    const stats = computeStats(st.trades, capital);
-    const tfMs = this.settings.tf * 60000;
-    const t0 = m.ltf.c[Math.min(from, to)].t;
-    useGold.setState({
-      training: {
-        at: Date.now(),
-        source: this.src.id,
-        mode: this.settings.mode,
-        from: t0,
-        to: m.ltf.c[to].t + tfMs,
-        days: (m.ltf.c[to].t - t0) / DAY,
-        candles: to - from + 1,
-        stats,
-        curve: equityCurve(st.trades, capital, t0),
-        trades: st.trades.slice().reverse(),
-        calibration,
-      },
-    });
-    this.think(
-      "learn",
-      `Entraînement terminé : ${stats.n} trades simulés en ${((m.ltf.c[to].t - t0) / DAY).toFixed(0)} jours — ` +
-        `réussite ${(stats.winRate * 100).toFixed(0)} %, facteur de profit ${Number.isFinite(stats.pf) ? stats.pf.toFixed(2) : "∞"}, ` +
-        `${stats.sumR >= 0 ? "+" : ""}${stats.sumR.toFixed(1)}R. Poids des modules ajustés.`
-    );
-    if (calibration) {
-      const row = calibration.rows.find((r) => r.th === calibration!.chosen);
-      this.think(
-        "learn",
-        `Calibration auto : seuil ${calibration.chosen} retenu. Test sur la période récente jamais optimisée : ` +
-          (row ? `${row.valN} trades, ${row.valR >= 0 ? "+" : ""}${row.valR.toFixed(1)}R.` : "pas de données.")
-      );
+    if (this.candles.length) {
+      this.rebuild();
+      this.startFeed();
+    }
+    this.pollTimer = window.setInterval(() => this.pollRemote(), REMOTE_POLL_MS);
+    useGold.setState({ phase: "ready" });
+    this.publish();
+    this.save();
+  }
+
+  private async pollRemote() {
+    if (!this.remote || this.polling) return;
+    this.polling = true;
+    try {
+      const r = await fetchServerState(this.settings.serverUrl);
+      this.remoteFetchedAt = Date.now();
+      this.remoteError = null;
+      if (r.updatedAt > this.remote.updatedAt) this.applyRemote(r);
+      else this.publish();
+    } catch (e) {
+      this.remoteError = (e as Error).message;
+      this.publish();
+    } finally {
+      this.polling = false;
     }
   }
 
+  // New trades and positions on the server become phone notifications while the app is open
+  private applyRemote(r: ServerState) {
+    const prev = this.remote!;
+    this.remote = r;
+    const known = new Set(prev.st.trades.map((t) => t.id + t.openTime));
+    for (const t of r.st.trades) if (!known.has(t.id + t.openTime)) this.alertClose(t);
+    const p = r.st.position;
+    if (p && (p.id !== prev.st.position?.id || p.openTime !== prev.st.position?.openTime)) this.alertOpen(p);
+    useGold.setState({ training: r.training });
+    this.publish();
+  }
+
+  // ---------- local mode ----------
+
+  private async bootLocal() {
+    this.src = await this.chooseSource();
+    const tf = this.settings.tf;
+    const days = this.settings.trainDays + 10;
+    useGold.setState({ bootMsg: `Chargement de ${days} jours d'historique ${this.src.short}…` });
+    const newsP = this.src.id === "sim" ? Promise.resolve([]) : fetchNews();
+    const peersP = this.src.id === "sim" ? Promise.resolve({}) : fetchPeers(days);
+    let all: Candle[];
+    if (this.src.id === "sim") {
+      this.sim = new GoldSimulator(Math.floor(Date.now() / DAY), 4000);
+      all = this.sim.history(Date.now(), Math.round((days * 1440) / tf), tf);
+    } else {
+      all = await fetchHistory(this.src, tf, days, (p) => useGold.setState({ progress: p }));
+    }
+    this.news = await newsP;
+    this.peers = await peersP;
+    const now = Date.now();
+    const closed = all.filter((k) => k.t + tf * 60000 <= now);
+    this.forming = all.find((k) => k.t + tf * 60000 > now) ?? null;
+    if (closed.length < 400) throw new Error("Historique insuffisant");
+    this.candles = closed;
+    this.rebuild();
+    this.think("info", `Flux : ${this.src.label}. ${closed.length} bougies M${tf} chargées.`);
+    const radar = [this.peers.xag?.length ? "argent (XAG)" : "", this.peers.eur?.length ? "dollar (EUR/USD)" : ""].filter(Boolean);
+    if (radar.length) this.think("info", `Radar intermarché actif : ${radar.join(" + ")}.`);
+    if (this.news.length) this.think("info", `${this.news.length} annonces US à fort impact cette semaine : je me mettrai à l'écart autour.`);
+
+    useGold.setState({ phase: "training", bootMsg: `Entraînement sur ${this.settings.trainDays} jours d'or…` });
+    await new Promise((r) => setTimeout(r, 60));
+    await this.train();
+    this.catchUp();
+    this.startFeed();
+    useGold.setState({ phase: "ready" });
+    this.publish();
+    this.save();
+    if (this.autopilot && this.settings.keepAwake) keepAwake(true);
+  }
+
+  async train() {
+    const tr = await train(this.env(), this.src.id, (msg, p) => useGold.setState({ bootMsg: msg, progress: p }));
+    this.st.brain = tr.st.brain;
+    this.st.ctx = tr.st.ctx;
+    if (this.settings.mode === "auto") this.autoThreshold = tr.threshold;
+    useGold.setState({ training: tr.result });
+    for (const text of trainingTexts(tr.result)) this.think("learn", text);
+  }
+
   async retrain() {
-    if (!this.market) return;
+    if (!this.market || this.remote) return;
     await this.train();
     this.decision = analyse(this.env(), this.st, this.market.ltf.c.length - 1);
     this.publish();
@@ -343,7 +390,7 @@ class Bot {
       replay: true,
       allowEntries: this.autopilot,
       onEvent: (e) => {
-        if (e.kind === "open" && e.position) this.logOpen(e.position, e.t);
+        if (e.kind === "open" && e.position) this.think("entry", openText(e.position), e.t);
         if (e.kind === "close" && e.trade) this.logClose(e.trade, false);
       },
     });
@@ -359,8 +406,10 @@ class Bot {
     this.decision = analyse(this.env(), this.st, last);
   }
 
+  // ---------- live stream (both modes) ----------
+
   private startFeed() {
-    const tf = this.settings.tf;
+    const tf = this.tf();
     const handlers = {
       onTick: (k: Candle) => this.onTick(k),
       onClose: (k: Candle) => this.onClose(k),
@@ -378,7 +427,7 @@ class Bot {
 
   private onTick(k: Candle) {
     if (!this.market) return;
-    const tfMs = this.settings.tf * 60000;
+    const tfMs = this.tf() * 60000;
     const lastT = this.candles[this.candles.length - 1].t;
     if (k.t <= lastT) return;
     if (k.t > lastT + tfMs) {
@@ -387,7 +436,7 @@ class Bot {
     }
     const prev = this.forming && this.forming.t === k.t ? this.forming : null;
     this.forming = { ...k };
-    if (this.st.position) {
+    if (!this.remote && this.st.position) {
       const o = prev ? prev.c : k.o;
       const mini: Candle = {
         t: k.t,
@@ -412,9 +461,16 @@ class Bot {
     }
   }
 
+  private appendClosed(list: Candle[]) {
+    this.candles.push(...list);
+    const days = this.remote ? 6 : this.settings.trainDays + 10;
+    const maxLen = Math.round((days * 1440) / this.tf());
+    if (this.candles.length > maxLen) this.candles.splice(0, this.candles.length - maxLen);
+  }
+
   private onClose(k: Candle) {
     if (!this.market) return;
-    const tfMs = this.settings.tf * 60000;
+    const tfMs = this.tf() * 60000;
     const lastT = this.candles[this.candles.length - 1].t;
     if (k.t <= lastT) return;
     if (k.t > lastT + tfMs) {
@@ -422,11 +478,13 @@ class Bot {
       return;
     }
     const prev = this.forming && this.forming.t === k.t ? this.forming : null;
-    this.candles.push(k);
-    const maxLen = Math.round(((this.settings.trainDays + 10) * 1440) / this.settings.tf);
-    if (this.candles.length > maxLen) this.candles.splice(0, this.candles.length - maxLen);
+    this.appendClosed([k]);
     this.forming = null;
     this.rebuild();
+    if (this.remote) {
+      this.publish(); // the server does the trading
+      return;
+    }
     const i = this.candles.length - 1;
     const tClose = k.t + tfMs;
     if (this.st.position) {
@@ -447,8 +505,7 @@ class Bot {
   private decide(i: number) {
     const d = analyse(this.env(), this.st, i);
     this.decision = d;
-    const bias = `${d.bias >= 0 ? "haussier" : "baissier"} ${Math.abs(d.bias * 100).toFixed(0)} %`;
-    this.think("scan", `${REGIME_LABEL[d.regime]} · biais H1/H4 ${bias} · ${d.verdict}`, d.t);
+    this.think("scan", scanText(d), d.t);
     if (!d.plan) return;
     if (!this.autopilot) {
       this.think("warn", `Pilote auto coupé : j'aurais pris ${sideFr(d.plan.dir)} (score ${d.score}).`, d.t);
@@ -460,46 +517,35 @@ class Bot {
   }
 
   private onOpened(p: Position) {
-    this.logOpen(p, p.openTime);
-    if (this.settings.notify) notify(`AURUM — ${sideFr(p.dir)} ${lots(p.oz0)} lot`, `Entrée ${px(p.entry)} · SL ${px(p.sl0)} · TP ${px(p.tp2)} · score ${p.score}`);
+    this.think("entry", openText(p), p.openTime);
+    this.alertOpen(p);
+  }
+
+  private alertOpen(p: Position) {
+    if (this.settings.notify) notify(...openAlert(p));
     if (this.settings.sound) beep("open");
     vibrate([60, 40, 60]);
   }
 
-  private logOpen(p: Position, t: number) {
-    const why = p.reasons.slice(0, 2).join(" · ");
-    this.think(
-      "entry",
-      `${p.replay ? "[rattrapage] " : ""}${sideFr(p.dir)} ${lots(p.oz0)} lot à ${px(p.entry)} — SL ${px(p.sl0)}, TP1 ${px(p.tp1)}, TP2 ${px(p.tp2)}. ` +
-        `Module principal : ${MODULE_INFO[p.primary].name}. ${why}`,
-      t
-    );
-  }
-
-  private logClose(tr: Trade, live: boolean) {
-    const label: Record<Trade["reason"], string> = {
-      SL: "Stop touché",
-      TP2: "Objectif final atteint",
-      BE: "Sortie à break-even",
-      TRAIL: "Stop suiveur touché",
-      TEMPS: "Trade sans élan, coupé",
-      WEEKEND: "Fermeture avant le week-end",
-      MANUEL: "Clôture manuelle",
-    };
-    this.think("exit", `${tr.replay ? "[rattrapage] " : ""}${label[tr.reason]} : ${tr.r >= 0 ? "+" : ""}${tr.r.toFixed(2)}R (${money(tr.pnl)}).`, tr.closeTime);
-    if (tr.r < -0.1) this.think("learn", `Perte enregistrée : ${MODULE_INFO[tr.primary].name} perd un peu de poids dans mes décisions.`, tr.closeTime);
-    if (!live) return;
-    if (this.settings.notify) notify(`AURUM — ${label[tr.reason]}`, `${tr.r >= 0 ? "+" : ""}${tr.r.toFixed(2)}R · ${money(tr.pnl)}`);
+  private alertClose(tr: Trade) {
+    if (this.settings.notify) notify(...closeAlert(tr));
     if (this.settings.sound) beep(tr.pnl >= 0 ? "win" : "loss");
     vibrate(tr.pnl >= 0 ? [40, 30, 40, 30, 120] : [200]);
   }
 
-  // Fetch candles missed after a sleep / network drop and replay them
+  private logClose(tr: Trade, live: boolean) {
+    this.think("exit", closeText(tr), tr.closeTime);
+    const lesson = lossText(tr);
+    if (lesson) this.think("learn", lesson, tr.closeTime);
+    if (live) this.alertClose(tr);
+  }
+
+  // Fetch candles missed after a sleep / network drop (and replay them in local mode)
   async resync() {
     if (this.resyncing || this.booting || !this.market) return;
     this.resyncing = true;
     try {
-      const tf = this.settings.tf;
+      const tf = this.tf();
       const tfMs = tf * 60000;
       const lastT = this.candles[this.candles.length - 1].t;
       let fresh: Candle[];
@@ -507,7 +553,7 @@ class Bot {
         const n = Math.floor((Date.now() - (lastT + tfMs)) / tfMs);
         fresh = n > 0 ? this.sim!.history(Date.now(), Math.min(n, 2000), tf).filter((k) => k.t > lastT) : [];
       } else if (Date.now() - lastT > 3 * DAY) {
-        fresh = await fetchHistory(this.src, tf, (Date.now() - lastT) / DAY + 0.1);
+        fresh = await fetchHistory(this.src, tf, Math.min((Date.now() - lastT) / DAY + 0.1, this.remote ? 6 : 99));
       } else {
         fresh = await fetchKlines(this.src, tf, { start: lastT + tfMs });
       }
@@ -515,12 +561,10 @@ class Bot {
       const closed = fresh.filter((k) => k.t > lastT && k.t + tfMs <= now);
       const forming = fresh.find((k) => k.t + tfMs > now) ?? null;
       if (closed.length) {
-        await this.updatePeers(now - lastT > 5 * 3_600_000);
-        this.candles.push(...closed);
-        const maxLen = Math.round(((this.settings.trainDays + 10) * 1440) / tf);
-        if (this.candles.length > maxLen) this.candles.splice(0, this.candles.length - maxLen);
+        if (!this.remote) await this.updatePeers(now - lastT > 5 * 3_600_000);
+        this.appendClosed(closed);
         this.rebuild();
-        this.catchUp();
+        if (!this.remote) this.catchUp();
       }
       if (forming) this.forming = forming;
       if (this.feed instanceof BinanceFeed) this.feed.setLastClosed(this.candles[this.candles.length - 1].t);
@@ -535,11 +579,13 @@ class Bot {
 
   onVisible() {
     if (useGold.getState().phase !== "ready") return;
+    if (this.remote) this.pollRemote();
     this.resync();
-    if (this.autopilot && this.settings.keepAwake) keepAwake(true);
+    if (!this.remote && this.autopilot && this.settings.keepAwake) keepAwake(true);
   }
 
   setAutopilot(on: boolean) {
+    if (this.remote) return;
     this.autopilot = on;
     this.think("info", on ? "Pilote automatique activé : je trade seul." : "Pilote automatique coupé : j'analyse mais je n'ouvre plus rien.");
     keepAwake(on && this.settings.keepAwake);
@@ -549,7 +595,7 @@ class Bot {
 
   closeNow() {
     const p = this.st.position;
-    if (!p) return;
+    if (!p || this.remote) return;
     const fill = this.livePrice() - (p.dir * this.settings.spread) / 2;
     const tr = closePosition(this.st, fill, Date.now(), "MANUEL");
     this.logClose(tr, true);
@@ -560,28 +606,41 @@ class Bot {
   updateSettings(patch: Partial<Settings>) {
     const prev = this.settings;
     this.settings = { ...prev, ...patch };
-    const reboot = patch.tf !== undefined && patch.tf !== prev.tf;
-    const reload =
-      (patch.source !== undefined && patch.source !== prev.source) || (patch.trainDays !== undefined && patch.trainDays !== prev.trainDays);
-    if (patch.keepAwake !== undefined) keepAwake(this.autopilot && this.settings.keepAwake);
+    const changed = (k: keyof Settings) => patch[k] !== undefined && patch[k] !== prev[k];
+    if (patch.keepAwake !== undefined) keepAwake(!this.remote && this.autopilot && this.settings.keepAwake);
+    if (changed("server") || changed("serverUrl")) {
+      this.save();
+      this.boot();
+      return;
+    }
+    if (this.remote) {
+      // the server follows server/config.json; these only matter if the phone trades again
+      this.save();
+      this.publish();
+      return;
+    }
+    const reboot = changed("tf");
     if (reboot) {
       // a different timeframe is a different trader: start a clean journal
       if (this.st.position) this.closeNow();
       this.lastProcessedT = 0;
     }
     this.save();
-    if (reboot || reload) {
+    if (reboot || changed("source") || changed("trainDays")) {
       this.boot();
       return;
     }
-    if (patch.mode !== undefined && patch.mode !== prev.mode) this.retrain();
+    if (changed("mode")) this.retrain();
     else this.publish();
   }
 
   resetAccount() {
+    if (this.remote) return;
     const brain = this.st.brain;
+    const ctx = this.st.ctx;
     this.st = newTraderState(this.settings.capital);
     this.st.brain = brain;
+    this.st.ctx = ctx;
     this.thoughts = [];
     if (this.market) this.lastProcessedT = this.market.ltf.c[this.market.ltf.c.length - 1].t + this.settings.tf * 60000;
     this.think("info", `Compte démo remis à ${this.settings.capital.toFixed(0)} $.`);

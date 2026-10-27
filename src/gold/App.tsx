@@ -55,6 +55,7 @@ function Boot() {
 function FeedPill() {
   const source = useGold((s) => s.source);
   const feed = useGold((s) => s.feed);
+  const remote = useGold((s) => s.remote);
   const dot = source === "sim" ? "sim" : feed === "live" ? "live" : feed === "off" ? "" : "warn";
   const label = feed === "live" ? "LIVE" : feed === "polling" ? "REST" : feed === "reconnecting" ? "…" : "OFF";
   return (
@@ -62,6 +63,7 @@ function FeedPill() {
       <span className={`dot ${dot}`} />
       <span>{source ? SOURCES[source].short : "—"}</span>
       <span className="muted">{label}</span>
+      {remote && <span className="chip gold" style={{ padding: "1px 7px", fontSize: 10.5 }}>24/7</span>}
     </div>
   );
 }

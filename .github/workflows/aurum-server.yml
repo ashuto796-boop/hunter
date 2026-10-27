@@ -1,0 +1,56 @@
+name: AURUM serveur 24/7
+
+# The gold AI runs here every 15 minutes, phone on or off. Each run replays every closed candle
+# since the previous one with the same engine as the app (server/main.ts), then publishes
+# state.json on the aurum-data branch, which the app reads.
+# Settings: server/config.json. Optional push alerts: repository secrets NTFY_TOPIC (ntfy app)
+# or TELEGRAM_TOKEN + TELEGRAM_CHAT_ID. To start over with a new account: delete aurum-data.
+on:
+  schedule:
+    - cron: "3,18,33,48 * * * *" # 3 min after each 15-min candle close (GitHub may run it later)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: aurum-server
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Load previous state
+        run: |
+          if git fetch -q origin aurum-data 2>/dev/null; then
+            git show FETCH_HEAD:state.json > state.json
+            echo "État précédent chargé."
+          else
+            echo "Premier passage : nouveau compte démo."
+          fi
+
+      - name: Run the AI
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: npx -y tsx@4.19.2 server/main.ts --state state.json
+
+      - name: Publish state
+        run: |
+          mkdir publish && cp state.json publish/ && cd publish
+          git init -q -b aurum-data
+          git add state.json
+          git -c user.name="AURUM bot" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "AURUM : état du $(date -u +'%Y-%m-%d %H:%M') UTC"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" aurum-data

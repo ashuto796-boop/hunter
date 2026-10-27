@@ -1,4 +1,5 @@
 import { ReactNode, useState } from "react";
+import { dateTime } from "../ui/format";
 import { useGold } from "../store";
 import { bot } from "../bot";
 import { Settings } from "../engine/types";
@@ -57,14 +58,77 @@ function Toggle({ on, onChange, label }: { on: boolean; onChange: (v: boolean) =
   return <button className={`switch ${on ? "on" : ""}`} role="switch" aria-checked={on} aria-label={label} onClick={() => onChange(!on)} />;
 }
 
+const MODE_LABEL = { auto: "Auto", prudent: "Prudent", equilibre: "Équilibré", agressif: "Agressif" } as const;
+
+// raw.githubusercontent.com/<owner>/<repo>/... -> github.com/<owner>/<repo>
+function repoOf(url: string): string | null {
+  const m = /^https:\/\/raw\.githubusercontent\.com\/([^/]+)\/([^/]+)\//.exec(url);
+  return m ? `https://github.com/${m[1]}/${m[2]}` : null;
+}
+
+function ServerSection() {
+  const s = useGold((x) => x.settings);
+  const remote = useGold((x) => x.remote);
+  const note = useGold((x) => x.serverNote);
+  const trader = useGold((x) => x.trader);
+  const [url, setUrl] = useState(s.serverUrl);
+  const repo = repoOf(s.serverUrl);
+  return (
+    <section className="card">
+      <div className="card-title">
+        <span>Serveur 24/7</span>
+        {remote ? <span className="chip gold">connecté</span> : s.server && <span className="chip">hors ligne</span>}
+      </div>
+      <Field label="Suivre le serveur 24/7" help="L'IA trade sur GitHub toutes les 15 min, même téléphone éteint">
+        <Toggle on={s.server} label="Suivre le serveur 24/7" onChange={(server) => bot.updateSettings({ server })} />
+      </Field>
+      {remote && (
+        <p className="note" style={{ margin: "10px 0" }}>
+          Dernier passage le {dateTime(remote.updatedAt)} · {remote.runs} passages depuis le {dateTime(remote.startedAt)}. Réglages du serveur : risque {trader.riskPct} %, mode{" "}
+          {MODE_LABEL[trader.mode]}, M{trader.tf}, capital {trader.capital.toLocaleString("fr-FR")} $.
+        </p>
+      )}
+      {!remote && note && <p className="note" style={{ margin: "10px 0" }}>{note}</p>}
+      {repo && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
+          <a className="btn block" href={`${repo}/edit/main/server/config.json`} target="_blank" rel="noreferrer">
+            Modifier les réglages du serveur
+          </a>
+          <a className="btn block" href={`${repo}/actions/workflows/aurum-server.yml`} target="_blank" rel="noreferrer">
+            Voir les passages du serveur
+          </a>
+        </div>
+      )}
+      <details style={{ marginTop: 12 }}>
+        <summary className="field-help">Adresse du serveur (avancé)</summary>
+        <input
+          className="input"
+          style={{ width: "100%", textAlign: "left", marginTop: 8, fontSize: 12 }}
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          onBlur={() => url.trim() && url !== s.serverUrl && bot.updateSettings({ serverUrl: url.trim() })}
+        />
+      </details>
+    </section>
+  );
+}
+
 export function SettingsPage() {
   const s = useGold((x) => x.settings);
   const source = useGold((x) => x.source);
   const threshold = useGold((x) => x.threshold);
+  const remote = useGold((x) => x.remote);
   const set = (p: Partial<Settings>) => bot.updateSettings(p);
 
   return (
     <div className="page">
+      <ServerSection />
+      {remote && (
+        <div className="banner">
+          <span>ℹ️</span>
+          <span>Les réglages ci-dessous servent quand le téléphone trade lui-même. Le serveur suit son fichier de réglages sur GitHub (bouton ci-dessus).</span>
+        </div>
+      )}
       <section className="card">
         <div className="card-title">Style de l'IA</div>
         <Seg
@@ -162,9 +226,18 @@ export function SettingsPage() {
 
       <section className="card">
         <div className="card-title">Compte</div>
-        <button className="btn danger block" onClick={() => confirm(`Remettre le compte démo à ${s.capital} $ ? L'historique des trades sera effacé (l'expérience de l'IA est conservée).`) && bot.resetAccount()}>
-          Réinitialiser le compte démo
-        </button>
+        {remote ? (
+          <p className="note">
+            Le compte affiché est celui du serveur. Pour le remettre à zéro, supprime la branche « aurum-data » sur GitHub : le serveur repartira d'un compte neuf au passage suivant.
+          </p>
+        ) : (
+          <button
+            className="btn danger block"
+            onClick={() => confirm(`Remettre le compte démo à ${s.capital} $ ? L'historique des trades sera effacé (l'expérience de l'IA est conservée).`) && bot.resetAccount()}
+          >
+            Réinitialiser le compte démo
+          </button>
+        )}
       </section>
 
       <section className="card">
@@ -173,7 +246,8 @@ export function SettingsPage() {
           AURUM analyse l'or à chaque clôture de bougie avec 7 stratégies de pros (liquidité, tendance, Londres, squeeze, momentum, retour à la moyenne, divergence). Un cerveau central pèse leurs votes selon le régime du marché, la tendance H1/H4, la session et leurs résultats passés. Il ne trade que si la confiance dépasse le seuil, avec stop, prise de profit partielle à 1R, break-even et stop suiveur.
         </p>
         <p style={{ fontSize: 13.5, lineHeight: 1.55, marginTop: 10 }}>
-          Quand tu rouvres l'app, l'IA rejoue les bougies manquées exactement comme un serveur 24h/24 l'aurait fait (trades marqués « rattrapage »).
+          Avec le serveur 24/7, l'IA tourne sur GitHub toutes les 15 minutes même téléphone éteint ; l'app affiche son compte et ses décisions. Sans serveur, l'IA
+          du téléphone rejoue les bougies manquées à la réouverture (trades marqués « rattrapage »).
         </p>
         <p className="note" style={{ marginTop: 10 }}>
           Mode démo uniquement : aucun ordre réel n'est envoyé à un courtier. Aucune IA ne peut garantir des gains.
