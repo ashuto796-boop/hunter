@@ -2,27 +2,43 @@ name: AURUM data probe
 on:
   push:
     branches: [aurum-probe]
+permissions:
+  contents: write
 jobs:
-  probe:
+  dump:
+    if: "!contains(github.event.head_commit.message, '[skip probe]')"
     runs-on: ubuntu-latest
     steps:
-      - name: Probe gold data sources
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Dump 180 days of real gold (PAXG M15) and EUR/USDT H1
         run: |
-          Y=$(date -u -d yesterday +%F)
-          NOW=$(date -u +%s)
-          probe() { code=$(curl -s -m 15 -o body.txt -w "%{http_code}" "$2"); echo "== $1 -> HTTP $code :: $(head -c 160 body.txt | tr '\n' ' ')"; }
-          probe ipinfo "https://ipinfo.io/json"
-          probe binance-fapi-XAU "https://fapi.binance.com/fapi/v1/klines?symbol=XAUUSDT&interval=15m&limit=2"
-          probe binance-fapi-XAG "https://fapi.binance.com/fapi/v1/klines?symbol=XAGUSDT&interval=1h&limit=2"
-          probe binance-dataapi-PAXG "https://data-api.binance.vision/api/v3/klines?symbol=PAXGUSDT&interval=15m&limit=2"
-          probe binance-dataapi-EUR "https://data-api.binance.vision/api/v3/klines?symbol=EURUSDT&interval=1h&limit=2"
-          probe binance-api-PAXG "https://api.binance.com/api/v3/klines?symbol=PAXGUSDT&interval=15m&limit=2"
-          probe binance-vision-zip "https://data.binance.vision/data/futures/um/daily/klines/XAUUSDT/15m/XAUUSDT-15m-$Y.zip"
-          probe coinbase-PAXG "https://api.exchange.coinbase.com/products/PAXG-USD/candles?granularity=900"
-          probe kraken-PAXG "https://api.kraken.com/0/public/OHLC?pair=PAXGUSD&interval=15"
-          probe okx-XAUT "https://www.okx.com/api/v5/market/candles?instId=XAUT-USDT&bar=15m&limit=2"
-          probe bitget-XAU "https://api.bitget.com/api/v2/mix/market/candles?symbol=XAUUSDT&productType=USDT-FUTURES&granularity=15m&limit=2"
-          probe bybit-XAUT "https://api.bybit.com/v5/market/kline?category=spot&symbol=XAUTUSDT&interval=15&limit=2"
-          probe yahoo-GC "https://query1.finance.yahoo.com/v8/finance/chart/GC=F?interval=15m&range=5d"
-          probe forexfactory "https://nfs.faireconomy.media/ff_calendar_thisweek.json"
-          probe ntfy "https://ntfy.sh/v1/health"
+          mkdir -p data
+          cat > dump.mjs <<'JS'
+          import { writeFileSync } from "fs";
+          async function dump(symbol, interval, ms, days, file) {
+            const out = new Map();
+            let start = Date.now() - days * 864e5;
+            for (let g = 0; g < 60 && start < Date.now(); g++) {
+              const r = await fetch(`https://data-api.binance.vision/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=1000&startTime=${start}`);
+              const rows = await r.json();
+              if (!rows.length) break;
+              for (const k of rows) out.set(k[0], [k[0], +k[1], +k[2], +k[3], +k[4], +k[5]]);
+              start = rows[rows.length - 1][0] + ms;
+              if (rows.length < 1000) break;
+            }
+            const list = [...out.values()].sort((a, b) => a[0] - b[0]);
+            writeFileSync(file, JSON.stringify(list));
+            console.log(symbol, interval, list.length, "bougies");
+          }
+          await dump("PAXGUSDT", "15m", 900e3, 180, "data/paxg-15m.json");
+          await dump("EURUSDT", "1h", 3600e3, 190, "data/eurusdt-1h.json");
+          JS
+          node dump.mjs
+      - name: Commit data
+        run: |
+          git add data
+          git -c user.name="AURUM bot" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -q -m "Real gold data dump [skip probe]"
+          git push -q origin HEAD:aurum-probe
