@@ -5,7 +5,7 @@ on:
 permissions:
   contents: write
 jobs:
-  dump:
+  xau:
     if: "!contains(github.event.head_commit.message, '[skip probe]')"
     runs-on: ubuntu-latest
     steps:
@@ -13,32 +13,44 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Dump 180 days of real gold (PAXG M15) and EUR/USDT H1
+      - name: Probe real gold sources
         run: |
-          mkdir -p data
-          cat > dump.mjs <<'JS'
-          import { writeFileSync } from "fs";
-          async function dump(symbol, interval, ms, days, file) {
-            const out = new Map();
-            let start = Date.now() - days * 864e5;
-            for (let g = 0; g < 60 && start < Date.now(); g++) {
-              const r = await fetch(`https://data-api.binance.vision/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=1000&startTime=${start}`);
-              const rows = await r.json();
-              if (!rows.length) break;
-              for (const k of rows) out.set(k[0], [k[0], +k[1], +k[2], +k[3], +k[4], +k[5]]);
-              start = rows[rows.length - 1][0] + ms;
-              if (rows.length < 1000) break;
-            }
-            const list = [...out.values()].sort((a, b) => a[0] - b[0]);
-            writeFileSync(file, JSON.stringify(list));
-            console.log(symbol, interval, list.length, "bougies");
+          cat > probe.mjs <<'JS'
+          const show = (label, x) => console.log(`== ${label}: ${typeof x === "string" ? x : JSON.stringify(x).slice(0, 400)}`);
+          const iso = (t) => new Date(+t).toISOString().slice(0, 16);
+          async function get(url, origin) {
+            const r = await fetch(url, origin ? { headers: { Origin: origin } } : {});
+            const txt = await r.text();
+            let body; try { body = JSON.parse(txt); } catch { body = txt.slice(0, 200); }
+            return { status: r.status, cors: r.headers.get("access-control-allow-origin"), body };
           }
-          await dump("PAXGUSDT", "15m", 900e3, 180, "data/paxg-15m.json");
-          await dump("EURUSDT", "1h", 3600e3, 190, "data/eurusdt-1h.json");
+          const B = "https://api.bitget.com/api/v2/mix/market";
+          // 1) recent candles, order, count, CORS
+          let r = await get(`${B}/candles?symbol=XAUUSDT&productType=USDT-FUTURES&granularity=15m&limit=1000`, "https://ashuto796-boop.github.io");
+          const d = r.body.data || [];
+          show("bitget candles 15m", { status: r.status, cors: r.cors, n: d.length, first: d[0] && iso(d[0][0]), last: d.at(-1) && iso(d.at(-1)[0]), row: d.at(-1) });
+          // 2) going back in time with endTime
+          for (const daysAgo of [20, 45, 70, 120]) {
+            const end = Date.now() - daysAgo * 864e5;
+            r = await get(`${B}/candles?symbol=XAUUSDT&productType=USDT-FUTURES&granularity=15m&limit=1000&endTime=${end}`);
+            const x = r.body.data || [];
+            show(`candles endTime -${daysAgo}j`, { status: r.status, n: x.length, first: x[0] && iso(x[0][0]), last: x.at(-1) && iso(x.at(-1)[0]), msg: r.body.msg });
+            r = await get(`${B}/history-candles?symbol=XAUUSDT&productType=USDT-FUTURES&granularity=15m&limit=200&endTime=${end}`);
+            const y = r.body.data || [];
+            show(`history-candles endTime -${daysAgo}j`, { status: r.status, n: y.length, first: y[0] && iso(y[0][0]), last: y.at(-1) && iso(y.at(-1)[0]), msg: r.body.msg });
+          }
+          // 3) silver + 1H granularity name
+          r = await get(`${B}/candles?symbol=XAGUSDT&productType=USDT-FUTURES&granularity=1H&limit=5`);
+          show("bitget XAG 1H", { status: r.status, n: (r.body.data || []).length, msg: r.body.msg, row: (r.body.data || []).at(-1) });
+          // 4) weekend candles (last Saturday)
+          const sat = new Date(); sat.setUTCDate(sat.getUTCDate() - ((sat.getUTCDay() + 1) % 7)); sat.setUTCHours(12, 0, 0, 0);
+          r = await get(`${B}/candles?symbol=XAUUSDT&productType=USDT-FUTURES&granularity=15m&limit=8&startTime=${+sat}&endTime=${+sat + 2 * 3600e3}`);
+          show("week-end samedi midi", { n: (r.body.data || []).length, rows: (r.body.data || []).slice(0, 3) });
+          // 5) PAXG vs XAU spread right now
+          const p = await get("https://data-api.binance.vision/api/v3/klines?symbol=PAXGUSDT&interval=15m&limit=1");
+          show("PAXG close vs XAU close", { paxg: p.body[0]?.[4], xau: d.at(-1)?.[4] });
+          // 6) OKX gold perps?
+          r = await get("https://www.okx.com/api/v5/public/instruments?instType=SWAP&instFamily=XAU-USDT");
+          show("okx XAU swap", { status: r.status, body: r.body });
           JS
-          node dump.mjs
-      - name: Commit data
-        run: |
-          git add data
-          git -c user.name="AURUM bot" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -q -m "Real gold data dump [skip probe]"
-          git push -q origin HEAD:aurum-probe
+          node probe.mjs
