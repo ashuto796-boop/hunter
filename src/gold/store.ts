@@ -45,6 +45,7 @@ export interface GoldState {
   day: DayState;
   brain: BrainMemory;
   ctx: ContextMemory;
+  note: { day: string; at: number; text: string; model: string } | null; // evening log written by Claude (server)
   memStats: Record<string, ModuleStats>; // shadow-trade lessons per specialist (and per regime)
   memTotal: number;
   training: TrainingResult | null;
@@ -78,6 +79,7 @@ export const useGold = create<GoldState>(() => ({
   day: { key: "", pnl: 0, trades: 0, startBalance: DEFAULT_SETTINGS.capital },
   brain: emptyBrain(),
   ctx: {},
+  note: null,
   memStats: {},
   memTotal: 0,
   training: null,

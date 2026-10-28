@@ -1,13 +1,15 @@
-// Market data: Binance gold perpetual (XAUUSDT) first, tokenised gold (PAXG) as fallback,
-// and a local simulator when no exchange is reachable. All endpoints are public (no API key).
+// Market data: gold perpetuals (XAUUSDT on Binance, then on Bitget, which also answers from US
+// servers), tokenised gold (PAXG) as fallback, and a local simulator when no exchange is
+// reachable. All endpoints are public (no API key).
 import { Candle, NewsEvent } from "../engine/types";
 import { Peers } from "../engine/features";
 import { GoldSimulator } from "../engine/sim";
 
-export type SourceId = "xau" | "paxg" | "sim";
+export type SourceId = "xau" | "bitget" | "paxg" | "sim";
 
 export interface Source {
   id: SourceId;
+  api: "binance" | "bitget";
   label: string;
   short: string;
   rest: string;
@@ -19,6 +21,7 @@ export interface Source {
 export const SOURCES: Record<SourceId, Source> = {
   xau: {
     id: "xau",
+    api: "binance",
     label: "Or XAU/USDT · Binance Futures",
     short: "XAU/USD",
     rest: "https://fapi.binance.com/fapi/v1/klines",
@@ -26,8 +29,19 @@ export const SOURCES: Record<SourceId, Source> = {
     symbol: "XAUUSDT",
     maxLimit: 1500,
   },
+  bitget: {
+    id: "bitget",
+    api: "bitget",
+    label: "Or XAU/USDT · Bitget",
+    short: "XAU/USD",
+    rest: "https://api.bitget.com/api/v2/mix/market",
+    ws: "", // REST polling
+    symbol: "XAUUSDT",
+    maxLimit: 1000,
+  },
   paxg: {
     id: "paxg",
+    api: "binance",
     label: "PAX Gold PAXG/USDT · Binance",
     short: "PAXG",
     rest: "https://data-api.binance.vision/api/v3/klines",
@@ -37,6 +51,7 @@ export const SOURCES: Record<SourceId, Source> = {
   },
   sim: {
     id: "sim",
+    api: "binance",
     label: "Marché simulé (hors ligne)",
     short: "SIMU",
     rest: "",
@@ -46,14 +61,19 @@ export const SOURCES: Record<SourceId, Source> = {
   },
 };
 
-// Correlated markets for the intermarket radar (H1): silver perpetual and EUR/USD (dollar proxy)
-type Endpoint = Pick<Source, "rest" | "symbol" | "maxLimit">;
-const PEERS: Record<keyof Peers, Endpoint> = {
-  xag: { rest: SOURCES.xau.rest, symbol: "XAGUSDT", maxLimit: 1500 },
-  eur: { rest: SOURCES.paxg.rest, symbol: "EURUSDT", maxLimit: 1000 },
+// Correlated markets for the intermarket radar (H1): silver perpetual and EUR/USD (dollar proxy),
+// each with a second exchange to try when the first one is out of reach
+type Endpoint = Pick<Source, "api" | "rest" | "symbol" | "maxLimit">;
+const PEERS: Record<keyof Peers, Endpoint[]> = {
+  xag: [
+    { api: "binance", rest: SOURCES.xau.rest, symbol: "XAGUSDT", maxLimit: 1500 },
+    { api: "bitget", rest: SOURCES.bitget.rest, symbol: "XAGUSDT", maxLimit: 1000 },
+  ],
+  eur: [{ api: "binance", rest: SOURCES.paxg.rest, symbol: "EURUSDT", maxLimit: 1000 }],
 };
 
 const interval = (tf: number) => (tf % 60 === 0 ? `${tf / 60}h` : `${tf}m`);
+const bitgetGranularity = (tf: number) => (tf % 60 === 0 ? `${tf / 60}H` : `${tf}m`);
 
 async function getJson(url: string, timeoutMs = 10000): Promise<unknown> {
   const ctl = new AbortController();
@@ -67,12 +87,42 @@ async function getJson(url: string, timeoutMs = 10000): Promise<unknown> {
   }
 }
 
+const toCandles = (rows: (string | number)[][]) => rows.map((r) => ({ t: +r[0], o: +r[1], h: +r[2], l: +r[3], c: +r[4], v: +r[5] }));
+
+// Bitget answers with the latest candles before endTime: "candles" covers about the last 30 days
+// (up to 1000 per call), "history-candles" goes further back (200 per call). Oldest first.
+async function bitgetPage(src: Endpoint, tf: number, endpoint: "candles" | "history-candles", limit: number, end?: number): Promise<Candle[]> {
+  let url = `${src.rest}/${endpoint}?symbol=${src.symbol}&productType=USDT-FUTURES&granularity=${bitgetGranularity(tf)}&limit=${limit}`;
+  if (end !== undefined) url += `&endTime=${end}`;
+  const body = (await getJson(url)) as { data?: (string | number)[][] };
+  return toCandles(body.data ?? []).sort((a, b) => a.t - b.t);
+}
+
 // Returns candles oldest first; the last one may still be forming.
 export async function fetchKlines(src: Endpoint, tf: number, opts: { start?: number; limit?: number } = {}): Promise<Candle[]> {
+  if (src.api === "bitget") {
+    const rows = await bitgetPage(src, tf, "candles", Math.min(opts.limit ?? src.maxLimit, 1000));
+    return opts.start === undefined ? rows : rows.filter((k) => k.t >= opts.start!);
+  }
   let url = `${src.rest}?symbol=${src.symbol}&interval=${interval(tf)}&limit=${opts.limit ?? src.maxLimit}`;
   if (opts.start !== undefined) url += `&startTime=${opts.start}`;
-  const rows = (await getJson(url)) as (string | number)[][];
-  return rows.map((r) => ({ t: +r[0], o: +r[1], h: +r[2], l: +r[3], c: +r[4], v: +r[5] }));
+  return toCandles((await getJson(url)) as (string | number)[][]);
+}
+
+async function bitgetHistory(src: Endpoint, tf: number, from: number, onProgress?: (p: number) => void): Promise<Candle[]> {
+  const now = Date.now();
+  const byT = new Map<number, Candle>();
+  let end: number | undefined;
+  for (let guard = 0; guard < 250; guard++) {
+    let batch = await bitgetPage(src, tf, "candles", 1000, end);
+    if (!batch.length) batch = await bitgetPage(src, tf, "history-candles", 200, end);
+    if (!batch.length) break;
+    for (const k of batch) byT.set(k.t, k);
+    end = batch[0].t - 1;
+    onProgress?.(Math.min(1, (now - end) / (now - from)));
+    if (end <= from) break;
+  }
+  return [...byT.values()].filter((k) => k.t >= from).sort((a, b) => a.t - b.t);
 }
 
 export async function probe(src: Source, tf: number): Promise<boolean> {
@@ -88,6 +138,7 @@ export async function fetchHistory(src: Endpoint, tf: number, days: number, onPr
   const ms = tf * 60000;
   const now = Date.now();
   const from = now - days * 864e5;
+  if (src.api === "bitget") return bitgetHistory(src, tf, from, onProgress);
   let start = from;
   const byT = new Map<number, Candle>();
   for (let guard = 0; guard < 80 && start < now; guard++) {
@@ -112,8 +163,8 @@ export interface Feed {
   stop(): void;
 }
 
-// WebSocket kline stream with automatic REST polling fallback
-export class BinanceFeed implements Feed {
+// Binance WebSocket kline stream with automatic REST polling fallback (REST only for Bitget)
+export class ExchangeFeed implements Feed {
   private ws: WebSocket | null = null;
   private pollTimer: number | undefined;
   private watchdog: number | undefined;
@@ -141,6 +192,10 @@ export class BinanceFeed implements Feed {
 
   private connect() {
     if (this.stopped) return;
+    if (!this.src.ws) {
+      this.startPolling();
+      return;
+    }
     try {
       this.ws?.close();
       const ws = new WebSocket(`${this.src.ws}${this.src.symbol.toLowerCase()}@kline_${interval(this.tf)}`);
@@ -249,9 +304,28 @@ const closedOnly = (c: Candle[], tf: number) => c.filter((k) => k.t + tf * 60000
 
 // Best effort: a missing peer just leaves the radar neutral
 export async function fetchPeers(days: number): Promise<Peers> {
-  const get = (e: Endpoint) => fetchHistory(e, 60, days).then((c) => closedOnly(c, 60)).catch(() => [] as Candle[]);
+  const get = async (list: Endpoint[]) => {
+    for (const e of list) {
+      const c = await fetchHistory(e, 60, days)
+        .then((x) => closedOnly(x, 60))
+        .catch(() => [] as Candle[]);
+      if (c.length) return c;
+    }
+    return [] as Candle[];
+  };
   const [xag, eur] = await Promise.all([get(PEERS.xag), get(PEERS.eur)]);
   return { xag, eur };
+}
+
+async function latestPeer(list: Endpoint[]): Promise<Candle[]> {
+  for (const e of list) {
+    try {
+      return await fetchKlines(e, 60, { limit: 6 });
+    } catch {
+      /* try the next exchange */
+    }
+  }
+  return [];
 }
 
 // Appends the latest closed H1 bars; returns true when something changed
@@ -261,7 +335,7 @@ export async function refreshPeers(peers: Peers, maxLen: number): Promise<boolea
     const list = peers[key];
     if (!list?.length) continue;
     try {
-      const fresh = closedOnly(await fetchKlines(PEERS[key], 60, { limit: 6 }), 60);
+      const fresh = closedOnly(await latestPeer(PEERS[key]), 60);
       for (const k of fresh) {
         if (k.t <= list[list.length - 1].t) continue;
         list.push(k);

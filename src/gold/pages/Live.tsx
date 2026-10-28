@@ -168,6 +168,43 @@ function AiCard() {
   );
 }
 
+// "claude-opus-5-5" -> "Claude Opus 5.5"
+const modelName = (id: string) =>
+  id
+    .replace(/-(\d+)-(\d+)$/, " $1.$2")
+    .replace(/-(\d+)$/, " $1")
+    .split("-")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+
+// Evening log the server asks Claude to write after the New York close
+function NoteCard() {
+  const note = useGold((s) => s.note);
+  const [expanded, setOpen] = useState(false);
+  if (!note || Date.now() - note.at > 36 * 3_600_000) return null;
+  const open = expanded || note.text.length < 320;
+  const parts = note.text.split(/\n+/).filter((x) => x.trim());
+  return (
+    <section className="card">
+      <div className="card-title">
+        <span>Carnet du soir</span>
+        <span className="chip gold">{modelName(note.model)}</span>
+      </div>
+      <div className={`note-text ${open ? "open" : ""}`}>
+        {parts.map((p, k) => (p.length < 14 ? <h4 key={k}>{p.replace(/[:—–-]\s*$/, "")}</h4> : <p key={k}>{p}</p>))}
+      </div>
+      {!open && (
+        <button className="btn block" style={{ marginTop: 10 }} onClick={() => setOpen(true)}>
+          Lire la suite
+        </button>
+      )}
+      <p className="note" style={{ marginTop: 10 }}>
+        Écrit à partir des données du serveur · {time(note.at)}. Un commentaire, pas un conseil : c'est l'IA qui décide, selon ses règles.
+      </p>
+    </section>
+  );
+}
+
 function PositionCard() {
   const remote = useGold((s) => s.remote);
   const p = useGold((s) => s.position);
@@ -346,6 +383,7 @@ export function Live() {
       )}
       {remote ? <ServerCard /> : <Autopilot />}
       <AiCard />
+      <NoteCard />
       <PositionCard />
       <section className="card chart-card">
         <div className="card-title">

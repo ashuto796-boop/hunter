@@ -961,3 +961,40 @@ details summary {
 .mc-mark.mid {
   border-left: 2px solid var(--gold);
 }
+
+/* ---------- evening log ---------- */
+.note-text {
+  max-height: 150px;
+  overflow: hidden;
+  position: relative;
+  font-size: 14px;
+  line-height: 1.55;
+}
+.note-text::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 48px;
+  background: linear-gradient(rgba(17, 19, 23, 0), var(--card));
+}
+.note-text.open {
+  max-height: none;
+}
+.note-text.open::after {
+  display: none;
+}
+.note-text h4 {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin: 10px 0 4px;
+}
+.note-text h4:first-child {
+  margin-top: 0;
+}
+.note-text p + p {
+  margin-top: 8px;
+}

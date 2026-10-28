@@ -10,13 +10,15 @@ import { existsSync, readFileSync, renameSync, writeFileSync } from "fs";
 import { createServer } from "http";
 import { fileURLToPath, pathToFileURL } from "url";
 import { buildMarket } from "../src/gold/engine/features";
-import { THRESHOLDS, analyse } from "../src/gold/engine/brain";
-import { newTraderState, simulate, warmupIndex } from "../src/gold/engine/trader";
+import { REGIME_LABEL, THRESHOLDS, analyse } from "../src/gold/engine/brain";
+import { closePosition, newTraderState, simulate, warmupIndex } from "../src/gold/engine/trader";
+import { Market } from "../src/gold/engine/features";
+import { MODULE_IDS, MODULE_INFO } from "../src/gold/engine/modules";
 import { train } from "../src/gold/engine/training";
 import { Thought, closeAlert, closeText, lossText, openAlert, openText, scanText, trainingTexts } from "../src/gold/engine/narrate";
 import { DEFAULT_SETTINGS } from "../src/gold/engine/defaults";
 import { SERVER_STATE_VERSION, ServerState, isServerState } from "../src/gold/engine/serverState";
-import { Decision, Settings } from "../src/gold/engine/types";
+import { Decision, NewsEvent, Settings } from "../src/gold/engine/types";
 import { Memory, emptyMemory } from "../src/gold/engine/memory";
 import { nyTime, tradingDay } from "../src/gold/engine/context";
 import { money } from "../src/gold/engine/narrate";
@@ -139,13 +141,108 @@ async function push(title: string, body: string) {
   for (const r of res) if (r.status === "rejected") log("alerte non envoyée :", r.reason);
 }
 
-async function chooseSource(pref: SourceId | "auto", tf: number): Promise<Source> {
-  const order: SourceId[] = pref === "auto" ? ["xau", "paxg"] : [pref];
-  for (const id of order) {
-    if (await probe(SOURCES[id], tf)) return SOURCES[id];
-    log(`source ${id} injoignable depuis ce serveur`);
+// Real gold first (Binance perpetual, then Bitget's, which answers from US servers), PAXG last
+const PREFERENCE: SourceId[] = ["xau", "bitget", "paxg"];
+const HOUR = 3_600_000;
+
+// The account is denominated in one instrument. It moves to a better source only while flat, and
+// leaves an unreachable one only after two hours without a successful run.
+async function pickSource(pref: SourceId | "auto", tf: number, prev: ServerState | null): Promise<Source> {
+  const order = pref === "auto" ? PREFERENCE : [pref];
+  const reachable = async (id: SourceId) => {
+    const ok = await probe(SOURCES[id], tf);
+    if (!ok) log(`source ${id} injoignable depuis ce serveur`);
+    return ok;
+  };
+  const cur = prev?.source as SourceId | undefined;
+  if (cur && SOURCES[cur]) {
+    const flat = !prev!.st.position && !prev!.st.pending;
+    if (flat) {
+      for (const id of order) {
+        if (id === cur) break;
+        if (await reachable(id)) return SOURCES[id];
+      }
+    }
+    if (await reachable(cur)) return SOURCES[cur];
+    if (Date.now() - prev!.updatedAt < 2 * HOUR) throw new Error(`source ${cur} injoignable, nouvel essai au prochain passage`);
   }
+  for (const id of order) if (id !== cur && (await reachable(id))) return SOURCES[id];
   throw new Error("aucune source de prix joignable");
+}
+
+// Same account, new instrument: close anything open at the last known price and relearn
+function switchInstrument(state: ServerState, src: Source, think: (k: Thought["kind"], t: string) => void) {
+  const from = SOURCES[state.source as SourceId]?.label ?? state.source;
+  const p = state.st.position;
+  if (p) {
+    const tr = closePosition(state.st, state.price - (p.dir * state.settings.spread) / 2, Date.now(), "MANUEL");
+    think("exit", `Position clôturée pour changer d'instrument. ${closeText(tr)}`);
+  }
+  state.st.pending = null;
+  if (state.st.mem) state.st.mem.pending = []; // open lessons were priced on the old instrument
+  state.trainedAt = 0;
+  state.source = src.id;
+  think("warn", `Flux changé : ${from} → ${src.label}. Même compte, nouvel instrument : je me ré-entraîne dessus.`);
+}
+
+// What Claude gets to write the evening log: facts only, no instructions
+function sessionFacts(state: ServerState, m: Market, news: NewsEvent[], src: Source) {
+  const s = m.ltf;
+  const last = s.c.length - 1;
+  let i0 = last;
+  while (i0 > 0 && s.day[i0 - 1] === s.day[last]) i0--;
+  const bars = s.c.slice(i0);
+  const open = bars[0].o;
+  const close = s.close[last];
+  const dayStart = bars[0].t;
+  const d = state.decision;
+  const r2 = (x: number) => Math.round(x * 100) / 100;
+  return {
+    instrument: src.label,
+    seance: {
+      ouverture: r2(open),
+      cloture: r2(close),
+      plusHaut: r2(Math.max(...bars.map((k) => k.h))),
+      plusBas: r2(Math.min(...bars.map((k) => k.l))),
+      variationPct: r2(((close - open) / open) * 100),
+    },
+    contexte: d && {
+      regime: REGIME_LABEL[d.regime],
+      biaisH1H4Pct: Math.round(d.bias * 100),
+      intermarche: d.intermarket && { argent: d.intermarket.silver, dollarFaible: d.intermarket.usd, score: d.intermarket.score },
+      verdict: d.verdict,
+      score: d.score,
+      seuil: d.threshold,
+    },
+    compte: {
+      solde: r2(state.st.balance),
+      capitalDepart: state.settings.capital,
+      tradesSeance: state.st.trades
+        .filter((t) => t.closeTime >= dayStart)
+        .map((t) => ({ sens: t.dir === 1 ? "achat" : "vente", entree: r2(t.entry), sortie: r2(t.exit), resultatR: r2(t.r), sortiePar: t.reason, module: MODULE_INFO[t.primary].name, pourquoi: t.reasons.slice(0, 3) })),
+      positionOuverte: state.st.position && { sens: state.st.position.dir === 1 ? "achat" : "vente", entree: r2(state.st.position.entry), stop: r2(state.st.position.sl), objectif: r2(state.st.position.tp2) },
+    },
+    journal: state.thoughts.filter((t) => t.t >= dayStart && t.kind !== "scan").map((t) => t.text),
+    dernieresAnalyses: state.thoughts.filter((t) => t.t >= dayStart && t.kind === "scan").slice(-6).map((t) => t.text),
+    memoire: MODULE_IDS.flatMap((id) => {
+      const x = state.st.mem?.stats[id];
+      return x && x.n >= 1 ? [{ strategie: MODULE_INFO[id].name, lecons: Math.round(x.n), reussitePct: Math.round((x.wins / x.n) * 100), moyenneR: r2(x.sumR / x.n) }] : [];
+    }),
+    entrainement: state.training && {
+      trades: state.training.stats.n,
+      reussitePct: Math.round(state.training.stats.winRate * 100),
+      facteurProfit: Number.isFinite(state.training.stats.pf) ? r2(state.training.stats.pf) : null,
+      seuil: state.autoThreshold,
+    },
+    annonces24h: news.filter((e) => e.t > Date.now() && e.t < Date.now() + 24 * HOUR).map((e) => ({ titre: e.title, heureUTC: new Date(e.t).toISOString().slice(11, 16) })),
+  };
+}
+
+// After the New York close, once per session
+function noteDue(state: ServerState): string | null {
+  const ny = nyTime(Date.now());
+  if (ny.wd < 1 || ny.wd > 5 || ny.mins < 17 * 60 || state.note?.day === ny.ymd) return null;
+  return ny.ymd;
 }
 
 function freshState(settings: Settings, source: string): ServerState {
@@ -173,8 +270,7 @@ export async function runOnce(): Promise<ServerState> {
   const prev = loadState();
   const tf = settings.tf;
   const tfMs = tf * 60000;
-  // the account is denominated in one instrument: once chosen, the source never changes silently
-  const src = prev ? SOURCES[prev.source as SourceId] : await chooseSource(pref, tf);
+  const src = await pickSource(pref, tf, prev);
   const thoughts: Thought[] = prev?.thoughts ?? [];
   const think = (kind: Thought["kind"], text: string, t = Date.now()) => thoughts.push({ t, kind, text });
   // routine analyses are only worth a line when the verdict changes
@@ -185,6 +281,7 @@ export async function runOnce(): Promise<ServerState> {
 
   let state = prev ?? freshState(settings, src.id);
   if (!prev) think("info", `Serveur 24/7 démarré sur ${HOST}. Flux : ${src.label}.`);
+  if (prev && prev.source !== src.id) switchInstrument(state, src, think);
   if (prev && prev.settings.tf !== tf) {
     state = freshState(settings, src.id);
     think("warn", `Unité de temps changée (M${prev.settings.tf} → M${tf}) : nouveau compte démo.`);
@@ -267,6 +364,15 @@ export async function runOnce(): Promise<ServerState> {
   state.updatedAt = Date.now();
   const recap = state.runs > 1 ? dailyRecap(state) : null;
   if (recap) alerts.push(recap);
+  const noteDay = process.env.ANTHROPIC_API_KEY ? noteDue(state) : null;
+  if (noteDay) {
+    const { writeNote } = await import("./analyst"); // the SDK is only installed when the key is set
+    const note = await writeNote(noteDay, sessionFacts(state, m, news, src), log);
+    if (note) {
+      state.note = note;
+      alerts.push(["AURUM — carnet du soir", note.text.slice(0, 3500)]);
+    }
+  }
   saveState(state);
   log(`solde ${state.st.balance.toFixed(2)} $, position ${state.st.position ? "ouverte" : "aucune"}, ${state.st.trades.length} trades`);
 

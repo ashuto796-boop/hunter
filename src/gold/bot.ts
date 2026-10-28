@@ -12,7 +12,7 @@ import { train } from "./engine/training";
 import { Thought, closeAlert, closeText, lossText, openAlert, openText, scanText, sideFr, trainingTexts } from "./engine/narrate";
 import { GoldSimulator } from "./engine/sim";
 import { ServerState } from "./engine/serverState";
-import { BinanceFeed, Feed, SOURCES, Source, SourceId, SimFeed, fetchHistory, fetchKlines, fetchNews, fetchPeers, probe, refreshPeers } from "./data/feed";
+import { ExchangeFeed, Feed, SOURCES, Source, SourceId, SimFeed, fetchHistory, fetchKlines, fetchNews, fetchPeers, probe, refreshPeers } from "./data/feed";
 import { fetchServerStamp, fetchServerState } from "./data/remote";
 import { DEFAULT_SETTINGS, GoldState, useGold } from "./store";
 import { beep, keepAwake, notify, vibrate } from "./device";
@@ -196,6 +196,7 @@ class Bot {
       day: { ...st.day },
       brain: JSON.parse(JSON.stringify(st.brain)),
       ctx: JSON.parse(JSON.stringify(st.ctx ?? {})),
+      note: r?.note ?? null,
       memStats: JSON.parse(JSON.stringify(st.mem?.stats ?? {})),
       memTotal: st.mem?.total ?? 0,
       settings: { ...this.settings },
@@ -211,7 +212,7 @@ class Bot {
 
   private async chooseSource(): Promise<Source> {
     const tf = this.settings.tf;
-    const order: SourceId[] = this.settings.source === "auto" ? ["xau", "paxg"] : this.settings.source === "sim" ? [] : [this.settings.source];
+    const order: SourceId[] = this.settings.source === "auto" ? ["xau", "bitget", "paxg"] : this.settings.source === "sim" ? [] : [this.settings.source];
     for (const id of order) {
       useGold.setState({ bootMsg: `Connexion à ${SOURCES[id].label}…` });
       if (await probe(SOURCES[id], tf)) return SOURCES[id];
@@ -429,7 +430,7 @@ class Bot {
     if (this.src.id === "sim") {
       this.feed = new SimFeed(this.sim!, tf, this.livePrice(), handlers);
     } else {
-      const f = new BinanceFeed(this.src, tf, handlers);
+      const f = new ExchangeFeed(this.src, tf, handlers);
       f.setLastClosed(this.candles[this.candles.length - 1].t);
       this.feed = f;
     }
@@ -580,7 +581,7 @@ class Bot {
         if (!this.remote) this.catchUp();
       }
       if (forming) this.forming = forming;
-      if (this.feed instanceof BinanceFeed) this.feed.setLastClosed(this.candles[this.candles.length - 1].t);
+      if (this.feed instanceof ExchangeFeed) this.feed.setLastClosed(this.candles[this.candles.length - 1].t);
       this.publish();
       this.save();
     } catch {

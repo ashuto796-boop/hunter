@@ -89,6 +89,10 @@ function ServerSection() {
         </p>
       )}
       {!remote && note && <p className="note" style={{ margin: "10px 0" }}>{note}</p>}
+      <p className="note" style={{ margin: "10px 0" }}>
+        Carnet du soir écrit par Claude : ajoute ta clé API Anthropic dans les secrets du dépôt GitHub sous le nom ANTHROPIC_API_KEY. Une analyse par soir,
+        quelques centimes par mois.
+      </p>
       {repo && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
           <a className="btn block" href={`${repo}/edit/main/server/config.json`} target="_blank" rel="noreferrer">
@@ -195,9 +199,10 @@ export function SettingsPage() {
             value={s.source}
             options={[
               ["auto", "Auto"],
-              ["xau", "XAU"],
+              ["xau", "Binance"],
+              ["bitget", "Bitget"],
               ["paxg", "PAXG"],
-              ["sim", "Simulé"],
+              ["sim", "Simu"],
             ]}
             onChange={(src) => set({ source: src })}
           />

@@ -159,7 +159,7 @@ export interface Settings {
   spread: number; // $ per oz
   maxTradesDay: number;
   maxDailyLossPct: number;
-  source: "auto" | "xau" | "paxg" | "sim";
+  source: "auto" | "xau" | "bitget" | "paxg" | "sim";
   trainDays: number;
   keepAwake: boolean;
   notify: boolean;

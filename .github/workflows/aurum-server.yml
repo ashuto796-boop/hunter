@@ -5,7 +5,8 @@ name: AURUM serveur 24/7
 # aurum-data branch: state.json (read by the app), stamp.json (polled by the app) and memory.json
 # (every past signal and its outcome, which the AI keeps learning from).
 # Settings: server/config.json. Optional push alerts: repository secrets NTFY_TOPIC (ntfy app)
-# or TELEGRAM_TOKEN + TELEGRAM_CHAT_ID. To start over with a new account: delete aurum-data.
+# or TELEGRAM_TOKEN + TELEGRAM_CHAT_ID. Optional evening log written by Claude: ANTHROPIC_API_KEY.
+# To start over with a new account: delete aurum-data.
 on:
   schedule:
     - cron: "3,18,33,48 * * * *" # 3 min after each 15-min candle close (GitHub may run it later)
@@ -22,6 +23,8 @@ jobs:
   run:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      HAS_CLAUDE: ${{ secrets.ANTHROPIC_API_KEY != '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -41,8 +44,13 @@ jobs:
             echo "Premier passage : nouveau compte démo."
           fi
 
+      - name: Install the Claude SDK (evening log only)
+        if: env.HAS_CLAUDE == 'true'
+        run: npm install --no-audit --no-fund --legacy-peer-deps
+
       - name: Run the AI
         env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
