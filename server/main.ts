@@ -202,6 +202,7 @@ export async function runOnce(): Promise<ServerState> {
 
   const needTrain =
     !state.trainedAt ||
+    !state.st.mem?.total || // no lessons yet (first run of a version with memory): learn them from history now
     now - state.trainedAt > retrainMs ||
     state.settings.mode !== settings.mode ||
     state.settings.trainDays !== settings.trainDays;
