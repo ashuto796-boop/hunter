@@ -4,6 +4,7 @@ import { Candle, Decision, Dir, ExitReason, Plan, Position, Settings, Trade, Tra
 import { AnalyseEnv, analyse, ctxKey, emptyBrain } from "./brain";
 import { Market } from "./features";
 import { tradingDay, weekendRisk } from "./context";
+import { emptyMemory, recordShadows, resolveShadows } from "./memory";
 
 const SLIPPAGE = 0.05; // $ per oz on stop exits
 
@@ -15,6 +16,7 @@ export function newTraderState(capital: number): TraderState {
     trades: [],
     brain: emptyBrain(),
     ctx: {},
+    mem: emptyMemory(),
     day: { key: "", pnl: 0, trades: 0, startBalance: capital },
     lossStreak: 0,
     cooldownUntil: 0,
@@ -215,12 +217,21 @@ export function simulate(env: AnalyseEnv, st: TraderState, from: number, to: num
       if (tr) opts.onEvent?.({ kind: "close", t: tClose, trade: tr });
     }
     rollDay(st, tClose);
+    // every candle teaches, position or not: settle old signals, then file the new ones
+    const mem = (st.mem ??= emptyMemory());
+    resolveShadows(mem, k, tClose, spread);
+    const dec = analyse(env, st, i);
+    rememberDecision(st, dec, spread);
     if (!st.position) {
-      const dec = analyse(env, st, i);
       opts.onDecision?.(dec, i);
       if (dec.plan && opts.allowEntries !== false) st.pending = dec.plan;
     }
   }
+}
+
+export function rememberDecision(st: TraderState, dec: Decision, spread: number) {
+  if (dec.session === "FERME" || dec.session === "ROLLOVER") return;
+  recordShadows((st.mem ??= emptyMemory()), dec.votes, dec.t, dec.regime, dec.price, spread);
 }
 
 export function warmupIndex(m: Market): number {

@@ -246,6 +246,10 @@ export function SettingsPage() {
           AURUM analyse l'or à chaque clôture de bougie avec 7 stratégies de pros (liquidité, tendance, Londres, squeeze, momentum, retour à la moyenne, divergence). Un cerveau central pèse leurs votes selon le régime du marché, la tendance H1/H4, la session et leurs résultats passés. Il ne trade que si la confiance dépasse le seuil, avec stop, prise de profit partielle à 1R, break-even et stop suiveur.
         </p>
         <p style={{ fontSize: 13.5, lineHeight: 1.55, marginTop: 10 }}>
+          Elle tient aussi une mémoire : chaque signal, tradé ou non, est suivi jusqu'à son stop ou son objectif, et ces leçons ajustent la confiance qu'elle
+          accorde à chaque spécialiste.
+        </p>
+        <p style={{ fontSize: 13.5, lineHeight: 1.55, marginTop: 10 }}>
           Avec le serveur 24/7, l'IA tourne sur GitHub toutes les 15 minutes même téléphone éteint ; l'app affiche son compte et ses décisions. Sans serveur, l'IA
           du téléphone rejoue les bougies manquées à la réouverture (trades marqués « rattrapage »).
         </p>

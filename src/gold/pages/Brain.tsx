@@ -2,7 +2,47 @@ import { useGold } from "../store";
 import { MODULE_IDS, MODULE_INFO } from "../engine/modules";
 import { REGIME_LABEL, contextMult, learnedMult } from "../engine/brain";
 import { time, tone } from "../ui/format";
-import { Intermarket, Regime } from "../engine/types";
+import { Intermarket, ModuleStats, Regime } from "../engine/types";
+
+function MemoryCard({ stats, total }: { stats: Record<string, ModuleStats>; total: number }) {
+  const rows = MODULE_IDS.map((id) => ({ id, s: stats[id] })).filter((r) => r.s && r.s.n >= 1);
+  return (
+    <section className="card">
+      <div className="card-title">
+        <span>Mémoire du trader</span>
+        <span className="num" style={{ textTransform: "none", letterSpacing: 0 }}>
+          {total.toLocaleString("fr-FR")} leçons
+        </span>
+      </div>
+      <p className="note" style={{ marginBottom: 6 }}>
+        Chaque signal de chaque spécialiste, tradé ou non, est suivi jusqu'à son stop ou son objectif. Ces leçons ajustent les poids, les plus récentes comptant davantage.
+      </p>
+      {rows.length === 0 ? (
+        <div className="empty">La mémoire se remplit dès les premières bougies analysées.</div>
+      ) : (
+        <div className="list">
+          {rows.map(({ id, s }) => {
+            const avg = s!.sumR / s!.n;
+            return (
+              <div className="row" key={id}>
+                <div className="row-main">
+                  <div className="row-title">{MODULE_INFO[id].name}</div>
+                  <div className="row-sub num">
+                    poids récent {Math.round(s!.n)} · {((s!.wins / s!.n) * 100).toFixed(0)} % gagnantes
+                  </div>
+                </div>
+                <div className={`row-title num ${tone(avg)}`}>
+                  {avg >= 0 ? "+" : ""}
+                  {avg.toFixed(2)}R
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
 
 function peerText(v: number | null, up: string, down: string) {
   if (v === null) return { text: "indisponible", cls: "muted" };
@@ -65,6 +105,8 @@ export function Brain() {
   const d = useGold((s) => s.decision);
   const brain = useGold((s) => s.brain);
   const ctx = useGold((s) => s.ctx);
+  const memStats = useGold((s) => s.memStats);
+  const memTotal = useGold((s) => s.memTotal);
   const thoughts = useGold((s) => s.thoughts);
   const training = useGold((s) => s.training);
   const experience = MODULE_IDS.reduce((a, id) => a + brain[id].n, 0);
@@ -100,6 +142,8 @@ export function Brain() {
 
       <Radar im={d?.intermarket ?? null} />
 
+      <MemoryCard stats={memStats} total={memTotal} />
+
       <section className="card">
         <div className="card-title">
           <span>Les 7 spécialistes</span>
@@ -114,7 +158,7 @@ export function Brain() {
           {MODULE_IDS.map((id) => {
             const info = MODULE_INFO[id];
             const s = brain[id];
-            const w = d ? contextMult(brain, ctx, id, d.regime) : learnedMult(s);
+            const w = d ? contextMult(brain, ctx, id, d.regime, { stats: memStats }) : learnedMult(s);
             const vote = d?.votes.filter((v) => v.id === id).sort((a, b) => b.weight - a.weight)[0];
             const avgR = s.n ? s.sumR / s.n : 0;
             return (

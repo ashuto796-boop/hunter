@@ -3,6 +3,7 @@
 // then applies the professional risk guards before producing a decision.
 import { BrainMemory, ContextMemory, Decision, Dir, Intermarket, ModuleId, ModuleStats, Mode, NewsEvent, Plan, Regime, Settings, TraderState, WeightedVote } from "./types";
 import { Market, Series, knownPivots } from "./features";
+import { Memory, memoryStats, recall } from "./memory";
 import { pctRank } from "./indicators";
 import { MODULE_IDS, MODULE_INFO, runModules } from "./modules";
 import { SESSION_LABEL, SESSION_QUALITY, killzone, newsBlock, sessionAt, weekendRisk } from "./context";
@@ -33,11 +34,45 @@ type RegimeKey = "TREND" | "RANGE" | "SQUEEZE" | "VOLATILE";
 const regimeKey = (r: Regime): RegimeKey => (r === "TREND_UP" || r === "TREND_DOWN" ? "TREND" : r);
 export const ctxKey = (id: ModuleId, r: Regime) => `${id}:${regimeKey(r)}`;
 
+// How much the memory weighs. shadowWeight: a shadow trade counts as this fraction of a real one
+// in the learned weights; recall*: how far déjà vu can raise or cut a specialist's say.
+// Chosen on real PAXG M15, May-Oct 2026, picked on the first half and checked on the second:
+// shadow lessons helped in both halves, déjà-vu weighting hurt in both, so déjà vu is shown to
+// the user but does not move decisions (gain 0).
+export const MEMORY_TUNING = { shadowWeight: 0.3, recallGain: 0, recallMin: 1, recallMax: 1, recallBias: 0.05 };
+
+const blend = (real?: ModuleStats, shadow?: ModuleStats): ModuleStats => ({
+  n: (real?.n ?? 0) + MEMORY_TUNING.shadowWeight * (shadow?.n ?? 0),
+  sumR: (real?.sumR ?? 0) + MEMORY_TUNING.shadowWeight * (shadow?.sumR ?? 0),
+  wins: (real?.wins ?? 0) + MEMORY_TUNING.shadowWeight * (shadow?.wins ?? 0),
+});
+
 // Contextual memory: the module's record in this regime, shrunk toward its overall record
-export function contextMult(brain: BrainMemory, ctx: ContextMemory, id: ModuleId, r: Regime): number {
-  const global = expectancy(brain[id], PRIOR_N, PRIOR_R);
-  const c = ctx[ctxKey(id, r)];
-  return toMult(c ? expectancy(c, 6, global) : global);
+export function contextMult(brain: BrainMemory, ctx: ContextMemory, id: ModuleId, r: Regime, mem?: Pick<Memory, "stats">): number {
+  const global = expectancy(blend(brain[id], memoryStats(mem as Memory, id)), PRIOR_N, PRIOR_R);
+  const c = blend(ctx[ctxKey(id, r)], memoryStats(mem as Memory, id, r));
+  return toMult(c.n > 0 ? expectancy(c, 6, global) : global);
+}
+
+// What the memory compares: the situation around a signal, oriented in the signal's direction
+function situation(m: Market, i: number, d: Dir, regime: Regime, bias: number, quality: number, kz: boolean, inter: Intermarket | null, strength: number): number[] {
+  const s = m.ltf;
+  const a = s.atr[i] || 1;
+  const trend = regime === "TREND_UP" ? d : regime === "TREND_DOWN" ? -d : 0;
+  return [
+    d * bias,
+    trend,
+    regime === "RANGE" ? 1 : 0,
+    regime === "SQUEEZE" || regime === "VOLATILE" ? 1 : 0,
+    (d * (s.rsi[i] - 50)) / 50,
+    Math.min(s.adx[i] || 0, 60) / 60,
+    pctRank(s.atr, i, 300),
+    quality,
+    kz ? 1 : 0,
+    clamp((d * (s.close[i] - s.ema50[i])) / a / 3, -1, 1),
+    strength,
+    inter ? d * inter.score : 0,
+  ];
 }
 
 // Trend of a correlated market on H1: -1..1, null when missing or stale
@@ -157,6 +192,7 @@ export interface AnalyseEnv {
   settings: Settings;
   news: NewsEvent[];
   threshold?: number; // overrides the mode's threshold (auto-calibration)
+  noMemory?: boolean; // experiments: decide without the shadow-trade memory
 }
 
 export function analyse(env: AnalyseEnv, st: TraderState, i: number): Decision {
@@ -172,12 +208,18 @@ export function analyse(env: AnalyseEnv, st: TraderState, i: number): Decision {
   const kz = killzone(t);
   const threshold = env.threshold ?? THRESHOLDS[settings.mode];
   const inter = computeIntermarket(m, i);
+  const mem = env.noMemory ? undefined : st.mem;
 
   const votes = runModules(m, i, (d) => ({ bias: d * bias, regime, session, killzone: kz }));
   const weighted: WeightedVote[] = votes.map((v) => {
     const fit = regimeFit(v.id, regime, v.dir);
-    const learned = contextMult(st.brain, st.ctx, v.id, regime);
-    return { ...v, fit, learned, weight: 0.85 * v.strength * MODULE_INFO[v.id].base * fit * learned };
+    const learned = contextMult(st.brain, st.ctx, v.id, regime, mem);
+    const f = situation(m, i, v.dir, regime, bias, SESSION_QUALITY[session], !!kz, inter, v.strength);
+    const deja = mem ? recall(mem, v.id, f, t) : null;
+    // déjà vu: similar past situations that paid get more say, those that lost get less
+    const T = MEMORY_TUNING;
+    const rec = deja ? clamp(1 + T.recallGain * (deja.expR - T.recallBias), T.recallMin, T.recallMax) : 1;
+    return { ...v, fit, learned, f, deja, recall: rec, weight: 0.85 * v.strength * MODULE_INFO[v.id].base * fit * learned * rec };
   });
 
   const sideScore = (d: Dir) => {
@@ -203,6 +245,7 @@ export function analyse(env: AnalyseEnv, st: TraderState, i: number): Decision {
   const cons: string[] = [];
   const mine = dir ? weighted.filter((v) => v.dir === dir).sort((x, y) => y.weight - x.weight) : [];
   for (const v of mine) for (const r of v.reasons.slice(0, 3)) pros.push(r);
+  const memory = mine[0]?.deja ?? null;
   if (dir) {
     const b = dir * bias;
     if (b >= 0.4) pros.push(`Unités supérieures (H1/H4) alignées (${(b * 100).toFixed(0)}%)`);
@@ -303,6 +346,7 @@ export function analyse(env: AnalyseEnv, st: TraderState, i: number): Decision {
     session,
     killzone: kz,
     intermarket: inter,
+    memory,
     votes: weighted,
     pros: pros.slice(0, 7),
     cons: cons.slice(0, 5),

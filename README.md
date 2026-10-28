@@ -33,6 +33,8 @@ URL : https://ashuto796-boop.github.io/hunter/gold/ (sur téléphone : « Ajoute
 - **Données** : contrat perpétuel or `XAUUSDT` de Binance Futures (public, sans clé), repli sur `PAXGUSDT`, puis marché simulé si aucun flux n'est joignable.
 - **Cerveau** : 7 stratégies spécialistes (balayage de liquidité + cassure de structure, repli de tendance, ouverture de Londres, squeeze, momentum, retour à la moyenne, divergence RSI), pondérées selon le régime de marché, le biais H1/H4, la session et leurs propres résultats dans chaque régime (mémoire contextuelle bayésienne).
 - **Radar intermarché** : l'argent (`XAGUSDT`) et le dollar (via `EURUSDT`) en H1 confirment ou freinent chaque décision (±8 % de confiance).
+- **Mémoire du trader** : chaque signal de chaque spécialiste, tradé ou non, devient un trade fantôme suivi jusqu'à son stop ou son objectif ; ces leçons (pondérées 0,3 trade réel, les plus récentes comptant plus) ajustent les poids. Le « déjà vu » (situations passées les plus proches) est affiché à titre indicatif : testé sur 6 mois de PAXG réel, il n'améliorait pas les décisions, il ne les influence donc pas.
+- **Monte-Carlo** (Labo) : 2 000 futurs de 30 jours tirés des trades simulés (médiane, fourchette 5-95 %, chance de finir positif, risque d'un creux de −10 %).
 - **Mode Auto** : l'IA compare plusieurs seuils de confiance sur 70 % de l'historique et vérifie son choix sur les 30 % restants (validation hors échantillon affichée dans le Labo).
 - **Risque** : sizing au % du capital, stop structurel, TP partiel à 1R + break-even, stop suiveur, limite de perte journalière, quota de trades, pause après 2 pertes, pas d'entrée autour des news US / FOMC / NFP ni avant le week-end.
 - **Entraînement** : au démarrage l'IA rejoue 30 à 180 jours d'historique bougie par bougie (walk-forward, spread inclus) ; à la réouverture elle rejoue les bougies manquées comme un serveur 24/7.
@@ -43,7 +45,8 @@ L'IA tourne aussi sans téléphone : le workflow `.github/workflows/aurum-server
 
 - **Prix** : les serveurs GitHub sont aux États-Unis, où Binance Futures est bloqué ; le serveur utilise donc PAXG/USDT (1 PAXG = 1 once d'or) via `data-api.binance.vision`, l'API publique de données de marché de Binance, et le dollar (EUR/USDT) pour le radar.
 - **Réglages** : `server/config.json` (capital, risque, mode, unité de temps, spread, limites, `retrainHours`).
-- **Notifications push (optionnel)** : ajouter le secret de dépôt `NTFY_TOPIC` (app ntfy, gratuite) ou `TELEGRAM_TOKEN` + `TELEGRAM_CHAT_ID`.
+- **Notifications push (optionnel)** : ajouter le secret de dépôt `NTFY_TOPIC` (app ntfy, gratuite) ou `TELEGRAM_TOKEN` + `TELEGRAM_CHAT_ID` : chaque entrée, chaque sortie, et un bilan du jour après la clôture de New York.
+- **Fichiers publiés** sur `aurum-data` : `state.json` (lu par l'app), `stamp.json` (sondé chaque minute par l'app, quelques octets) et `memory.json` (la mémoire complète).
 - **Repartir de zéro** : supprimer la branche `aurum-data`.
 - **Sur une machine à soi** (VPS, Raspberry Pi…) : `npm run server:loop` tourne en continu et sert l'état sur `http://<machine>:8787/state.json` (à placer derrière HTTPS pour l'app).
 

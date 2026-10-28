@@ -923,3 +923,41 @@ a.btn {
 details summary {
   cursor: pointer;
 }
+
+/* ---------- memory & Monte Carlo ---------- */
+.memo {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-top: 12px;
+  padding: 9px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+.mc {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 96px;
+  padding-top: 6px;
+  border-bottom: 1px solid var(--line2);
+}
+.mc-bar {
+  flex: 1;
+  border-radius: 3px 3px 0 0;
+  opacity: 0.75;
+  min-height: 1px;
+}
+.mc-mark {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  border-left: 1px dashed var(--muted);
+}
+.mc-mark.mid {
+  border-left: 2px solid var(--gold);
+}

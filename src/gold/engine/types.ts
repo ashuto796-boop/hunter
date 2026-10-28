@@ -1,4 +1,5 @@
 // Core types shared by the AURUM engine (live, replay and backtest use the same code path).
+import type { DejaVu, Memory } from "./memory";
 
 export interface Candle {
   t: number; // open time (ms, UTC)
@@ -39,6 +40,9 @@ export interface WeightedVote extends Vote {
   weight: number; // final contribution after regime fit and learned weight
   fit: number;
   learned: number;
+  f: number[]; // situation features (memory key)
+  deja: DejaVu | null; // how similar past situations of this specialist played out
+  recall: number; // weight multiplier from that memory
 }
 
 export interface Plan {
@@ -70,6 +74,7 @@ export interface Decision {
   session: Session;
   killzone: string | null;
   intermarket: Intermarket | null;
+  memory: DejaVu | null; // déjà vu of the leading specialist
   votes: WeightedVote[];
   pros: string[];
   cons: string[];
@@ -177,6 +182,7 @@ export interface TraderState {
   trades: Trade[];
   brain: BrainMemory;
   ctx: ContextMemory;
+  mem?: Memory; // shadow trades (absent on states saved by older versions)
   day: DayState;
   lossStreak: number;
   cooldownUntil: number;

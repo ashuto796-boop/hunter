@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { BrainMemory, ContextMemory, DayState, Decision, Position, Settings, Trade } from "./engine/types";
+import { BrainMemory, ContextMemory, DayState, Decision, ModuleStats, Position, Settings, Trade } from "./engine/types";
 import { SourceId } from "./data/feed";
 import { emptyBrain } from "./engine/brain";
 import { DEFAULT_SETTINGS } from "./engine/defaults";
@@ -45,6 +45,8 @@ export interface GoldState {
   day: DayState;
   brain: BrainMemory;
   ctx: ContextMemory;
+  memStats: Record<string, ModuleStats>; // shadow-trade lessons per specialist (and per regime)
+  memTotal: number;
   training: TrainingResult | null;
   settings: Settings;
   trader: Settings; // settings of whoever is trading: the server's in server mode, else the phone's
@@ -76,6 +78,8 @@ export const useGold = create<GoldState>(() => ({
   day: { key: "", pnl: 0, trades: 0, startBalance: DEFAULT_SETTINGS.capital },
   brain: emptyBrain(),
   ctx: {},
+  memStats: {},
+  memTotal: 0,
   training: null,
   settings: DEFAULT_SETTINGS,
   trader: DEFAULT_SETTINGS,

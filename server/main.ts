@@ -17,6 +17,9 @@ import { Thought, closeAlert, closeText, lossText, openAlert, openText, scanText
 import { DEFAULT_SETTINGS } from "../src/gold/engine/defaults";
 import { SERVER_STATE_VERSION, ServerState, isServerState } from "../src/gold/engine/serverState";
 import { Decision, Settings } from "../src/gold/engine/types";
+import { Memory, emptyMemory } from "../src/gold/engine/memory";
+import { nyTime, tradingDay } from "../src/gold/engine/context";
+import { money } from "../src/gold/engine/narrate";
 import { SOURCES, Source, SourceId, fetchHistory, fetchNews, fetchPeers, probe } from "../src/gold/data/feed";
 
 const DAY = 864e5;
@@ -28,6 +31,10 @@ const opt = (name: string, def: string) => {
   return i >= 0 && args[i + 1] ? args[i + 1] : def;
 };
 const STATE = opt("state", "state.json");
+// next to state.json: the full memory (too big for the phone) and a tiny stamp the phone polls
+const sibling = (name: string) => STATE.replace(/[^/\\]*$/, name);
+const MEMORY = sibling("memory.json");
+const STAMP = sibling("stamp.json");
 const CONFIG = opt("config", fileURLToPath(new URL("./config.json", import.meta.url)));
 const HOST = process.env.GITHUB_ACTIONS ? "github-actions" : opt("host", "serveur");
 
@@ -61,16 +68,47 @@ function loadState(): ServerState | null {
   if (!existsSync(STATE)) return null;
   try {
     const s = JSON.parse(readFileSync(STATE, "utf8"));
-    return isServerState(s) ? s : null;
+    if (!isServerState(s)) return null;
+    let mem: Memory = emptyMemory();
+    try {
+      if (existsSync(MEMORY)) mem = JSON.parse(readFileSync(MEMORY, "utf8")) as Memory;
+    } catch {
+      log("memory.json illisible : mémoire repartie de zéro, le compte est conservé");
+    }
+    s.st.mem = { ...emptyMemory(), ...mem, stats: s.st.mem?.stats ?? mem.stats };
+    return s;
   } catch {
     return null;
   }
 }
 
+const writeAtomic = (file: string, data: string) => {
+  writeFileSync(`${file}.tmp`, data);
+  renameSync(`${file}.tmp`, file); // the HTTP endpoint never serves half a file
+};
+
+// state.json only carries the memory's small statistics; the shadow trades go to memory.json
 function saveState(s: ServerState) {
-  const tmp = `${STATE}.tmp`;
-  writeFileSync(tmp, JSON.stringify(s));
-  renameSync(tmp, STATE); // atomic: the HTTP endpoint never serves half a file
+  const mem = s.st.mem ?? emptyMemory();
+  writeAtomic(MEMORY, JSON.stringify(mem));
+  writeAtomic(STATE, JSON.stringify({ ...s, st: { ...s.st, mem: { stats: mem.stats, total: mem.total, pending: [], done: {} } } }));
+  writeAtomic(STAMP, JSON.stringify({ updatedAt: s.updatedAt, runs: s.runs }));
+}
+
+// After the New York close, one push with the day's result
+function dailyRecap(s: ServerState): [string, string] | null {
+  const ny = nyTime(Date.now());
+  if (ny.wd < 1 || ny.wd > 5 || ny.mins < 17 * 60) return null;
+  const day = ny.ymd; // a session is named after the New York date it closes on
+  if (s.lastRecap === day) return null;
+  s.lastRecap = day;
+  const today = s.st.trades.filter((t) => tradingDay(t.closeTime) === day);
+  const r = today.reduce((a, t) => a + t.r, 0);
+  const pnl = today.reduce((a, t) => a + t.pnl, 0);
+  const body = today.length
+    ? `${today.length} trade(s), ${r >= 0 ? "+" : ""}${r.toFixed(2)}R (${money(pnl)}). Solde ${s.st.balance.toFixed(2)} $.`
+    : `Aucun trade aujourd'hui : pas de setup assez propre. Solde ${s.st.balance.toFixed(2)} $.`;
+  return ["AURUM — bilan du jour", body];
 }
 
 // Push alert to the phone even when the app is closed
@@ -172,6 +210,7 @@ export async function runOnce(): Promise<ServerState> {
     const tr = await train({ m, settings, news }, src.id);
     state.st.brain = tr.st.brain;
     state.st.ctx = tr.st.ctx;
+    state.st.mem = tr.st.mem;
     state.autoThreshold = tr.threshold;
     state.trainedAt = now;
     state.training = { ...tr.result, trades: tr.result.trades.slice(0, 80) };
@@ -225,6 +264,8 @@ export async function runOnce(): Promise<ServerState> {
   state.runs++;
   state.host = HOST;
   state.updatedAt = Date.now();
+  const recap = state.runs > 1 ? dailyRecap(state) : null;
+  if (recap) alerts.push(recap);
   saveState(state);
   log(`solde ${state.st.balance.toFixed(2)} $, position ${state.st.position ? "ouverte" : "aucune"}, ${state.st.trades.length} trades`);
 

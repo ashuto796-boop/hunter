@@ -122,6 +122,19 @@ function AiCard() {
           </div>
         </div>
       </div>
+      {d.memory && (
+        <div className="memo">
+          <span aria-hidden>🧠</span>
+          <span>
+            Déjà vu : {d.memory.n} situations proches, {(d.memory.win * 100).toFixed(0)} % gagnantes,{" "}
+            <span className={`num ${tone(d.memory.expR)}`}>
+              {d.memory.expR >= 0 ? "+" : ""}
+              {d.memory.expR.toFixed(2)}R
+            </span>{" "}
+            <span className="muted">(indicatif)</span>
+          </span>
+        </div>
+      )}
       <div className="bias" style={{ marginTop: 16 }}>
         <div className="kv-label" style={{ marginBottom: 8 }}>
           Biais de fond H1 / H4 : <span className={tone(d.bias)}>{d.bias >= 0 ? "haussier" : "baissier"} {Math.abs(d.bias * 100).toFixed(0)} %</span>

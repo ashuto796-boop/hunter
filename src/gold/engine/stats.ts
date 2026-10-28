@@ -116,3 +116,55 @@ export function rSummary(trades: Trade[]): RSummary {
   }
   return { n: trades.length, sumR, winRate: trades.length ? wins / trades.length : 0, maxDDR };
 }
+
+export interface MonteCarlo {
+  horizonDays: number;
+  tradesPerRun: number;
+  median: number; // final return, fraction of capital
+  p5: number;
+  p95: number;
+  probProfit: number;
+  probDD10: number; // chance of a 10 % drawdown at some point
+  bins: { from: number; to: number; count: number }[];
+}
+
+// Replays thousands of possible futures by drawing the past trades at random (with replacement),
+// at the pace they happened, to show the spread of outcomes rather than one lucky equity curve.
+export function monteCarlo(trades: Trade[], start: number, days: number, horizonDays = 30, runs = 2000): MonteCarlo | null {
+  if (trades.length < 10 || days <= 0) return null;
+  // each trade as a fraction of the balance it was taken with
+  let bal = start;
+  const rets = trades.map((t) => {
+    const r = t.pnl / bal;
+    bal += t.pnl;
+    return r;
+  });
+  const n = Math.max(1, Math.round((trades.length / days) * horizonDays));
+  let seed = 7;
+  const rand = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+  const finals: number[] = [];
+  let profit = 0;
+  let dd10 = 0;
+  for (let k = 0; k < runs; k++) {
+    let eq = 1;
+    let peak = 1;
+    let hit = false;
+    for (let j = 0; j < n; j++) {
+      eq *= 1 + rets[Math.floor(rand() * rets.length)];
+      peak = Math.max(peak, eq);
+      if (eq / peak <= 0.9) hit = true;
+    }
+    finals.push(eq - 1);
+    if (eq > 1) profit++;
+    if (hit) dd10++;
+  }
+  finals.sort((a, b) => a - b);
+  const q = (p: number) => finals[Math.min(finals.length - 1, Math.floor(p * finals.length))];
+  const lo = q(0.01);
+  const hi = q(0.99);
+  const B = 24;
+  const width = (hi - lo) / B || 1e-6;
+  const bins = Array.from({ length: B }, (_, j) => ({ from: lo + j * width, to: lo + (j + 1) * width, count: 0 }));
+  for (const f of finals) bins[Math.max(0, Math.min(B - 1, Math.floor((f - lo) / width)))].count++;
+  return { horizonDays, tradesPerRun: n, median: q(0.5), p5: q(0.05), p95: q(0.95), probProfit: profit / runs, probDD10: dd10 / runs, bins };
+}

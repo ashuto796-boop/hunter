@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useGold } from "../store";
 import { bot } from "../bot";
 import { MODULE_IDS, MODULE_INFO } from "../engine/modules";
@@ -7,7 +7,71 @@ import { TradeRow } from "./Trades";
 import { dateTime, pct, rr, tone, usd } from "../ui/format";
 import { Session, Trade } from "../engine/types";
 import { SESSION_LABEL } from "../engine/context";
-import { rSummary } from "../engine/stats";
+import { monteCarlo, rSummary } from "../engine/stats";
+
+function MonteCarloCard({ trades, capital }: { trades: Trade[]; capital: number }) {
+  const mc = useMemo(() => {
+    const chrono = [...trades].sort((a, b) => a.closeTime - b.closeTime);
+    if (chrono.length < 10) return null;
+    const days = (chrono[chrono.length - 1].closeTime - chrono[0].openTime) / 864e5;
+    return monteCarlo(chrono, capital, days);
+  }, [trades, capital]);
+  if (!mc) return null;
+  const max = Math.max(...mc.bins.map((b) => b.count));
+  const lo = mc.bins[0].from;
+  const hi = mc.bins[mc.bins.length - 1].to;
+  const x = (v: number) => `${Math.max(0, Math.min(100, ((v - lo) / (hi - lo)) * 100))}%`;
+  return (
+    <section className="card">
+      <div className="card-title">
+        <span>Monte-Carlo 30 j</span>
+        <span className="num" style={{ textTransform: "none", letterSpacing: 0 }}>
+          ≈ {mc.tradesPerRun} trades
+        </span>
+      </div>
+      <div className="mc">
+        {mc.bins.map((b, k) => (
+          <div
+            key={k}
+            className="mc-bar"
+            style={{ height: `${(b.count / max) * 100}%`, background: (b.from + b.to) / 2 >= 0 ? "var(--up)" : "var(--down)" }}
+          />
+        ))}
+        {[mc.p5, mc.median, mc.p95].map((v, k) => (
+          <div key={k} className={`mc-mark ${k === 1 ? "mid" : ""}`} style={{ left: x(v) }} />
+        ))}
+      </div>
+      <div className="progress-legend num" style={{ marginTop: 6 }}>
+        <span>{pct(lo, true, 1)}</span>
+        <span>0 %</span>
+        <span>{pct(hi, true, 1)}</span>
+      </div>
+      <div className="grid2" style={{ marginTop: 14 }}>
+        <div>
+          <div className="kv-label">Résultat médian</div>
+          <div className={`kv-val num ${tone(mc.median)}`}>{pct(mc.median, true, 1)}</div>
+        </div>
+        <div>
+          <div className="kv-label">9 cas sur 10 entre</div>
+          <div className="kv-val num">
+            {pct(mc.p5, true, 1)} et {pct(mc.p95, true, 1)}
+          </div>
+        </div>
+        <div>
+          <div className="kv-label">Chance de finir positif</div>
+          <div className="kv-val num">{(mc.probProfit * 100).toFixed(0)} %</div>
+        </div>
+        <div>
+          <div className="kv-label">Risque d'un creux de −10 %</div>
+          <div className={`kv-val num ${mc.probDD10 > 0.1 ? "down" : ""}`}>{(mc.probDD10 * 100).toFixed(0)} %</div>
+        </div>
+      </div>
+      <p className="note" style={{ marginTop: 10 }}>
+        2 000 futurs possibles, en tirant au hasard parmi les trades simulés : on voit l'éventail des issues, pas une seule courbe chanceuse. Ça suppose que le marché à venir ressemble au passé.
+      </p>
+    </section>
+  );
+}
 
 const plural = (n: number, w: string) => `${n} ${w}${n > 1 ? "s" : ""}`;
 
@@ -167,6 +231,8 @@ export function Lab() {
           })()}
         </section>
       )}
+
+      <MonteCarloCard trades={tr.trades} capital={capital} />
 
       <SessionStats trades={tr.trades} />
 

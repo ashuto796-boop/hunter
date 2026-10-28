@@ -6,13 +6,14 @@
 import { Candle, Decision, Position, Settings, Trade, TraderState } from "./engine/types";
 import { Market, Peers, buildMarket } from "./engine/features";
 import { AnalyseEnv, THRESHOLDS, analyse } from "./engine/brain";
-import { closePosition, endOfBar, manageBar, newTraderState, openPosition, rollDay, simulate, warmupIndex } from "./engine/trader";
+import { closePosition, endOfBar, manageBar, newTraderState, openPosition, rememberDecision, rollDay, simulate, warmupIndex } from "./engine/trader";
+import { emptyMemory, resolveShadows } from "./engine/memory";
 import { train } from "./engine/training";
 import { Thought, closeAlert, closeText, lossText, openAlert, openText, scanText, sideFr, trainingTexts } from "./engine/narrate";
 import { GoldSimulator } from "./engine/sim";
 import { ServerState } from "./engine/serverState";
 import { BinanceFeed, Feed, SOURCES, Source, SourceId, SimFeed, fetchHistory, fetchKlines, fetchNews, fetchPeers, probe, refreshPeers } from "./data/feed";
-import { fetchServerState } from "./data/remote";
+import { fetchServerStamp, fetchServerState } from "./data/remote";
 import { DEFAULT_SETTINGS, GoldState, useGold } from "./store";
 import { beep, keepAwake, notify, vibrate } from "./device";
 
@@ -94,7 +95,7 @@ class Bot {
       ? { ...(load() as Saved), settings: this.settings }
       : {
           settings: this.settings,
-          st: { ...this.st, trades: this.st.trades.slice(-500) },
+          st: { ...this.st, trades: this.st.trades.slice(-500), mem: undefined }, // memory is rebuilt by training at boot
           thoughts: this.thoughts.slice(-MAX_THOUGHTS),
           lastProcessedT: this.lastProcessedT,
           autopilot: this.autopilot,
@@ -195,6 +196,8 @@ class Bot {
       day: { ...st.day },
       brain: JSON.parse(JSON.stringify(st.brain)),
       ctx: JSON.parse(JSON.stringify(st.ctx ?? {})),
+      memStats: JSON.parse(JSON.stringify(st.mem?.stats ?? {})),
+      memTotal: st.mem?.total ?? 0,
       settings: { ...this.settings },
       trader: { ...(r ? r.settings : this.settings) },
       autopilot: this.autopilot,
@@ -282,6 +285,13 @@ class Bot {
     if (!this.remote || this.polling) return;
     this.polling = true;
     try {
+      const stamp = await fetchServerStamp(this.settings.serverUrl);
+      if (stamp !== null && stamp <= this.remote.updatedAt) {
+        this.remoteFetchedAt = Date.now();
+        this.remoteError = null;
+        this.publish();
+        return;
+      }
       const r = await fetchServerState(this.settings.serverUrl);
       this.remoteFetchedAt = Date.now();
       this.remoteError = null;
@@ -351,6 +361,7 @@ class Bot {
     const tr = await train(this.env(), this.src.id, (msg, p) => useGold.setState({ bootMsg: msg, progress: p }));
     this.st.brain = tr.st.brain;
     this.st.ctx = tr.st.ctx;
+    this.st.mem = tr.st.mem;
     if (this.settings.mode === "auto") this.autoThreshold = tr.threshold;
     useGold.setState({ training: tr.result });
     for (const text of trainingTexts(tr.result)) this.think("learn", text);
@@ -495,6 +506,7 @@ class Bot {
       if (tr) this.logClose(tr, true);
     }
     rollDay(this.st, tClose);
+    resolveShadows((this.st.mem ??= emptyMemory()), k, tClose, this.settings.spread);
     this.decide(i);
     this.lastProcessedT = tClose;
     this.publish();
@@ -505,6 +517,7 @@ class Bot {
   private decide(i: number) {
     const d = analyse(this.env(), this.st, i);
     this.decision = d;
+    rememberDecision(this.st, d, this.settings.spread);
     this.think("scan", scanText(d), d.t);
     if (!d.plan) return;
     if (!this.autopilot) {
@@ -638,9 +651,11 @@ class Bot {
     if (this.remote) return;
     const brain = this.st.brain;
     const ctx = this.st.ctx;
+    const mem = this.st.mem;
     this.st = newTraderState(this.settings.capital);
     this.st.brain = brain;
     this.st.ctx = ctx;
+    this.st.mem = mem; // the experience stays, only the account restarts
     this.thoughts = [];
     if (this.market) this.lastProcessedT = this.market.ltf.c[this.market.ltf.c.length - 1].t + this.settings.tf * 60000;
     this.think("info", `Compte démo remis à ${this.settings.capital.toFixed(0)} $.`);

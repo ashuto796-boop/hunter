@@ -1,8 +1,9 @@
 name: AURUM serveur 24/7
 
 # The gold AI runs here every 15 minutes, phone on or off. Each run replays every closed candle
-# since the previous one with the same engine as the app (server/main.ts), then publishes
-# state.json on the aurum-data branch, which the app reads.
+# since the previous one with the same engine as the app (server/main.ts), then publishes on the
+# aurum-data branch: state.json (read by the app), stamp.json (polled by the app) and memory.json
+# (every past signal and its outcome, which the AI keeps learning from).
 # Settings: server/config.json. Optional push alerts: repository secrets NTFY_TOPIC (ntfy app)
 # or TELEGRAM_TOKEN + TELEGRAM_CHAT_ID. To start over with a new account: delete aurum-data.
 on:
@@ -34,6 +35,7 @@ jobs:
         run: |
           if git fetch -q origin aurum-data 2>/dev/null; then
             git show FETCH_HEAD:state.json > state.json
+            if git show FETCH_HEAD:memory.json > memory.tmp 2>/dev/null; then mv memory.tmp memory.json; else rm -f memory.tmp; echo "Pas encore de mémoire."; fi
             echo "État précédent chargé."
           else
             echo "Premier passage : nouveau compte démo."
@@ -48,9 +50,9 @@ jobs:
 
       - name: Publish state
         run: |
-          mkdir publish && cp state.json publish/ && cd publish
+          mkdir publish && cp state.json memory.json stamp.json publish/ && cd publish
           git init -q -b aurum-data
-          git add state.json
+          git add state.json memory.json stamp.json
           git -c user.name="AURUM bot" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
             commit -q -m "AURUM : état du $(date -u +'%Y-%m-%d %H:%M') UTC"
           git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" aurum-data

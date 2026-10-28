@@ -15,6 +15,7 @@ export interface ServerState {
   settings: Settings;
   st: TraderState;
   lastProcessedT: number; // close time of the last candle the server traded
+  lastRecap?: string; // trading day of the last daily recap push
   autoThreshold: number;
   trainedAt: number;
   training: TrainingResult | null;
