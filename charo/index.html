@@ -456,6 +456,11 @@
         </div>
       </div>
 
+      <label class="field">
+        <span class="field-label">Consigne perso (optionnel)</span>
+        <input type="text" id="customInstr" placeholder="ex : pas de questions · fais court · plus cru · parle de son chien" autocapitalize="off" autocorrect="off" spellcheck="false">
+      </label>
+
       <button class="cta" id="go" disabled>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
         <span id="goLabel">Monter mon aura</span>
@@ -569,7 +574,7 @@
   var DEFAULT_MODEL="claude-sonnet-5-5";
   var LS_KEY="charo_api_key", LS_MODEL="charo_model";
 
-  var files=[], intentValue="savoir où j'en suis", platformValue="Tinder / appli de rencontre", levelValue="charro", mode="repondre", lastMode="repondre", lastData=null, convExcerpt="", ctl=null;
+  var files=[], intentValue="savoir où j'en suis", platformValue="Tinder / appli de rencontre", levelValue="charro", mode="repondre", lastMode="repondre", customInstr="", lastData=null, convExcerpt="", ctl=null;
 
   var $=function(id){return document.getElementById(id);};
   var convText=$("convText"), drop=$("drop"), fileInput=$("file"), shots=$("shots");
@@ -715,6 +720,12 @@
   function refresh(){var ok=hasInput(); go.disabled=!ok; hint.textContent=ok?"":"Ajoute des messages ou une capture pour lancer.";}
   convText.addEventListener("input",refresh); refresh();
 
+  (function(){
+    var ci=document.getElementById("customInstr"); if(!ci) return;
+    try{ ci.value=lsGet("aura_instr",""); customInstr=ci.value; }catch(e){}
+    ci.addEventListener("input",function(){ customInstr=ci.value; try{ lsSet("aura_instr", ci.value); }catch(e){} });
+  })();
+
   /* ---------- views ---------- */
   function show(view){
     $("input").hidden=view!=="input";
@@ -728,10 +739,14 @@
 
   /* ---------- prompt ---------- */
   var PERSONA="Tu es LE coach charo ultime. Tu penses et écris comme un mec alpha : puissant, ultra sûr de lui, insolent, dans l'abondance totale — il ne court jamais après personne, c'est l'autre qui doit mériter son attention. Charisme brut, répartie qui fait mouche, sang-froid, zéro faiblesse, zéro besoin de valider. On te donne une conversation entre MOI et une autre personne (appli de messagerie ou de rencontre), en texte collé et/ou en captures. Dans les captures, les bulles à DROITE sont généralement MOI, celles à GAUCHE l'autre personne.";
-  var RULES="Lis le terrain pour de vrai : qui relance, qui investit, le niveau d'intérêt, les signaux, si la porte est ouverte. Côté lecture/move, sois lucide et cash, même quand c'est mal barré — parfois le bon move c'est NE PAS répondre ou attendre. Les MESSAGES, eux, doivent claquer et aller À FOND dans le charro CRU : COURTS, directs, sans filtre, insolents, arrogants, taquins, osés — argot et vulgarité ASSUMÉS. ADAPTE LE NIVEAU DE CRU AU TON DE LA CONV ET À L'INTENSITÉ demandée : si elle est déjà chaude, joueuse ou coquine (ou en mode « sans pitié »), LÂCHE-TOI vraiment — cru, vulgaire, direct, sous-entendus sexuels francs et tension assumée, sans pudeur ; si c'est le tout début, froid ou en mode soft/classe, reste piquant mais plus fin. Du push-pull, de l'aplomb qui en impose, zéro validation quémandée, jamais lourd ni cliché. Provoc et piquant à fond ('toxic-coded' façon banter qui allume). OBJECTIF ULTIME : des messages MAGNÉTIQUES qui créent de l'attirance et de la curiosité DÈS le premier message — chaque réponse doit sortir du lot, marquer, et donner une envie irrésistible de répondre et d'en savoir plus. Vise l'impact maximal, tout en restant 100% crédible et naturel (zéro mytho, zéro truc appris par cœur). Seules limites à tenir : on peut être bien chaud et franc dans l'allusion, mais pas de description sexuelle ultra-graphique façon porno ; jamais d'insulte humiliante ou dégradante envers l'autre, jamais de menace, de harcèlement ni de manipulation malsaine ; adultes uniquement. Français parlé, punchy, stylé.";
+  var RULES="Lis le terrain pour de vrai : qui relance, qui investit, le niveau d'intérêt, les signaux, si la porte est ouverte. Côté lecture/move, sois lucide et cash, même quand c'est mal barré — parfois le bon move c'est NE PAS répondre ou attendre. Les MESSAGES, eux, doivent claquer et aller À FOND dans le charro CRU : COURTS, directs, sans filtre, insolents, arrogants, taquins, osés — argot et vulgarité ASSUMÉS. ADAPTE LE NIVEAU DE CRU AU TON DE LA CONV ET À L'INTENSITÉ demandée : si elle est déjà chaude, joueuse ou coquine (ou en mode « sans pitié »), LÂCHE-TOI vraiment — cru, vulgaire, direct, sous-entendus sexuels francs et tension assumée, sans pudeur ; si c'est le tout début, froid ou en mode soft/classe, reste piquant mais plus fin. Du push-pull, de l'aplomb qui en impose, zéro validation quémandée, jamais lourd ni cliché. NE TERMINE PAS systématiquement par une question : par défaut la plupart des messages sont des AFFIRMATIONS / punchlines qui se suffisent à elles-mêmes et ne quémandent pas de réponse ; mets une question seulement quand elle sert vraiment le move (1 ou 2 max sur les 5), ou si ma consigne perso le demande. Provoc et piquant à fond ('toxic-coded' façon banter qui allume). OBJECTIF ULTIME : des messages MAGNÉTIQUES qui créent de l'attirance et de la curiosité DÈS le premier message — chaque réponse doit sortir du lot, marquer, et donner une envie irrésistible de répondre et d'en savoir plus. Vise l'impact maximal, tout en restant 100% crédible et naturel (zéro mytho, zéro truc appris par cœur). Seules limites à tenir : on peut être bien chaud et franc dans l'allusion, mais pas de description sexuelle ultra-graphique façon porno ; jamais d'insulte humiliante ou dégradante envers l'autre, jamais de menace, de harcèlement ni de manipulation malsaine ; adultes uniquement. Français parlé, punchy, stylé.";
 
   function intentRule(){
     return "IMPÉRATIF — RESPECTE MON INTENTION À LA LETTRE. Tout (le move conseillé ET les 5 messages) doit servir UNIQUEMENT à « "+intentValue+" », rien d'autre. Ne propose un rendez-vous, une date, un lieu ou un horaire QUE si mon intention est « proposer un date » ou « conclure ». Pour toute autre intention (lire le jeu, relancer, chambrer, créer du manque, etc.), NE propose AUCUN plan concret ni date, et ne t'engage pas sur une sortie que l'autre évoque si je ne l'ai pas demandée — reste pile sur l'objectif.";
+  }
+  function instrLine(){
+    var s=(customInstr||"").trim();
+    return s ? ("CONSIGNE PERSO DE L'UTILISATEUR — À RESPECTER EN PRIORITÉ ABSOLUE, au-dessus de tout le reste, sur TOUS les messages : « "+s.slice(0,500)+" ».") : "";
   }
   function levelLine(){
     var map={
@@ -750,7 +765,7 @@
     var parts=[PERSONA,RULES,
       "OBJECTIF : écrire le TOUT PREMIER message pour aborder/accrocher cette personne (il n'y a pas encore de conversation).",
       "Ça se passe sur : "+platformValue+" — colle aux codes de cette plateforme.",
-      levelLine()];
+      levelLine(), instrLine()].filter(Boolean);
     if(ctx) parts.push("Infos sur la personne (bio / ce que je sais) :\n\"\"\"\n"+ctx.slice(0,8000)+"\n\"\"\"");
     else parts.push("Peu d'infos écrites : base-toi sur les captures de son profil si présentes ; sinon propose des accroches passe-partout mais stylées et originales.");
     parts.push(
@@ -762,7 +777,7 @@
 
   function buildPrompt(){
     var conv=convText.value.trim();
-    var parts=[PERSONA,RULES,"Mon intention : "+intentValue+".",intentRule(),"Ça se passe sur : "+platformValue+" — colle aux codes de cette plateforme.",levelLine()];
+    var parts=[PERSONA,RULES,"Mon intention : "+intentValue+".",intentRule(),"Ça se passe sur : "+platformValue+" — colle aux codes de cette plateforme.",levelLine(),instrLine()].filter(Boolean);
     if(conv) parts.push("La conversation (texte) :\n\"\"\"\n"+conv.slice(0,8000)+"\n\"\"\"");
     else parts.push("Pas de texte collé : base-toi sur les captures.");
     parts.push(
@@ -911,7 +926,7 @@
       ? ("Contexte : une accroche pour aborder cette personne. Angle : "+((lastData&&lastData.angle)||"")+".")
       : ("Contexte : lecture = "+((lastData&&lastData.lecture)||"")+" ; move = "+((lastData&&lastData.move&&lastData.move.action)||"")+" ; intention = "+intentValue+".");
     var src = convExcerpt ? ((lastMode==="accroche"?"Infos sur la personne :\n":"La conversation :\n")+"\"\"\"\n"+convExcerpt+"\n\"\"\"") : "";
-    var p=[PERSONA,RULES, ctxLine+" Plateforme : "+platformValue+".", levelLine(), src,
+    var p=[PERSONA,RULES, ctxLine+" Plateforme : "+platformValue+".", levelLine(), instrLine(), src,
       "Réécris UNE SEULE nouvelle version de ce message, dans le même ton « "+ton+" », VRAIMENT différente de : « "+cur+" ». Réponds UNIQUEMENT avec le texte du message, rien d'autre : pas de guillemets, pas d'explication."
     ].filter(Boolean).join("\n\n");
     btn.disabled=true; btn.classList.add("spin"); body.style.opacity=".45";
@@ -1086,7 +1101,7 @@
     var prev=((lastData.messages)||[]).map(function(m){return m&&(m.texte||m.text);}).filter(Boolean);
     var p;
     if(lastMode==="accroche"){
-      p=[PERSONA,RULES,
+      p=[PERSONA,RULES,instrLine(),
         "OBJECTIF : 5 NOUVELLES accroches (premiers messages) pour aborder cette personne. Plateforme : "+platformValue+". Intensité : "+levelValue+". Angle : "+((lastData&&lastData.angle)||"")+".",
         convExcerpt?("Infos sur la personne :\n\"\"\"\n"+convExcerpt+"\n\"\"\""):"",
         "Propose 5 accroches VRAIMENT différentes de celles-ci : "+JSON.stringify(prev)+"."+
@@ -1094,7 +1109,7 @@
       ].filter(Boolean).join("\n\n");
     } else {
       var mv=(lastData.move&&lastData.move.action)||"";
-      p=[PERSONA,RULES,
+      p=[PERSONA,RULES,instrLine(),
         "Voici la lecture déjà faite : "+(lastData.lecture||"")+" Move conseillé : "+mv+". Mon intention : "+intentValue+". Plateforme : "+platformValue+". Intensité : "+levelValue+".",
         intentRule(),
         convExcerpt?("La conversation :\n\"\"\"\n"+convExcerpt+"\n\"\"\""):"",
