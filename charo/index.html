@@ -247,6 +247,14 @@
   @keyframes moveglow{0%,100%{box-shadow:0 8px 30px rgba(255,46,116,.12);}50%{box-shadow:0 10px 44px rgba(255,46,116,.24);}}
   .msg.t-taquin{border-left:3px solid var(--gold);}
   .msg.t-taquin .tone{color:var(--gold);}
+  .msg.t-naturel{border-left:3px solid var(--muted);}
+  .msg.t-naturel .tone{color:var(--fg);}
+  .msg.t-flirt{border-left:3px solid var(--acc);}
+  .msg.t-flirt .tone{color:var(--acc);}
+  .msg.t-confiant{border-left:3px solid var(--acc-2);}
+  .msg.t-confiant .tone{color:var(--acc-2);}
+  .msg.t-drole{border-left:3px solid #ff5aa0;}
+  .msg.t-drole .tone{color:#ff5aa0;}
   .msg.t-arrogant{border-left:3px solid var(--acc-2);}
   .msg.t-arrogant .tone{color:var(--acc-2);}
   .msg.t-cash{border-left:3px solid var(--acc);}
@@ -334,6 +342,8 @@
   .chances{display:flex; align-items:center; justify-content:space-between; gap:10px; margin:0 0 22px; padding:14px 16px; border:1px solid var(--line); border-radius:14px; background:rgba(22,15,19,.5); -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);}
   .chances .cl{font-family:var(--font-mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted);}
   .chances .cv{font-family:var(--font-disp); font-weight:800; font-size:25px; letter-spacing:-.01em; font-variant-numeric:tabular-nums;}
+  .dmnote{border:1px solid rgba(255,194,74,.45); background:rgba(255,194,74,.08); color:var(--gold); border-radius:12px; padding:12px 14px; font-size:14px; font-weight:500; line-height:1.4; margin:0 0 18px;}
+  .dmnote b{color:var(--gold);}
 
   [hidden]{display:none !important;}
 </style>
@@ -478,6 +488,7 @@
   <div id="result">
     <section>
       <p class="eyebrow"><b>02</b><span class="sep">/</span><span class="tag" id="tag02">ce qui se joue</span></p>
+      <div class="dmnote" id="dmNote" hidden>&#9888;&#65039; Ton dernier message est resté sans réponse — ici ce sont des <b>relances</b>, pas des réponses.</div>
       <p class="read" id="read"></p>
       <div class="temp" id="temp" hidden>
         <div class="top"><div class="score" id="tempScore">–<span>/10</span></div><div class="word" id="tempWord"></div></div>
@@ -738,8 +749,8 @@
   }
 
   /* ---------- prompt ---------- */
-  var PERSONA="Tu es LE coach charo ultime. Tu penses et écris comme un mec alpha : puissant, ultra sûr de lui, insolent, dans l'abondance totale — il ne court jamais après personne, c'est l'autre qui doit mériter son attention. Charisme brut, répartie qui fait mouche, sang-froid, zéro faiblesse, zéro besoin de valider. On te donne une conversation entre MOI et une autre personne (appli de messagerie ou de rencontre), en texte collé et/ou en captures. Dans les captures, les bulles à DROITE sont généralement MOI, celles à GAUCHE l'autre personne.";
-  var RULES="Lis le terrain pour de vrai : qui relance, qui investit, le niveau d'intérêt, les signaux, si la porte est ouverte. Côté lecture/move, sois lucide et cash, même quand c'est mal barré — parfois le bon move c'est NE PAS répondre ou attendre. Les MESSAGES, eux, doivent claquer et aller À FOND dans le charro CRU : COURTS, directs, sans filtre, insolents, arrogants, taquins, osés — argot et vulgarité ASSUMÉS. ADAPTE LE NIVEAU DE CRU AU TON DE LA CONV ET À L'INTENSITÉ demandée : si elle est déjà chaude, joueuse ou coquine (ou en mode « sans pitié »), LÂCHE-TOI vraiment — cru, vulgaire, direct, sous-entendus sexuels francs et tension assumée, sans pudeur ; si c'est le tout début, froid ou en mode soft/classe, reste piquant mais plus fin. Du push-pull, de l'aplomb qui en impose, zéro validation quémandée, jamais lourd ni cliché. NE TERMINE PAS systématiquement par une question : par défaut la plupart des messages sont des AFFIRMATIONS / punchlines qui se suffisent à elles-mêmes et ne quémandent pas de réponse ; mets une question seulement quand elle sert vraiment le move (1 ou 2 max sur les 5), ou si ma consigne perso le demande. Provoc et piquant à fond ('toxic-coded' façon banter qui allume). OBJECTIF ULTIME : des messages MAGNÉTIQUES qui créent de l'attirance et de la curiosité DÈS le premier message — chaque réponse doit sortir du lot, marquer, et donner une envie irrésistible de répondre et d'en savoir plus. Vise l'impact maximal, tout en restant 100% crédible et naturel (zéro mytho, zéro truc appris par cœur). Seules limites à tenir : on peut être bien chaud et franc dans l'allusion, mais pas de description sexuelle ultra-graphique façon porno ; jamais d'insulte humiliante ou dégradante envers l'autre, jamais de menace, de harcèlement ni de manipulation malsaine ; adultes uniquement. Français parlé, punchy, stylé.";
+  var PERSONA="Tu es un pote hyper fin en séduction, mais surtout tu écris comme une VRAIE personne : un jeune adulte français sûr de lui, naturel, drôle et charmeur, qui tape juste sans jamais forcer. Pas un robot à punchlines de drague, pas un mec qui se la raconte — quelqu'un de vrai, spontané, avec du répondant. Tes messages doivent passer pour écrits sur le moment par un humain, jamais par une IA de coaching. On te donne une conversation entre MOI et une autre personne (appli de messagerie ou de rencontre), en texte collé et/ou en captures. Dans les captures, les bulles à DROITE (souvent colorées) sont MOI, celles à GAUCHE l'autre personne. Lis TOUT dans l'ordre, repère qui a envoyé chaque message et qui a parlé en dernier.";
+  var RULES="ANALYSE D'ABORD, pour de vrai : lis TOUTE la conversation dans l'ordre, repère qui a envoyé chaque message et surtout qui a parlé EN DERNIER, et tiens compte du dernier message reçu et de l'évolution de l'échange. Distingue nettement les FAITS (ce qui est écrit noir sur blanc), les HYPOTHÈSES (ce que tu déduis — à présenter comme une supposition) et les INTENTIONS réellement exprimées. INTERDIT ABSOLU : inventer un sentiment, une pensée, un événement ou un comportement qui n'est PAS dans la conversation. Ne transforme JAMAIS un message neutre ou banal en « preuve » qu'elle pense à moi ou qu'elle est attirée — si elle dit un truc anodin, traite-le comme anodin. Reste cohérent avec ce que J'AI déjà écrit avant, et ne propose JAMAIS un message qui répète presque mot pour mot quelque chose déjà envoyé dans la conv. SI LE TOUT DERNIER MESSAGE DE LA CONV EST DE MOI (elle n'a pas répondu depuis) : signale-le clairement dans la lecture, mets le champ dernier_de_moi à true, et propose des RELANCES ou l'option d'attendre — surtout PAS des réponses à un message reçu qui n'existe pas. ÉCRITURE (le plus important) : les messages doivent sonner comme écrits SPONTANÉMENT, sur le moment, par une vraie personne — un jeune adulte français — et jamais par une IA de drague. Langage parlé naturel, sans expressions forcées, sans jargon de coach, sans punchline plaquée. Adapte la LONGUEUR au style des messages de la conv (si elle écrit court, tu écris court). Confiant et charmeur OUI, mais JAMAIS arrogant, prétentieux, lourd, insistant ni artificiel. Les 5 propositions doivent être VRAIMENT différentes entre elles (angle, ton, formulation, longueur) — zéro redite entre elles. Par défaut PAS de question systématique à la fin : surtout des affirmations qui se suffisent ; une question seulement si elle sert vraiment, ou si ma consigne perso le demande. INTENSITÉ : adapte-toi au style et à l'intensité demandés et au ton réel de l'échange — tu peux être taquin, joueur, un peu piquant voire cru quand la conv s'y prête vraiment (surtout en « sans pitié »), mais toujours ancré dans la vraie conv, crédible, jamais gratuit, jamais inventé, jamais try-hard. Limites : rien de sexuellement ultra-graphique (pas de porno) ; jamais d'insulte humiliante ou dégradante ; pas de menace, de harcèlement ni de manipulation malsaine ; adultes uniquement.";
 
   function intentRule(){
     return "IMPÉRATIF — RESPECTE MON INTENTION À LA LETTRE. Tout (le move conseillé ET les 5 messages) doit servir UNIQUEMENT à « "+intentValue+" », rien d'autre. Ne propose un rendez-vous, une date, un lieu ou un horaire QUE si mon intention est « proposer un date » ou « conclure ». Pour toute autre intention (lire le jeu, relancer, chambrer, créer du manque, etc.), NE propose AUCUN plan concret ni date, et ne t'engage pas sur une sortie que l'autre évoque si je ne l'ai pas demandée — reste pile sur l'objectif.";
@@ -769,8 +780,8 @@
     if(ctx) parts.push("Infos sur la personne (bio / ce que je sais) :\n\"\"\"\n"+ctx.slice(0,8000)+"\n\"\"\"");
     else parts.push("Peu d'infos écrites : base-toi sur les captures de son profil si présentes ; sinon propose des accroches passe-partout mais stylées et originales.");
     parts.push(
-      "Donne EXACTEMENT 5 accroches (premiers messages) qui sortent du lot, chacune d'un flavor : TAQUIN, ARROGANT, CASH, OSÉ, SANS FILTRE. Évite 'salut ça va' et les trucs vus 1000 fois ; accroche-toi à un détail de sa bio/photo s'il y en a un.\n"+
-      'Réponds UNIQUEMENT avec un objet JSON : {"angle":"l\'angle à jouer en 1 phrase","messages":[{"ton":"taquin|arrogant|cash|osé|sans filtre","texte":"l\'accroche prête à envoyer","pourquoi":"pourquoi ça marche, 1 phrase"}]}. N\'ajoute aucun texte hors du JSON.'
+      "Donne EXACTEMENT 5 accroches (premiers messages) qui sortent du lot, chacune d'un STYLE différent et distinct : 1) NATUREL, 2) TAQUIN, 3) FLIRT SUBTIL, 4) CONFIANT, 5) DRÔLE. Qu'elles sonnent écrites par une vraie personne, pas par une IA. Évite 'salut ça va' et les trucs vus 1000 fois ; accroche-toi à un détail CONCRET de sa bio/photo s'il y en a un, sans rien inventer.\n"+
+      'Réponds UNIQUEMENT avec un objet JSON : {"angle":"l\'angle à jouer en 1 phrase","messages":[{"ton":"naturel|taquin|flirt subtil|confiant|drôle","texte":"l\'accroche prête à envoyer","pourquoi":"pourquoi ça colle, 1 phrase courte"}]}. N\'ajoute aucun texte hors du JSON.'
     );
     return parts.join("\n\n");
   }
@@ -783,17 +794,18 @@
     parts.push(
       "Réponds UNIQUEMENT avec un objet JSON valide, en français, exactement de cette forme :\n"+
       "{\n"+
-      '  "lecture": "2 ou 3 phrases qui résument ce qui se joue, cash, en captant le sous-texte",\n'+
+      '  "lecture": "2-3 phrases sur ce qui se joue vraiment, collé aux FAITS de la conv, sans rien inventer ; précise si mon dernier message est resté sans réponse",\n'+
+      '  "dernier_de_moi": false,\n'+
       '  "temperature": 7,\n'+
       '  "chances": 65,\n'+
       '  "signaux": [{"label": "3-4 mots max", "ton": "positif|neutre|negatif"}],\n'+
       '  "move": {"action": "REPONDS|ATTENDS|PROPOSE UN DATE|NE REPONDS PAS", "pourquoi": "1-2 phrases", "risque": "faible|moyen|élevé", "timing": "quand envoyer, ex: maintenant / ce soir / attends ~1-2h / demain"},\n'+
       '  "a_eviter": ["piège à éviter, court", "..."],\n'+
-      '  "messages": [{"ton": "taquin|arrogant|cash|osé|sans filtre", "texte": "le message prêt à envoyer, court, charo et cru", "pourquoi": "pourquoi ça marche, 1 phrase"}]\n'+
+      '  "messages": [{"ton": "naturel|taquin|flirt subtil|confiant|drôle", "texte": "le message prêt à envoyer, qui sonne naturel", "pourquoi": "pourquoi ça colle ici, 1 phrase courte"}]\n'+
       "}\n"+
-      '"temperature" = niveau d\'intérêt estimé de l\'autre envers moi, de 0 (zéro chance) à 10 (chaud bouillant). "chances" = probabilité estimée (0 à 100) qu\'elle/il réponde et reste accroché(e) si j\'applique le move. '+
+      '"temperature" = niveau d\'intérêt estimé de l\'autre envers moi, de 0 (zéro chance) à 10 (chaud bouillant), basé UNIQUEMENT sur des signaux réels de la conv. "chances" = probabilité estimée (0 à 100) qu\'elle/il réponde et reste accroché(e) si j\'applique le move. "dernier_de_moi" = true si le TOUT DERNIER message de la conv est de MOI (donc pas de réponse d\'elle depuis). '+
       "Raisonne finement sur le sous-texte, les tests, l'ironie, l'équilibre du pouvoir et la réciprocité AVANT de conclure — évite tout conseil générique, colle aux messages réels et à leur ton exact. "+
-      "Donne 2 à 4 signaux, 1 à 3 pièges dans \"a_eviter\", et EXACTEMENT 5 messages TOUS bien charro et crus mais chacun d'un flavor différent : un TAQUIN (chambre), un ARROGANT (confiance blasée), un CASH (direct), un OSÉ (sous-entendu qui chauffe), un SANS FILTRE (le plus gonflé). Si le meilleur move est clairement de ne pas répondre ou d'attendre, mets \"messages\" à [] ou un seul message optionnel. N'ajoute aucun texte hors du JSON."
+      "Donne 2 à 4 signaux, 1 à 3 pièges dans \"a_eviter\", et EXACTEMENT 5 messages, chacun d'un STYLE différent et vraiment distinct (zéro redite entre eux) : 1) NATUREL (spontané, comme un vrai texto balancé sur le moment), 2) TAQUIN (joueur, chambre gentiment), 3) FLIRT SUBTIL (sous-entendu léger, pas lourd), 4) CONFIANT (direct, assuré, sans arrogance), 5) DRÔLE (une vanne originale qui fait sourire). Chaque message doit rester ancré dans la vraie conv, sans rien inventer. Si le meilleur move est clairement de ne pas répondre, d'attendre, ou si mon dernier message est resté sans réponse, adapte (relances) ou mets \"messages\" à [] ou un seul message optionnel. N'ajoute aucun texte hors du JSON."
     );
     return parts.join("\n\n");
   }
@@ -912,11 +924,14 @@
   }
   function toneClass(t){
     var s=String(t||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
+    if(s.indexOf("naturel")>=0) return "t-naturel";
     if(s.indexOf("taquin")>=0) return "t-taquin";
-    if(s.indexOf("arrogant")>=0) return "t-arrogant";
-    if(s.indexOf("cash")>=0) return "t-cash";
-    if(s.indexOf("filtre")>=0) return "t-sansfiltre";
-    if(s.indexOf("ose")>=0) return "t-ose";
+    if(s.indexOf("flirt")>=0) return "t-flirt";
+    if(s.indexOf("confian")>=0) return "t-confiant";
+    if(s.indexOf("drole")>=0) return "t-drole";
+    if(s.indexOf("arrogant")>=0||s.indexOf("cash")>=0) return "t-confiant";
+    if(s.indexOf("filtre")>=0) return "t-drole";
+    if(s.indexOf("ose")>=0) return "t-flirt";
     return "";
   }
   async function regenOne(m, body, btn){
@@ -996,6 +1011,7 @@
         cv.style.color = cn>=66?"var(--gold)":(cn>=33?"var(--acc)":"var(--neg)");
       } else cbox.hidden=true;
     })();
+    $("dmNote").hidden = !(data && data.dernier_de_moi===true);
     var sig=$("signals"); sig.innerHTML="";
     ((data&&data.signaux)||[]).forEach(function(s){
       if(!s) return;
@@ -1020,6 +1036,7 @@
     lastMode="accroche";
     $("temp").hidden=true;
     $("chances").hidden=true;
+    $("dmNote").hidden=true;
     $("signals").innerHTML="";
     $("moveSection").hidden=true;
     $("tag02").textContent="l'angle";
@@ -1105,7 +1122,7 @@
         "OBJECTIF : 5 NOUVELLES accroches (premiers messages) pour aborder cette personne. Plateforme : "+platformValue+". Intensité : "+levelValue+". Angle : "+((lastData&&lastData.angle)||"")+".",
         convExcerpt?("Infos sur la personne :\n\"\"\"\n"+convExcerpt+"\n\"\"\""):"",
         "Propose 5 accroches VRAIMENT différentes de celles-ci : "+JSON.stringify(prev)+"."+
-        ' Réponds UNIQUEMENT avec un tableau JSON [{"ton":"taquin|arrogant|cash|osé|sans filtre","texte":"...","pourquoi":"pourquoi ça marche, 1 phrase"}], rien d\'autre.'
+        ' Réponds UNIQUEMENT avec un tableau JSON [{"ton":"naturel|taquin|flirt subtil|confiant|drôle","texte":"...","pourquoi":"pourquoi ça marche, 1 phrase"}], rien d\'autre.'
       ].filter(Boolean).join("\n\n");
     } else {
       var mv=(lastData.move&&lastData.move.action)||"";
@@ -1113,8 +1130,8 @@
         "Voici la lecture déjà faite : "+(lastData.lecture||"")+" Move conseillé : "+mv+". Mon intention : "+intentValue+". Plateforme : "+platformValue+". Intensité : "+levelValue+".",
         intentRule(),
         convExcerpt?("La conversation :\n\"\"\"\n"+convExcerpt+"\n\"\"\""):"",
-        "Propose 5 NOUVEAUX messages prêts à envoyer, courts, bien charro et crus (insolents, arrogants, taquins, osés, sans filtre, du push-pull), VRAIMENT différents de ceux-ci : "+JSON.stringify(prev)+"."+
-        ' Réponds UNIQUEMENT avec un tableau JSON de la forme [{"ton":"taquin|arrogant|cash|osé|sans filtre","texte":"...","pourquoi":"pourquoi ça marche, 1 phrase"}], rien d\'autre.'
+        "Propose 5 NOUVEAUX messages prêts à envoyer, naturels, ancrés dans la vraie conv, chacun d'un style distinct (naturel, taquin, flirt subtil, confiant, drôle), VRAIMENT différents de ceux-ci et sans redite : "+JSON.stringify(prev)+"."+
+        ' Réponds UNIQUEMENT avec un tableau JSON de la forme [{"ton":"naturel|taquin|flirt subtil|confiant|drôle","texte":"...","pourquoi":"pourquoi ça marche, 1 phrase"}], rien d\'autre.'
       ].filter(Boolean).join("\n\n");
     }
     reroll.disabled=true;
