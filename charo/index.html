@@ -127,7 +127,13 @@
   .drop svg{width:22px; height:22px; stroke:currentColor;}
   .thumb{position:relative; width:92px; height:92px; border-radius:14px; overflow:hidden; border:1px solid var(--line); background:var(--panel-2); flex:0 0 auto;}
   .thumb img{width:100%; height:100%; object-fit:cover; display:block;}
-  .thumb button{position:absolute; top:4px; right:4px; width:22px; height:22px; border-radius:50%; border:none; cursor:pointer; background:rgba(10,6,8,.8); color:var(--fg); font-size:15px; line-height:1; display:flex; align-items:center; justify-content:center;}
+  .thumb .rm{position:absolute; top:4px; right:4px; width:22px; height:22px; border-radius:50%; border:none; cursor:pointer; background:rgba(10,6,8,.82); color:var(--fg); font-size:15px; line-height:1; display:flex; align-items:center; justify-content:center; z-index:2;}
+  .thumb .num{position:absolute; top:4px; left:4px; min-width:18px; height:18px; padding:0 5px; border-radius:9px; background:var(--acc); color:#140309; font-family:var(--font-mono); font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; line-height:1; z-index:2;}
+  .thumb .mv{position:absolute; left:0; right:0; bottom:0; height:24px; display:flex; background:rgba(10,6,8,.74); -webkit-backdrop-filter:blur(4px); backdrop-filter:blur(4px);}
+  .thumb .mv button{flex:1; background:none; border:none; color:var(--fg); font-size:16px; line-height:1; cursor:pointer; padding:0;}
+  .thumb .mv button:disabled{opacity:.3; cursor:default;}
+  .thumb .mv button+button{border-left:1px solid rgba(255,255,255,.12);}
+  .shotcap{margin:12px 0 0; font-size:12px; color:var(--muted); line-height:1.45;}
 
   .chips{display:flex; flex-wrap:wrap; gap:11px;}
   .pick{
@@ -345,6 +351,18 @@
   .dmnote{border:1px solid rgba(255,194,74,.45); background:rgba(255,194,74,.08); color:var(--gold); border-radius:12px; padding:12px 14px; font-size:14px; font-weight:500; line-height:1.4; margin:0 0 18px;}
   .dmnote b{color:var(--gold);}
 
+  /* intentions condensées : 5 visibles + « voir toutes » */
+  #intents .pick.xtra{display:none;}
+  #intents.all .pick.xtra{display:inline-flex;}
+  #intents .pick.xtra[aria-pressed="true"]{display:inline-flex;}
+  .morebtn{font-family:var(--font-mono); font-size:12px; letter-spacing:.04em; color:var(--acc-2); background:none; border:1px dashed rgba(182,92,255,.5); border-radius:999px; padding:11px 16px; cursor:pointer; transition:border-color .14s, color .14s;}
+  .morebtn:hover{color:var(--fg); border-color:var(--acc-2);}
+  .morebtn:active{transform:scale(.98);}
+
+  /* ergonomie tactile + clavier iPhone */
+  button{-webkit-tap-highlight-color:transparent; touch-action:manipulation;}
+  textarea,input[type=text],input[type=password]{scroll-margin-block:96px;}
+
   [hidden]{display:none !important;}
 </style>
 </head>
@@ -402,13 +420,14 @@
       </label>
 
       <div class="field">
-        <span class="field-label" id="shotLabel">Captures d'écran</span>
+        <span class="field-label" id="shotLabel">Captures de la conversation</span>
         <div class="shots" id="shots">
           <div class="drop" id="drop" role="button" tabindex="0">
             <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-            <span>ajouter<br>des screens</span>
+            <span>ajouter<br>des captures</span>
           </div>
         </div>
+        <p class="shotcap" id="shotCap" hidden></p>
         <input type="file" id="file" accept="image/*" multiple hidden>
       </div>
 
@@ -692,27 +711,66 @@
   }
   wireChips("modes",function(v){applyMode(v);});
 
-  /* ---------- screenshots ---------- */
+  /* intentions : n'en montrer que 5 + bouton « voir toutes » (toutes restent accessibles) */
+  (function(){
+    var box=document.getElementById("intents"); if(!box) return;
+    var chips=box.querySelectorAll(".pick");
+    if(chips.length<=5) return;
+    for(var i=5;i<chips.length;i++) chips[i].classList.add("xtra");
+    var more=document.createElement("button");
+    more.type="button"; more.className="morebtn"; more.id="moreIntents"; more.textContent="+ voir toutes";
+    more.setAttribute("aria-expanded","false");
+    box.appendChild(more);
+    more.addEventListener("click",function(){
+      var on=box.classList.toggle("all");
+      more.textContent = on ? "réduire" : "+ voir toutes";
+      more.setAttribute("aria-expanded", on?"true":"false");
+    });
+  })();
+
+  /* ---------- screenshots (multi-captures d'une même conv) ---------- */
+  var MAXSHOTS=10;
   function addFiles(list){
     for(var i=0;i<list.length;i++){
       var f=list[i];
       if(!f.type||f.type.indexOf("image/")!==0) continue;
-      if(files.length>=6) break;
+      if(files.length>=MAXSHOTS) break;
       files.push({file:f,url:URL.createObjectURL(f)});
     }
     renderShots(); refresh();
+  }
+  function moveShot(idx,dir){
+    var j=idx+dir; if(j<0||j>=files.length) return;
+    var tmp=files[idx]; files[idx]=files[j]; files[j]=tmp;
+    renderShots();
   }
   function renderShots(){
     Array.prototype.forEach.call(shots.querySelectorAll(".thumb"),function(t){t.remove();});
     files.forEach(function(obj,idx){
       var t=document.createElement("div"); t.className="thumb";
-      var img=document.createElement("img"); img.src=obj.url; img.alt="capture";
-      var x=document.createElement("button"); x.type="button"; x.innerHTML="&times;"; x.setAttribute("aria-label","retirer");
+      var img=document.createElement("img"); img.src=obj.url; img.alt="capture "+(idx+1); img.draggable=false;
+      var num=document.createElement("div"); num.className="num"; num.textContent=(idx+1);
+      var x=document.createElement("button"); x.type="button"; x.className="rm"; x.innerHTML="&times;"; x.setAttribute("aria-label","retirer la capture "+(idx+1));
       x.addEventListener("click",function(){URL.revokeObjectURL(obj.url); files.splice(idx,1); renderShots(); refresh();});
-      t.appendChild(img); t.appendChild(x);
+      t.appendChild(img); t.appendChild(num); t.appendChild(x);
+      if(files.length>1){
+        var mv=document.createElement("div"); mv.className="mv";
+        var bl=document.createElement("button"); bl.type="button"; bl.innerHTML="&#8249;"; bl.setAttribute("aria-label","déplacer avant"); bl.disabled=(idx===0);
+        bl.addEventListener("click",function(){moveShot(idx,-1);});
+        var br=document.createElement("button"); br.type="button"; br.innerHTML="&#8250;"; br.setAttribute("aria-label","déplacer après"); br.disabled=(idx===files.length-1);
+        br.addEventListener("click",function(){moveShot(idx,1);});
+        mv.appendChild(bl); mv.appendChild(br); t.appendChild(mv);
+      }
       shots.insertBefore(t,drop);
     });
-    drop.hidden=files.length>=6;
+    drop.hidden=files.length>=MAXSHOTS;
+    var lbl=drop.querySelector("span");
+    if(lbl) lbl.innerHTML = files.length ? "+ ajouter<br>une capture" : "ajouter<br>des captures";
+    var cap=document.getElementById("shotCap");
+    if(cap){
+      cap.hidden=files.length<1;
+      if(files.length) cap.textContent = files.length+" capture"+(files.length>1?"s":"")+" — ordre chrono : la plus ancienne en 1"+(files.length>1?", réordonne avec ‹ ›":"")+".";
+    }
   }
   drop.addEventListener("click",function(){fileInput.click();});
   drop.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault(); fileInput.click();}});
@@ -779,6 +837,7 @@
       levelLine(), instrLine()].filter(Boolean);
     if(ctx) parts.push("Infos sur la personne (bio / ce que je sais) :\n\"\"\"\n"+ctx.slice(0,8000)+"\n\"\"\"");
     else parts.push("Peu d'infos écrites : base-toi sur les captures de son profil si présentes ; sinon propose des accroches passe-partout mais stylées et originales.");
+    if(files.length>0) parts.push("Les "+files.length+" capture(s) = son profil (bio, photos). Base-toi UNIQUEMENT sur des détails réellement visibles, sans rien inventer.");
     parts.push(
       "Donne EXACTEMENT 5 accroches (premiers messages) qui sortent du lot, chacune d'un STYLE différent et distinct : 1) NATUREL, 2) TAQUIN, 3) FLIRT SUBTIL, 4) CONFIANT, 5) DRÔLE. Qu'elles sonnent écrites par une vraie personne, pas par une IA. Évite 'salut ça va' et les trucs vus 1000 fois ; accroche-toi à un détail CONCRET de sa bio/photo s'il y en a un, sans rien inventer.\n"+
       'Réponds UNIQUEMENT avec un objet JSON : {"angle":"l\'angle à jouer en 1 phrase","messages":[{"ton":"naturel|taquin|flirt subtil|confiant|drôle","texte":"l\'accroche prête à envoyer","pourquoi":"pourquoi ça colle, 1 phrase courte"}]}. N\'ajoute aucun texte hors du JSON.'
@@ -791,6 +850,9 @@
     var parts=[PERSONA,RULES,"Mon intention : "+intentValue+".",intentRule(),"Ça se passe sur : "+platformValue+" — colle aux codes de cette plateforme.",levelLine(),instrLine()].filter(Boolean);
     if(conv) parts.push("La conversation (texte) :\n\"\"\"\n"+conv.slice(0,8000)+"\n\"\"\"");
     else parts.push("Pas de texte collé : base-toi sur les captures.");
+    if(files.length>0){
+      parts.push("CAPTURES D'ÉCRAN : on te donne "+files.length+" capture(s), fournies dans l'ORDRE CHRONOLOGIQUE (la n°1 = la plus ancienne, la dernière = la plus récente). Elles font partie d'UNE SEULE et même conversation : reconstitue-la en entier, dans le bon ordre. Repère qui a envoyé chaque message par la COULEUR, la FORME et la POSITION des bulles (bulles à droite / colorées = MOI, bulles à gauche = l'autre). Entre deux captures qui se suivent, repère les messages qui se CHEVAUCHENT (visibles sur les deux) et ne les compte qu'UNE seule fois (pas de doublon). N'invente JAMAIS un message manquant entre deux captures : s'il manque un bout, fais avec ce qui est visible. Si l'ordre des captures te semble incohérent, garde l'ordre fourni mais signale cette incertitude dans la lecture.");
+    }
     parts.push(
       "Réponds UNIQUEMENT avec un objet JSON valide, en français, exactement de cette forme :\n"+
       "{\n"+
