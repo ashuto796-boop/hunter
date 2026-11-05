@@ -24,6 +24,16 @@ Professional-grade memecoin trading terminal built with React + TypeScript + Tai
 - Portfolio Tracking (P&L monitoring)
 - Alerts & Signals (Real-time notifications)
 
+## EuroMillions Quantum Analytics
+
+Application d'analyse statistique EuroMillions (FastAPI + React) dans [`euromillions/`](euromillions/README.md) :
+import et contrôle de l'historique, statistiques et tests corrigés, générateur de grilles, optimisation de
+portefeuilles (recuit simulé, tabou, génétique, OR-Tools), Monte-Carlo, calcul exact des probabilités de
+portefeuille, budget, jackpot, laboratoire IA, mode recherche et audit mathématique. Démarrage :
+`cd euromillions && docker compose up -d --build` puis http://localhost:8080.
+
+Rappel : chaque grille a la même probabilité de gagner le jackpot (1 sur 139 838 160) ; l'outil ne prédit rien.
+
 ## AURUM — IA de trading Or (mobile)
 
 Application mobile (PWA) dédiée à l'or : une IA autonome qui analyse XAU/USD et trade seule sur un compte de démonstration alimenté par les prix réels.
