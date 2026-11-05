@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     # Import
     max_upload_mb: float = 10.0
     max_import_rows: int = 100_000
-    allowed_import_hosts: str = "www.fdj.fr,media.fdj.fr"
+    allowed_import_hosts: str = "www.fdj.fr,www.sto.api.fdj.fr,media.fdj.fr"
     url_timeout_s: float = 20.0
 
     # Limites de calcul

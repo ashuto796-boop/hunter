@@ -181,7 +181,7 @@ Toutes sont préfixées `EM_` (liste complète et valeurs par défaut dans [`.en
 | `EM_CORS_ORIGINS` | ports locaux | Origines autorisées |
 | `EM_RATE_LIMIT_PER_MINUTE` | `30` | Limite des endpoints coûteux par client |
 | `EM_MAX_UPLOAD_MB` / `EM_MAX_IMPORT_ROWS` | `10` / `100000` | Limites d'import |
-| `EM_ALLOWED_IMPORT_HOSTS` | `www.fdj.fr,media.fdj.fr` | Hôtes autorisés pour l'import par URL (https uniquement) |
+| `EM_ALLOWED_IMPORT_HOSTS` | `www.fdj.fr,www.sto.api.fdj.fr,media.fdj.fr` | Hôtes autorisés pour l'import par URL (https uniquement) |
 | `EM_MAX_GRIDS_PER_REQUEST` | `10000` | Grilles par génération |
 | `EM_MAX_SIMULATION_DRAWS` / `EM_MAX_SIMULATION_WORK` | `5000000` / `2e9` | Limites Monte-Carlo |
 | `EM_MAX_CONCURRENT_JOBS` | `2` | Tâches de fond simultanées |
@@ -220,7 +220,10 @@ séparation exploratoire/confirmatoire, clé d'API et limitation de débit.
 
 ## Données : réelles et de démonstration
 
-- **Réelles** : importez l'historique officiel (par exemple les archives CSV/ZIP publiées par la FDJ). Le format
+- **Réelles** : importez l'historique officiel. La page
+  [historique EuroMillions de la FDJ](https://www.fdj.fr/jeux-de-tirage/euromillions-my-million/historique)
+  propose 6 archives ZIP (de février 2004 à aujourd'hui), servies par `www.sto.api.fdj.fr` : téléchargez-les puis
+  importez-les, ou collez leurs liens dans *Historique* → *Depuis une URL officielle*. Le format
   FDJ (`date_de_tirage`, `boule_1…5`, `etoile_1…2`, `nombre_de_gagnant_au_rangN…`, `rapport_du_rangN…`) est
   reconnu, ainsi qu'un format générique (`date, n1…n5, e1, e2`). Les gains par rang ne sont affichés que s'ils
   figurent dans le fichier.

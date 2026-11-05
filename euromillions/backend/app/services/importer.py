@@ -13,6 +13,7 @@ import hashlib
 import io
 import re
 import unicodedata
+import warnings
 import zipfile
 from dataclasses import dataclass, field
 from datetime import date, datetime
@@ -108,9 +109,15 @@ def _read_csv_bytes(content: bytes) -> pd.DataFrame:
     if header.count(delim) == 0:
         raise ImportErrorFatal("Impossible de détecter le séparateur de colonnes.")
     try:
-        df = pd.read_csv(
-            io.StringIO("\n".join(lines)), sep=delim, dtype=str, keep_default_na=False, skipinitialspace=True
-        )
+        with warnings.catch_warnings():
+            # Avertissement attendu quand un « ; » final ajoute une colonne vide (ignorée).
+            warnings.simplefilter("ignore", pd.errors.ParserWarning)
+            df = pd.read_csv(
+                io.StringIO("\n".join(lines)), sep=delim, dtype=str, keep_default_na=False, skipinitialspace=True,
+                # Certains fichiers FDJ terminent chaque ligne par un séparateur de plus que l'en-tête : sans
+                # index_col=False, pandas prendrait la 1re colonne pour un index et décalerait toutes les valeurs.
+                index_col=False,
+            )
     except Exception as exc:  # pandas lève plusieurs types d'erreurs de parsing
         raise ImportErrorFatal(f"Fichier CSV illisible : {exc}") from exc
     return df
@@ -184,6 +191,9 @@ DATE_ALIASES = ["date_de_tirage", "date_tirage", "draw_date", "date", "date_du_t
 NUMBER_PATTERNS = [r"boule_?{i}", r"numero_?{i}", r"num_?{i}", r"n_?{i}", r"ball_?{i}", r"b_?{i}", r"number_?{i}"]
 STAR_PATTERNS = [r"etoile_?{i}", r"star_?{i}", r"lucky_star_?{i}", r"e_?{i}", r"s_?{i}"]
 JACKPOT_ALIASES = ["jackpot", "jackpot_eur", "jackpot_annonce", "montant_jackpot"]
+# Les fichiers FDJ récents contiennent aussi les rangs d'autres jeux (Étoile+, Joker+, My Million) :
+# ces colonnes sont ignorées pour ne jamais confondre leurs gains avec ceux de l'EuroMillions.
+OTHER_GAMES = ("etoile", "joker", "my_million")
 WINNERS_RE = re.compile(r"^(?:nombre_de_gagnants?_au_rang|winners_rank|gagnants_rang)_?(\d{1,2})(?:_(.*))?$")
 PRIZE_RE = re.compile(r"^(?:rapport_du_rang|prize_rank|gain_rang)_?(\d{1,2})(?:_(.*))?$")
 
@@ -213,13 +223,17 @@ def detect_columns(columns: list[str]) -> dict[str, Any]:
         m = WINNERS_RE.match(n)
         if m:
             rank, suffix = int(m.group(1)), m.group(2) or ""
+            if any(g in suffix for g in OTHER_GAMES):
+                continue
             if 1 <= rank <= 13 and ("france" not in suffix):
                 # Priorité au total « en Europe » (format FDJ) ou à une colonne sans suffixe.
                 if rank not in found["winners"] or "europe" in suffix:
                     found["winners"][rank] = orig
         m = PRIZE_RE.match(n)
         if m:
-            rank = int(m.group(1))
+            rank, suffix = int(m.group(1)), m.group(2) or ""
+            if any(g in suffix for g in OTHER_GAMES):
+                continue
             if 1 <= rank <= 13 and rank not in found["prizes"]:
                 found["prizes"][rank] = orig
     missing = []
