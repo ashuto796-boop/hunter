@@ -129,3 +129,34 @@ def test_parsers():
     assert parse_amount("") is None
     cols = detect_columns(["Date de tirage", "Boule 1", "Boule 2", "Boule 3", "Boule 4", "Boule 5", "Étoile 1", "Étoile 2"])
     assert cols["date"] == "Date de tirage"
+
+
+def test_trailing_delimiter_rows_fdj_2016_2019():
+    """Fichier FDJ 2016-2019 : chaque ligne de données a un « ; » final de plus que l'en-tête."""
+    text = (
+        "annee_numero_de_tirage;jour_de_tirage;date_de_tirage;numero_de_tirage_dans_le_cycle;boule_1;boule_2;boule_3;"
+        "boule_4;boule_5;etoile_1;etoile_2\n"
+        "2016078;MARDI   ;27/09/2016;1;41;6;13;39;9;2;12;\n"
+        "2016079;VENDREDI;30/09/2016;Super Jackpot et tirages suivants;35;44;17;37;43;10;2;\n"
+    )
+    rep = parse_dataframe(_df(text))
+    assert not rep.errors, [i.message for i in rep.errors]
+    assert [d.draw_date for d in rep.draws] == [date(2016, 9, 27), date(2016, 9, 30)]
+    assert rep.draws[0].numbers == (6, 9, 13, 39, 41) and rep.draws[0].stars == (2, 12)
+
+
+def test_other_games_prize_columns_ignored():
+    """Les rapports Étoile+ / Joker+ ne doivent jamais être pris pour ceux de l'EuroMillions, quel que soit l'ordre."""
+    text = (
+        "date_de_tirage;boule_1;boule_2;boule_3;boule_4;boule_5;etoile_1;etoile_2;"
+        "nombre_de_gagnant_au_rang1_Etoile+;rapport_du_rang1_Etoile+;rapport_du_rang2_Joker+;"
+        "nombre_de_gagnant_au_rang1_Euro_Millions_en_europe;rapport_du_rang1_Euro_Millions;rapport_du_rang2_Euro_Millions\n"
+        "03/01/2020;1;2;3;4;5;1;2;7;999,00;888,00;0;0,00;123456,70\n"
+    )
+    rep = parse_dataframe(_df(text))
+    assert rep.draws[0].prizes[1] == (0, 0.0)
+    assert rep.draws[0].prizes[2] == (None, 123456.70)
+
+
+def test_fdj_file_host_allowed_by_default():
+    check_url_allowed("https://www.sto.api.fdj.fr/anonymous/service-draw-info/v3/documentations/abc")
