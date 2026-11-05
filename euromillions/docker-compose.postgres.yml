@@ -1,0 +1,27 @@
+# Surcouche PostgreSQL : docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d --build
+# Exige POSTGRES_PASSWORD dans .env. Les migrations Alembic sont appliquées au démarrage de l'API.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: euromillions
+      POSTGRES_USER: euromillions
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Définissez POSTGRES_PASSWORD dans .env}
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U euromillions -d euromillions"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  backend:
+    environment:
+      EM_DATABASE_URL: postgresql+psycopg://euromillions:${POSTGRES_PASSWORD}@postgres:5432/euromillions
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pg-data:

@@ -1,0 +1,32 @@
+# EuroMillions Quantum Analytics — déploiement local ou serveur.
+#   docker compose up -d --build            → http://localhost:8080
+#   docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d --build → variante PostgreSQL
+services:
+  backend:
+    build: ./backend
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      EM_DATABASE_URL: ${EM_DATABASE_URL:-sqlite:////data/euromillions.db}
+      EM_CORS_ORIGINS: ${EM_CORS_ORIGINS:-http://localhost:8080}
+    volumes:
+      - em-data:/data
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "${EM_CPU_LIMIT:-2}"
+          memory: ${EM_MEMORY_LIMIT:-2g}
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "${EM_HTTP_PORT:-8080}:8080"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  em-data:

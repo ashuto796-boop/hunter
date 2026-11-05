@@ -1,0 +1,10 @@
+[project]
+name = "euromillions-quantum-analytics"
+version = "1.0.0"
+description = "Analyse statistique, génération et optimisation de portefeuilles EuroMillions (sans prétention prédictive)."
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = ["ignore::DeprecationWarning"]

@@ -1,0 +1,139 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Thème unique : sombre (bleu nuit, violet, or). */
+    --background: 226 55% 6%;
+    --foreground: 228 50% 94%;
+    --card: 226 50% 11%;
+    --card-foreground: 228 50% 94%;
+    --popover: 226 50% 10%;
+    --popover-foreground: 228 50% 94%;
+    --primary: 258 85% 66%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 226 40% 17%;
+    --secondary-foreground: 228 50% 94%;
+    --muted: 226 38% 15%;
+    --muted-foreground: 226 22% 70%;
+    --accent: 254 45% 22%;
+    --accent-foreground: 228 50% 96%;
+    --destructive: 0 72% 56%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 226 38% 21%;
+    --input: 226 38% 23%;
+    --ring: 258 85% 66%;
+    --gold: 44 90% 61%;
+    --gold-foreground: 30 60% 10%;
+    --radius: 0.85rem;
+    color-scheme: dark;
+  }
+  * {
+    @apply border-border;
+  }
+  html,
+  body {
+    background: hsl(var(--background));
+  }
+  body {
+    @apply text-foreground antialiased;
+    font-feature-settings: "cv11", "ss01";
+    background-image:
+      radial-gradient(1200px 600px at 85% -10%, rgba(139, 92, 246, 0.14), transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, rgba(245, 197, 66, 0.06), transparent 60%);
+    background-attachment: fixed;
+    min-height: 100vh;
+  }
+  h1,
+  h2,
+  h3 {
+    @apply font-display tracking-tight;
+  }
+  ::selection {
+    background: rgba(139, 92, 246, 0.45);
+  }
+}
+
+@layer base {
+  /* Les éléments de grille peuvent rétrécir : les tableaux larges défilent dans leur cadre. */
+  .grid > * {
+    min-width: 0;
+  }
+}
+
+@layer components {
+  .ball {
+    @apply inline-flex select-none items-center justify-center rounded-full font-semibold tabular-nums;
+    width: 2.25rem;
+    height: 2.25rem;
+    font-size: 0.95rem;
+    color: #0b1124;
+    background: radial-gradient(circle at 32% 28%, #ffffff 0%, #dfe6ff 38%, #9fb2f5 100%);
+    box-shadow: inset 0 -3px 6px rgba(30, 40, 100, 0.35), 0 2px 8px rgba(0, 0, 0, 0.35);
+  }
+  .ball-sm {
+    width: 1.75rem;
+    height: 1.75rem;
+    font-size: 0.78rem;
+  }
+  .ball-hit {
+    color: #fff;
+    background: radial-gradient(circle at 32% 28%, #c4b5fd 0%, #8b5cf6 45%, #5b21b6 100%);
+    box-shadow: 0 0 0 2px rgba(196, 181, 253, 0.55), 0 2px 10px rgba(139, 92, 246, 0.5);
+  }
+  .star {
+    @apply relative inline-flex select-none items-center justify-center font-bold tabular-nums;
+    width: 2.45rem;
+    height: 2.45rem;
+    font-size: 0.85rem;
+    color: #3b2604;
+    filter: drop-shadow(0 2px 6px rgba(245, 197, 66, 0.35));
+  }
+  .star::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 40% 30%, #fff3c4 0%, #f5c542 45%, #b07d0c 100%);
+    clip-path: polygon(50% 2%, 62% 36%, 98% 37%, 69% 58%, 80% 94%, 50% 72%, 20% 94%, 31% 58%, 2% 37%, 38% 36%);
+  }
+  .star > span {
+    position: relative;
+    margin-top: 0.12rem;
+  }
+  .star-sm {
+    width: 1.95rem;
+    height: 1.95rem;
+    font-size: 0.72rem;
+  }
+  .star-hit::before {
+    background: radial-gradient(circle at 40% 30%, #ffffff 0%, #ffd75e 40%, #e09b00 100%);
+  }
+  .star-hit {
+    filter: drop-shadow(0 0 6px rgba(255, 215, 94, 0.9));
+  }
+  .glass {
+    @apply rounded-xl border bg-card/80 backdrop-blur;
+  }
+  .num {
+    @apply tabular-nums;
+  }
+  .gold-text {
+    background: linear-gradient(90deg, #ffe9a8, #f5c542 45%, #d39b18);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+}
+
+/* Recharts : texte en jetons de texte, jamais en couleur de série. */
+.recharts-cartesian-axis-tick-value {
+  fill: hsl(226 22% 70%);
+  font-size: 11px;
+}
+.recharts-legend-item-text {
+  color: hsl(228 50% 94%) !important;
+}
+.recharts-tooltip-cursor {
+  fill: rgba(139, 92, 246, 0.08);
+}
