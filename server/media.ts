@@ -5,6 +5,7 @@ import { Headline, MediaState, emptyMedia, isAboutGold, lexiconScore, moodOf } f
 
 const HOUR = 3_600_000;
 const MAX_HEADLINES = 120;
+const MAX_PER_SOURCE = 4;
 
 const googleNews = (q: string, lang: "en" | "fr") =>
   lang === "en"
@@ -99,9 +100,16 @@ export async function updateMedia(prev: MediaState | undefined, now: number, log
     counts.push(`${r.value.f.name} ${n}`);
   }
   log(`presse : ${counts.join(", ")} · ${fresh} nouveaux titres`);
+  // re-filter what was kept earlier too, and cap each outlet so no single site floods the mood
+  const perSource = new Map<string, number>();
   const headlines = [...known.values()]
-    .filter((h) => now - h.t <= 48 * HOUR)
+    .filter((h) => now - h.t <= 48 * HOUR && isAboutGold(h.title, h.lang))
     .sort((a, b) => b.t - a.t)
+    .filter((h) => {
+      const n = (perSource.get(h.source) ?? 0) + 1;
+      perSource.set(h.source, n);
+      return n <= MAX_PER_SOURCE;
+    })
     .slice(0, MAX_HEADLINES);
   const mood = moodOf(headlines, now);
   const history = [...media.history.filter((p) => now - p.t <= 10 * 24 * HOUR), { t: now, score: Math.round(mood.score * 1000) / 1000, n: mood.n }];

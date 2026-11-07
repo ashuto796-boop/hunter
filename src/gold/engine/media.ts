@@ -39,9 +39,12 @@ const HOUR = 3_600_000;
 const GOLD_EN = /\b(gold|xau|bullion)\b/i;
 const GOLD_FR = /\b(l['’]or|d['’]or|métal jaune|lingots?)\b/i;
 const NOT_THE_METAL = /\b(medal|medallist|olympic|coast|cup|award|globe|card|glove|record label|gold standard of|rush\b(?! for))/i;
+// Not market news: local retail price boards, miners' project updates, quote pages
+const LOCAL_PRICES = /\b(tola|sarafa|per (10 )?grams?|\d+ ?k\b|2[24][- ]carat|carats?|sjc|domestic (gold )?(market|prices?)|local markets?|in (pakistan|india|vietnam|dubai|uae|nepal|bangladesh|sri lanka|malaysia|kerala|chennai|hyderabad|delhi|mumbai|kolkata|karachi|lahore|egypt|syria)|syrian|pounds? in local|marché intérieur)\b/i;
+const MINING = /\b(drill\w*|intercepts?|assays?|exploration|feasibility|pea\b|permitting|mine plan|ounces? at|g\/t|gold (corp\w*|inc|ltd|limited|mining|mines?|fields|resources|company|royalt\w*|project|explorer)|goldfields|stock price, news, quote|nyse\w*|nasdaq|tsxv?|asx|holders? (saw|bought|into)|shareholders?)\b|\([A-Z]+:[A-Z.]+\)/i;
 
 export function isAboutGold(title: string, lang: "en" | "fr"): boolean {
-  if (NOT_THE_METAL.test(title)) return false;
+  if (NOT_THE_METAL.test(title) || LOCAL_PRICES.test(title) || MINING.test(title)) return false;
   return lang === "fr" ? GOLD_FR.test(title) || GOLD_EN.test(title) : GOLD_EN.test(title);
 }
 
@@ -51,7 +54,7 @@ export function isAboutGold(title: string, lang: "en" | "fr"): boolean {
 // Then price-move words: they count double.
 type Rule = [RegExp, number];
 const CONTEXT: Rule[] = [
-  [/\b(safe[- ]haven|haven demand|valeurs? refuges?|rate cuts?|cuts? (interest )?rates|dovish|weak(er)? dollar|dollar (slips|falls|weakens|slides|drops|eases)|dollar faible|baisse des taux|inflation (fears?|worries)|geopolitic\w*|tensions?|war|guerre|conflict|central banks? (buy|buying|purchases|demand)|achats? des banques centrales|etf inflows?|recession (fears?|risks?)|uncertainty|incertitudes?)\b/gi, 1],
+  [/\b(safe[- ]haven|haven demand|valeurs? refuges?|rate cuts?|cuts? (interest )?rates|dovish|weak(er)? dollar|dollar (slips|falls|weakens|slides|drops|eases)|dollar faible|baisse des taux|inflation (fears?|worries)|geopolitic\w*|tensions?|war|guerre|conflict|central banks? (buy|buying|purchases|demand)|(buying|purchase|purchasing) spree|official[- ]sector (bid|buying|demand)|(pboc|china|india|rbi|poland|turkey) (adds?|buys?|extends gold buying)|achats? des banques centrales|etf inflows?|recession (fears?|risks?)|uncertainty|incertitudes?)\b/gi, 1],
   [/\b(rate hikes?|hikes? (interest )?rates|hawkish|strong(er)? dollar|dollar (gains|rises|rallies|strengthens|jumps|climbs)|dollar fort|hausse des taux|yields? (rise|rises|climb|climbs|jump|jumps|surge|surges)|profit[- ]taking|prises? de bénéfices|etf outflows?|risk[- ]on|ceasefire|cessez-le-feu)\b/gi, -1],
 ];
 const MOVES: Rule[] = [
