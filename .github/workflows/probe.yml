@@ -5,52 +5,39 @@ on:
 permissions:
   contents: write
 jobs:
-  xau:
+  media:
     if: "!contains(github.event.head_commit.message, '[skip probe]')"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Probe real gold sources
+      - name: Probe gold media sources
         run: |
           cat > probe.mjs <<'JS'
-          const show = (label, x) => console.log(`== ${label}: ${typeof x === "string" ? x : JSON.stringify(x).slice(0, 400)}`);
-          const iso = (t) => new Date(+t).toISOString().slice(0, 16);
-          async function get(url, origin) {
-            const r = await fetch(url, origin ? { headers: { Origin: origin } } : {});
-            const txt = await r.text();
-            let body; try { body = JSON.parse(txt); } catch { body = txt.slice(0, 200); }
-            return { status: r.status, cors: r.headers.get("access-control-allow-origin"), body };
+          const feeds = {
+            "google-en": "https://news.google.com/rss/search?q=gold+price+OR+XAUUSD+when:1d&hl=en-US&gl=US&ceid=US:en",
+            "google-fr": "https://news.google.com/rss/search?q=%22cours+de+l%27or%22+OR+%22prix+de+l%27or%22+when:1d&hl=fr&gl=FR&ceid=FR:fr",
+            "kitco": "https://www.kitco.com/rss/KitcoNews.xml",
+            "fxstreet": "https://www.fxstreet.com/rss/news",
+            "investing": "https://www.investing.com/rss/news_11.rss",
+            "yahoo-gc": "https://feeds.finance.yahoo.com/rss/2.0/headline?s=GC=F&region=US&lang=en-US",
+            "mining": "https://www.mining.com/feed/",
+            "cnbc-commod": "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=10000002",
+            "gdelt": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22gold%20price%22&mode=artlist&format=json&maxrecords=50&timespan=24h&sort=datedesc",
+            "gdelt-tone": "https://api.gdeltproject.org/api/v2/doc/doc?query=%22gold%20price%22&mode=timelinetone&format=json&timespan=7d",
+          };
+          for (const [name, url] of Object.entries(feeds)) {
+            try {
+              const r = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 (compatible; AURUM/1.0)", Origin: "https://ashuto796-boop.github.io" } });
+              const txt = await r.text();
+              const items = (txt.match(/<item[\s>]/g) || []).length;
+              const titles = [...txt.matchAll(/<title>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/title>/g)].slice(1, 4).map((m) => m[1].slice(0, 90));
+              const gold = (txt.match(/gold|\bor\b|XAU/gi) || []).length;
+              console.log(`== ${name}: HTTP ${r.status} cors=${r.headers.get("access-control-allow-origin")} type=${r.headers.get("content-type")} items=${items} goldWords=${gold} size=${txt.length}`);
+              if (name.startsWith("gdelt")) console.log("   ", txt.slice(0, 500).replace(/\s+/g, " "));
+              else console.log("   ", JSON.stringify(titles));
+            } catch (e) { console.log(`== ${name}: ERROR ${e.message}`); }
           }
-          const B = "https://api.bitget.com/api/v2/mix/market";
-          // 1) recent candles, order, count, CORS
-          let r = await get(`${B}/candles?symbol=XAUUSDT&productType=USDT-FUTURES&granularity=15m&limit=1000`, "https://ashuto796-boop.github.io");
-          const d = r.body.data || [];
-          show("bitget candles 15m", { status: r.status, cors: r.cors, n: d.length, first: d[0] && iso(d[0][0]), last: d.at(-1) && iso(d.at(-1)[0]), row: d.at(-1) });
-          // 2) going back in time with endTime
-          for (const daysAgo of [20, 45, 70, 120]) {
-            const end = Date.now() - daysAgo * 864e5;
-            r = await get(`${B}/candles?symbol=XAUUSDT&productType=USDT-FUTURES&granularity=15m&limit=1000&endTime=${end}`);
-            const x = r.body.data || [];
-            show(`candles endTime -${daysAgo}j`, { status: r.status, n: x.length, first: x[0] && iso(x[0][0]), last: x.at(-1) && iso(x.at(-1)[0]), msg: r.body.msg });
-            r = await get(`${B}/history-candles?symbol=XAUUSDT&productType=USDT-FUTURES&granularity=15m&limit=200&endTime=${end}`);
-            const y = r.body.data || [];
-            show(`history-candles endTime -${daysAgo}j`, { status: r.status, n: y.length, first: y[0] && iso(y[0][0]), last: y.at(-1) && iso(y.at(-1)[0]), msg: r.body.msg });
-          }
-          // 3) silver + 1H granularity name
-          r = await get(`${B}/candles?symbol=XAGUSDT&productType=USDT-FUTURES&granularity=1H&limit=5`);
-          show("bitget XAG 1H", { status: r.status, n: (r.body.data || []).length, msg: r.body.msg, row: (r.body.data || []).at(-1) });
-          // 4) weekend candles (last Saturday)
-          const sat = new Date(); sat.setUTCDate(sat.getUTCDate() - ((sat.getUTCDay() + 1) % 7)); sat.setUTCHours(12, 0, 0, 0);
-          r = await get(`${B}/candles?symbol=XAUUSDT&productType=USDT-FUTURES&granularity=15m&limit=8&startTime=${+sat}&endTime=${+sat + 2 * 3600e3}`);
-          show("week-end samedi midi", { n: (r.body.data || []).length, rows: (r.body.data || []).slice(0, 3) });
-          // 5) PAXG vs XAU spread right now
-          const p = await get("https://data-api.binance.vision/api/v3/klines?symbol=PAXGUSDT&interval=15m&limit=1");
-          show("PAXG close vs XAU close", { paxg: p.body[0]?.[4], xau: d.at(-1)?.[4] });
-          // 6) OKX gold perps?
-          r = await get("https://www.okx.com/api/v5/public/instruments?instType=SWAP&instFamily=XAU-USDT");
-          show("okx XAU swap", { status: r.status, body: r.body });
           JS
           node probe.mjs
