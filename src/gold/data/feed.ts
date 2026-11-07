@@ -75,16 +75,27 @@ const PEERS: Record<keyof Peers, Endpoint[]> = {
 const interval = (tf: number) => (tf % 60 === 0 ? `${tf / 60}h` : `${tf}m`);
 const bitgetGranularity = (tf: number) => (tf % 60 === 0 ? `${tf / 60}H` : `${tf}m`);
 
-async function getJson(url: string, timeoutMs = 10000): Promise<unknown> {
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// Exchanges answer 429 when an IP asks too often (cloud runners share theirs): wait and retry
+async function getJson(url: string, timeoutMs = 10000, attempt = 0): Promise<unknown> {
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), timeoutMs);
+  let status = 0;
+  let retryAfter = 0;
   try {
     const r = await fetch(url, { signal: ctl.signal });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    return await r.json();
+    if (r.ok) return await r.json();
+    status = r.status;
+    retryAfter = Number(r.headers.get("retry-after")) || 0;
   } finally {
     clearTimeout(timer);
   }
+  if ((status === 429 || status >= 500) && attempt < 4) {
+    await sleep(Math.min(15000, retryAfter * 1000 || 1000 * 2 ** attempt));
+    return getJson(url, timeoutMs, attempt + 1);
+  }
+  throw new Error(`HTTP ${status}`);
 }
 
 const toCandles = (rows: (string | number)[][]) => rows.map((r) => ({ t: +r[0], o: +r[1], h: +r[2], l: +r[3], c: +r[4], v: +r[5] }));
@@ -114,6 +125,7 @@ async function bitgetHistory(src: Endpoint, tf: number, from: number, onProgress
   const byT = new Map<number, Candle>();
   let end: number | undefined;
   for (let guard = 0; guard < 250; guard++) {
+    if (guard) await sleep(120); // stay well under Bitget's per-IP rate limit
     let batch = await bitgetPage(src, tf, "candles", 1000, end);
     if (!batch.length) batch = await bitgetPage(src, tf, "history-candles", 200, end);
     if (!batch.length) break;
