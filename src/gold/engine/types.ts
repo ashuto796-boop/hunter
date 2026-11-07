@@ -75,6 +75,7 @@ export interface Decision {
   killzone: string | null;
   intermarket: Intermarket | null;
   memory: DejaVu | null; // déjà vu of the leading specialist
+  media: number | null; // press mood about gold known at decision time (-1..1)
   votes: WeightedVote[];
   pros: string[];
   cons: string[];

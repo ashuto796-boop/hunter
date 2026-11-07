@@ -9,6 +9,7 @@ import { SESSION_LABEL } from "../engine/context";
 import { MODULE_INFO } from "../engine/modules";
 import { lots, pct, price, rr, side, time, tone, usd } from "../ui/format";
 import { askNotifications } from "../device";
+import { PressCard } from "../ui/Press";
 
 const MODE_LABEL = { auto: "Auto", prudent: "Prudent", equilibre: "Équilibré", agressif: "Agressif" } as const;
 
@@ -384,6 +385,7 @@ export function Live() {
       {remote ? <ServerCard /> : <Autopilot />}
       <AiCard />
       <NoteCard />
+      <PressCard onMore={() => useGold.setState({ tab: "brain" })} />
       <PositionCard />
       <section className="card chart-card">
         <div className="card-title">

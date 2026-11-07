@@ -5,6 +5,7 @@ import { emptyBrain } from "./engine/brain";
 import { DEFAULT_SETTINGS } from "./engine/defaults";
 import { TrainingResult } from "./engine/training";
 import { Thought } from "./engine/narrate";
+import { MediaState } from "./engine/media";
 
 export { DEFAULT_SETTINGS };
 export type { Thought, TrainingResult };
@@ -46,6 +47,7 @@ export interface GoldState {
   brain: BrainMemory;
   ctx: ContextMemory;
   note: { day: string; at: number; text: string; model: string } | null; // evening log written by Claude (server)
+  media: MediaState | null; // press review about gold (server)
   memStats: Record<string, ModuleStats>; // shadow-trade lessons per specialist (and per regime)
   memTotal: number;
   training: TrainingResult | null;
@@ -80,6 +82,7 @@ export const useGold = create<GoldState>(() => ({
   brain: emptyBrain(),
   ctx: {},
   note: null,
+  media: null,
   memStats: {},
   memTotal: 0,
   training: null,

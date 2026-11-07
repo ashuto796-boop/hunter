@@ -21,8 +21,10 @@ import { DEFAULT_SETTINGS } from "../src/gold/engine/defaults";
 import { SERVER_STATE_VERSION, ServerState, isServerState } from "../src/gold/engine/serverState";
 import { Decision, NewsEvent, Settings } from "../src/gold/engine/types";
 import { Memory, emptyMemory } from "../src/gold/engine/memory";
-import { nyTime, tradingDay } from "../src/gold/engine/context";
+import { nyTime, sessionAt, tradingDay } from "../src/gold/engine/context";
 import { money } from "../src/gold/engine/narrate";
+import { MediaState, mediaShocks, moodLabel, moodOf } from "../src/gold/engine/media";
+import { updateMedia } from "./media";
 import { SOURCES, Source, SourceId, fetchHistory, fetchNews, fetchPeers, probe } from "../src/gold/data/feed";
 
 const DAY = 864e5;
@@ -47,14 +49,40 @@ interface Config {
   settings: Settings;
   source: SourceId | "auto";
   retrainMs: number;
+  pressMs: number; // how often Claude re-reads the press (when a key is set)
 }
 
 function loadConfig(): Config {
-  const raw = existsSync(CONFIG) ? (JSON.parse(readFileSync(CONFIG, "utf8")) as Partial<Settings> & { retrainHours?: number }) : {};
-  const { retrainHours = 20, ...rest } = raw;
+  const raw = existsSync(CONFIG)
+    ? (JSON.parse(readFileSync(CONFIG, "utf8")) as Partial<Settings> & { retrainHours?: number; pressHours?: number })
+    : {};
+  const { retrainHours = 20, pressHours = 3, ...rest } = raw;
   const settings: Settings = { ...DEFAULT_SETTINGS, ...rest, server: false };
   const source = rest.source && rest.source !== "sim" ? rest.source : "auto";
-  return { settings, source, retrainMs: retrainHours * 3_600_000 };
+  return { settings, source, retrainMs: retrainHours * 3_600_000, pressMs: pressHours * 3_600_000 };
+}
+
+// Claude re-reads the press every few hours while gold trades, when new headlines came in
+async function readPressIfDue(media: MediaState, now: number, pressMs: number, market: boolean): Promise<string[]> {
+  const last = media.reading?.t ?? 0;
+  if (!process.env.ANTHROPIC_API_KEY || !market || now - last < pressMs) return [];
+  if (media.headlines.length < 5 || !media.headlines.some((h) => h.t > last)) return [];
+  const { readPress } = await import("./analyst");
+  const res = await readPress(media.headlines, log);
+  if (!res) return [];
+  const newlyMajor: string[] = [];
+  for (const h of media.headlines) {
+    const x = res.impacts.get(h.id);
+    if (!x) continue;
+    if (x.major && !h.major && now - h.t < 2 * HOUR) newlyMajor.push(h.title);
+    h.score = x.impact;
+    h.major = x.major;
+    h.by = "claude";
+  }
+  media.reading = res.reading;
+  const mood = moodOf(media.headlines, now);
+  media.history[media.history.length - 1] = { t: now, score: Math.round(mood.score * 1000) / 1000, n: mood.n };
+  return newlyMajor;
 }
 
 // Entries, exits and lessons outlive routine analyses when the journal is trimmed
@@ -235,6 +263,11 @@ function sessionFacts(state: ServerState, m: Market, news: NewsEvent[], src: Sou
       facteurProfit: Number.isFinite(state.training.stats.pf) ? r2(state.training.stats.pf) : null,
       seuil: state.autoThreshold,
     },
+    presse: state.media && {
+      humeur: moodLabel(moodOf(state.media.headlines, Date.now()).score),
+      resumeClaude: state.media.reading?.summary ?? null,
+      titres: state.media.headlines.filter((h) => h.t >= dayStart).slice(0, 10).map((h) => ({ titre: h.title, source: h.source, impact: r2(h.score) })),
+    },
     annonces24h: news.filter((e) => e.t > Date.now() && e.t < Date.now() + 24 * HOUR).map((e) => ({ titre: e.title, heureUTC: new Date(e.t).toISOString().slice(11, 16) })),
   };
 }
@@ -267,7 +300,7 @@ function freshState(settings: Settings, source: string): ServerState {
 }
 
 export async function runOnce(): Promise<ServerState> {
-  const { settings, source: pref, retrainMs } = loadConfig();
+  const { settings, source: pref, retrainMs, pressMs } = loadConfig();
   const prev = loadState();
   const tf = settings.tf;
   const tfMs = tf * 60000;
@@ -290,8 +323,24 @@ export async function runOnce(): Promise<ServerState> {
 
   const days = settings.trainDays + 10;
   log(`chargement ${days} j de ${src.symbol} M${tf}…`);
-  const [all, peers, news] = await Promise.all([fetchHistory(src, tf, days), fetchPeers(days), fetchNews()]);
+  const [all, peers, news, press] = await Promise.all([
+    fetchHistory(src, tf, days),
+    fetchPeers(days),
+    fetchNews(),
+    updateMedia(state.media, Date.now(), log).catch((e) => {
+      log("presse indisponible :", (e as Error).message);
+      return null;
+    }),
+  ]);
   const now = Date.now();
+  if (press) {
+    const { fresh: _fresh, ...media } = press;
+    // a run every 15 min for 10 days stays far below this; the cap only bounds the file size
+    media.history = media.history.slice(-1000);
+    state.media = media;
+  }
+  const media = state.media;
+  const newlyMajor = media ? await readPressIfDue(media, now, pressMs, sessionAt(now) !== "FERME") : [];
   const closed = all.filter((k) => k.t + tfMs <= now);
   if (closed.length < 400) throw new Error(`historique insuffisant (${closed.length} bougies)`);
   const m = buildMarket(closed, tf, peers);
@@ -319,7 +368,8 @@ export async function runOnce(): Promise<ServerState> {
   state.settings = settings;
 
   const threshold = settings.mode === "auto" ? state.autoThreshold : THRESHOLDS[settings.mode];
-  const env = { m, settings, news, threshold };
+  // a breaking story pauses new entries like a scheduled announcement does
+  const env = { m, settings, news: [...news, ...(media ? mediaShocks(media.headlines, now) : [])], threshold, media: media?.history };
   const alerts: [string, string][] = [];
   if (!state.lastProcessedT) {
     state.lastProcessedT = closed[last].t + tfMs; // first run: trade from now on, no retroactive trades
@@ -370,6 +420,7 @@ export async function runOnce(): Promise<ServerState> {
     alerts.push(["AURUM — notifications activées ✅", "Tu recevras ici chaque entrée, chaque sortie et le bilan du soir, même app fermée."]);
   }
   state.pushTag = pushTag;
+  for (const title of newlyMajor) alerts.push(["AURUM — actualité majeure sur l'or", title]);
   const recap = state.runs > 1 ? dailyRecap(state) : null;
   if (recap) alerts.push(recap);
   const noteDay = process.env.ANTHROPIC_API_KEY ? noteDue(state) : null;

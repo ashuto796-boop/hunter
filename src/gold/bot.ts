@@ -197,6 +197,7 @@ class Bot {
       brain: JSON.parse(JSON.stringify(st.brain)),
       ctx: JSON.parse(JSON.stringify(st.ctx ?? {})),
       note: r?.note ?? null,
+      media: r?.media ?? null,
       memStats: JSON.parse(JSON.stringify(st.mem?.stats ?? {})),
       memTotal: st.mem?.total ?? 0,
       settings: { ...this.settings },

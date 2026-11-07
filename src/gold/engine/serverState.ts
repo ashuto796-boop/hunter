@@ -2,6 +2,7 @@
 import { Decision, Settings, TraderState } from "./types";
 import { TrainingResult } from "./training";
 import { Thought } from "./narrate";
+import { MediaState } from "./media";
 
 export const SERVER_STATE_VERSION = 1;
 
@@ -17,6 +18,7 @@ export interface ServerState {
   lastProcessedT: number; // close time of the last candle the server traded
   lastRecap?: string; // trading day of the last daily recap push
   pushTag?: string; // fingerprint of the push channels already greeted (never the channel itself)
+  media?: MediaState; // press review about gold
   note?: { day: string; at: number; text: string; model: string } | null; // evening log written by Claude
   autoThreshold: number;
   trainedAt: number;

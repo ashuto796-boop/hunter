@@ -4,6 +4,7 @@
 import { BrainMemory, ContextMemory, Decision, Dir, Intermarket, ModuleId, ModuleStats, Mode, NewsEvent, Plan, Regime, Settings, TraderState, WeightedVote } from "./types";
 import { Market, Series, knownPivots } from "./features";
 import { Memory, memoryStats, recall } from "./memory";
+import { MediaState, mediaMult, moodAt, moodLabel } from "./media";
 import { pctRank } from "./indicators";
 import { MODULE_IDS, MODULE_INFO, runModules } from "./modules";
 import { SESSION_LABEL, SESSION_QUALITY, killzone, newsBlock, sessionAt, weekendRisk } from "./context";
@@ -193,6 +194,7 @@ export interface AnalyseEnv {
   news: NewsEvent[];
   threshold?: number; // overrides the mode's threshold (auto-calibration)
   noMemory?: boolean; // experiments: decide without the shadow-trade memory
+  media?: MediaState["history"]; // press mood snapshots (server only)
 }
 
 export function analyse(env: AnalyseEnv, st: TraderState, i: number): Decision {
@@ -209,6 +211,7 @@ export function analyse(env: AnalyseEnv, st: TraderState, i: number): Decision {
   const threshold = env.threshold ?? THRESHOLDS[settings.mode];
   const inter = computeIntermarket(m, i);
   const mem = env.noMemory ? undefined : st.mem;
+  const mood = moodAt(env.media, t);
 
   const votes = runModules(m, i, (d) => ({ bias: d * bias, regime, session, killzone: kz }));
   const weighted: WeightedVote[] = votes.map((v) => {
@@ -234,7 +237,7 @@ export function analyse(env: AnalyseEnv, st: TraderState, i: number): Decision {
     const atrP = pctRank(s.atr, i, 300);
     const vol = atrP < 0.05 ? 0.85 : regime === "VOLATILE" ? 0.75 : 1;
     const peers = inter ? 1 + 0.08 * d * inter.score : 1;
-    return clamp(Math.round(100 * raw * htf * sess * vol * peers), 0, 99);
+    return clamp(Math.round(100 * raw * htf * sess * vol * peers * mediaMult(mood, d)), 0, 99);
   };
   const scoreLong = sideScore(1);
   const scoreShort = sideScore(-1);
@@ -258,6 +261,11 @@ export function analyse(env: AnalyseEnv, st: TraderState, i: number): Decision {
       const x = dir * inter.score;
       if (x >= 0.35) pros.push(`Intermarché aligné : ${parts.join(", ") || "argent et dollar favorables"}`);
       else if (x <= -0.35) cons.push(`Intermarché contraire : ${parts.join(", ") || "argent et dollar défavorables"}`);
+    }
+    if (mood !== null && Math.abs(mood) >= 0.12) {
+      const txt = `Presse ${moodLabel(mood)} (${mood >= 0 ? "+" : ""}${mood.toFixed(2)})`;
+      if (dir * mood > 0) pros.push(txt);
+      else cons.push(txt);
     }
   }
   if (SESSION_QUALITY[session] >= 0.97) pros.push(`${SESSION_LABEL[session]} : liquidité maximale`);
@@ -347,6 +355,7 @@ export function analyse(env: AnalyseEnv, st: TraderState, i: number): Decision {
     killzone: kz,
     intermarket: inter,
     memory,
+    media: mood,
     votes: weighted,
     pros: pros.slice(0, 7),
     cons: cons.slice(0, 5),

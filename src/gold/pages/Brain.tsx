@@ -1,4 +1,5 @@
 import { useGold } from "../store";
+import { PressReview } from "../ui/Press";
 import { MODULE_IDS, MODULE_INFO } from "../engine/modules";
 import { REGIME_LABEL, contextMult, learnedMult } from "../engine/brain";
 import { time, tone } from "../ui/format";
@@ -141,6 +142,8 @@ export function Brain() {
       </section>
 
       <Radar im={d?.intermarket ?? null} />
+
+      <PressReview />
 
       <MemoryCard stats={memStats} total={memTotal} />
 
