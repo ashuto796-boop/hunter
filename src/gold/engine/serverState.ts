@@ -16,6 +16,7 @@ export interface ServerState {
   st: TraderState;
   lastProcessedT: number; // close time of the last candle the server traded
   lastRecap?: string; // trading day of the last daily recap push
+  pushTag?: string; // fingerprint of the push channels already greeted (never the channel itself)
   note?: { day: string; at: number; text: string; model: string } | null; // evening log written by Claude
   autoThreshold: number;
   trainedAt: number;

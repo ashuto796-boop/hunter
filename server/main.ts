@@ -6,6 +6,7 @@
 //
 // Options: --state <file> (default state.json), --config <file> (default server/config.json).
 // Push alerts (optional, environment variables): NTFY_TOPIC, TELEGRAM_TOKEN + TELEGRAM_CHAT_ID.
+import { createHash } from "crypto";
 import { existsSync, readFileSync, renameSync, writeFileSync } from "fs";
 import { createServer } from "http";
 import { fileURLToPath, pathToFileURL } from "url";
@@ -362,6 +363,13 @@ export async function runOnce(): Promise<ServerState> {
   state.runs++;
   state.host = HOST;
   state.updatedAt = Date.now();
+  // a newly configured push channel gets a hello, so the owner knows it works right away
+  const channels = [process.env.NTFY_TOPIC, process.env.TELEGRAM_CHAT_ID].filter(Boolean).join("|");
+  const pushTag = channels ? createHash("sha256").update(channels).digest("hex").slice(0, 12) : undefined;
+  if (pushTag && state.pushTag !== pushTag) {
+    alerts.push(["AURUM — notifications activées ✅", "Tu recevras ici chaque entrée, chaque sortie et le bilan du soir, même app fermée."]);
+  }
+  state.pushTag = pushTag;
   const recap = state.runs > 1 ? dailyRecap(state) : null;
   if (recap) alerts.push(recap);
   const noteDay = process.env.ANTHROPIC_API_KEY ? noteDue(state) : null;
