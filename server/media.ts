@@ -80,7 +80,9 @@ async function getText(url: string): Promise<string> {
 // Merge fresh headlines into the press review; earlier readings (Claude's included) are kept
 export async function updateMedia(prev: MediaState | undefined, now: number, log: (...m: unknown[]) => void): Promise<MediaState & { fresh: number }> {
   const media = prev ?? emptyMedia();
-  const known = new Map(media.headlines.map((h) => [h.id, h]));
+  // lexicon scores are recomputed each run so improvements apply to what is already kept;
+  // Claude's readings are left as they are
+  const known = new Map(media.headlines.map((h) => [h.id, h.by === "lexique" ? { ...h, score: lexiconScore(h.title) } : h]));
   let fresh = 0;
   const results = await Promise.allSettled(FEEDS.map(async (f) => ({ f, items: parseRss(await getText(f.url), f.lang, f.name) })));
   const counts: string[] = [];
