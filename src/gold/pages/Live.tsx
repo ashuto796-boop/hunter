@@ -392,7 +392,7 @@ export function Live() {
           <span>Graphique M{tf}</span>
           <span className="legend">
             <span>
-              <i style={{ background: "#e8c26a" }} />
+              <i style={{ background: "var(--gold)" }} />
               EMA 20
             </span>
             <span>

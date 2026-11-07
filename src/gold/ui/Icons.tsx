@@ -45,7 +45,7 @@ export const IconBolt = (p: SVGProps<SVGSVGElement>) => (
 
 export const Logo = ({ size = 20 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <path d="M4 18L12 5l8 13" stroke="#1a1305" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M7.5 13.5h9" stroke="#1a1305" strokeWidth="2.4" strokeLinecap="round" />
+    <path d="M4 18L12 5l8 13" style={{ stroke: "var(--on-acc)" }} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M7.5 13.5h9" style={{ stroke: "var(--on-acc)" }} strokeWidth="2.4" strokeLinecap="round" />
   </svg>
 );

@@ -13,8 +13,8 @@ export function ScoreRing({ score, threshold, dir }: { score: number; threshold:
       <svg width="92" height="92" viewBox="0 0 92 92">
         <defs>
           <linearGradient id="ringGold" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#f8e3a6" />
-            <stop offset="100%" stopColor="#b5832a" />
+            <stop offset="0%" style={{ stopColor: "var(--gold-hi)" }} />
+            <stop offset="100%" style={{ stopColor: "var(--gold-lo)" }} />
           </linearGradient>
         </defs>
         <circle cx="46" cy="46" r={r} stroke="rgba(255,255,255,0.07)" strokeWidth="7" fill="none" />
@@ -33,7 +33,7 @@ export function ScoreRing({ score, threshold, dir }: { score: number; threshold:
             style={{ transition: "stroke-dasharray 0.6s ease" }}
           />
         )}
-        <circle cx={tx} cy={ty} r="3.2" fill="#f3efe6" stroke="#07080a" strokeWidth="1.5" />
+        <circle cx={tx} cy={ty} r="3.2" style={{ fill: "var(--text)", stroke: "var(--bg)" }} strokeWidth="1.5" />
       </svg>
       <div className="ring-center">
         <div>

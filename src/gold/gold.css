@@ -5,14 +5,17 @@
   --card2: #16191e;
   --line: rgba(255, 255, 255, 0.07);
   --line2: rgba(255, 255, 255, 0.12);
-  --text: #f3efe6;
+  --text: #eef0f6;
   --muted: #8a8f99;
   --faint: #5b606a;
-  --gold: #e8c26a;
-  --gold-hi: #f8e2a2;
-  --gold-lo: #b8862b;
-  --gold-grad: linear-gradient(135deg, #f8e3a6 0%, #e6b95c 45%, #b5832a 100%);
-  --gold-soft: rgba(232, 194, 106, 0.12);
+  /* accent palette ("--gold*" names kept for history): violet by default */
+  --gold: #a58fff;
+  --gold-hi: #d2c8ff;
+  --gold-lo: #6a4cf5;
+  --gold-grad: linear-gradient(135deg, #b9a9ff 0%, #7c5fff 48%, #5434e0 100%);
+  --gold-soft: rgba(165, 143, 255, 0.13);
+  --acc-rgb: 165, 143, 255;
+  --on-acc: #ffffff;
   --up: #2fd69b;
   --up-soft: rgba(47, 214, 155, 0.12);
   --down: #ff5a6e;
@@ -22,6 +25,44 @@
   --mono: "IBM Plex Mono", ui-monospace, monospace;
   --sans: "Space Grotesk", system-ui, sans-serif;
   color-scheme: dark;
+}
+:root[data-theme="ocean"] {
+  --gold: #5aaaff;
+  --gold-hi: #b3d8ff;
+  --gold-lo: #2563d8;
+  --gold-grad: linear-gradient(135deg, #a6d4ff 0%, #4a9bff 48%, #2560d8 100%);
+  --gold-soft: rgba(90, 170, 255, 0.13);
+  --acc-rgb: 90, 170, 255;
+  --on-acc: #04121f;
+  --blue: #9d8cff;
+}
+:root[data-theme="rose"] {
+  --gold: #ff74b4;
+  --gold-hi: #ffc0dc;
+  --gold-lo: #d0367b;
+  --gold-grad: linear-gradient(135deg, #ffb6d8 0%, #ff5fa6 48%, #c92f74 100%);
+  --gold-soft: rgba(255, 116, 180, 0.13);
+  --acc-rgb: 255, 116, 180;
+  --on-acc: #22040f;
+}
+:root[data-theme="platine"] {
+  --gold: #dfe3ea;
+  --gold-hi: #ffffff;
+  --gold-lo: #9aa3b3;
+  --gold-grad: linear-gradient(135deg, #ffffff 0%, #d9dde5 50%, #9ba3b2 100%);
+  --gold-soft: rgba(223, 227, 234, 0.1);
+  --acc-rgb: 223, 227, 234;
+  --on-acc: #0b0d12;
+}
+:root[data-theme="or"] {
+  --text: #f3efe6;
+  --gold: #e8c26a;
+  --gold-hi: #f8e2a2;
+  --gold-lo: #b8862b;
+  --gold-grad: linear-gradient(135deg, #f8e3a6 0%, #e6b95c 45%, #b5832a 100%);
+  --gold-soft: rgba(var(--acc-rgb), 0.12);
+  --acc-rgb: 232, 194, 106;
+  --on-acc: var(--on-acc);
 }
 
 * {
@@ -81,7 +122,7 @@ select {
   margin: 0 auto;
   min-height: 100dvh;
   position: relative;
-  background: radial-gradient(120% 50% at 50% -10%, rgba(232, 194, 106, 0.09), transparent 60%), var(--bg);
+  background: radial-gradient(120% 50% at 50% -10%, rgba(var(--acc-rgb), 0.09), transparent 60%), var(--bg);
 }
 
 .topbar {
@@ -108,7 +149,7 @@ select {
   background: var(--gold-grad);
   display: grid;
   place-items: center;
-  box-shadow: 0 6px 20px rgba(232, 194, 106, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  box-shadow: 0 6px 20px rgba(var(--acc-rgb), 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
 .brand-name {
@@ -254,7 +295,7 @@ select {
 }
 .chip.gold {
   background: var(--gold-soft);
-  border-color: rgba(232, 194, 106, 0.25);
+  border-color: rgba(var(--acc-rgb), 0.25);
   color: var(--gold-hi);
 }
 .chip.up {
@@ -307,8 +348,8 @@ select {
   transition: all 0.3s;
 }
 .autopilot.on {
-  border-color: rgba(232, 194, 106, 0.35);
-  background: linear-gradient(135deg, rgba(232, 194, 106, 0.14), rgba(232, 194, 106, 0.03)), var(--card);
+  border-color: rgba(var(--acc-rgb), 0.35);
+  background: linear-gradient(135deg, rgba(var(--acc-rgb), 0.14), rgba(var(--acc-rgb), 0.03)), var(--card);
 }
 .autopilot-icon {
   width: 42px;
@@ -321,7 +362,7 @@ select {
 }
 .autopilot.on .autopilot-icon {
   background: var(--gold-grad);
-  color: #1a1305;
+  color: var(--on-acc);
 }
 .autopilot-text {
   flex: 1;
@@ -431,7 +472,7 @@ select {
   color: var(--up);
 }
 .ic.con {
-  background: rgba(232, 194, 106, 0.14);
+  background: rgba(var(--acc-rgb), 0.14);
   color: var(--gold);
 }
 
@@ -566,7 +607,7 @@ select {
 }
 .btn.gold {
   background: var(--gold-grad);
-  color: #1a1305;
+  color: var(--on-acc);
   border: none;
 }
 .btn.danger {
@@ -796,7 +837,7 @@ select {
   background: var(--gold-grad);
   display: grid;
   place-items: center;
-  box-shadow: 0 20px 60px rgba(232, 194, 106, 0.3);
+  box-shadow: 0 20px 60px rgba(var(--acc-rgb), 0.3);
   animation: float 3s ease-in-out infinite;
 }
 @keyframes float {
@@ -865,7 +906,7 @@ select {
 }
 .banner.warn {
   background: var(--gold-soft);
-  border-color: rgba(232, 194, 106, 0.25);
+  border-color: rgba(var(--acc-rgb), 0.25);
 }
 
 .sr-only {
@@ -900,7 +941,7 @@ select {
 }
 .calib.chosen {
   background: var(--gold-soft);
-  box-shadow: inset 0 0 0 1px rgba(232, 194, 106, 0.3);
+  box-shadow: inset 0 0 0 1px rgba(var(--acc-rgb), 0.3);
 }
 
 /* ---------- intermarket ---------- */
@@ -1038,4 +1079,35 @@ details summary {
   font-size: 13.5px;
   line-height: 1.5;
   margin-top: 12px;
+}
+
+/* ---------- themes ---------- */
+.swatches {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
+.swatch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 4px 8px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.swatch i {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: block;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+.swatch.on {
+  border-color: rgba(var(--acc-rgb), 0.6);
+  background: var(--gold-soft);
+  color: var(--text);
 }

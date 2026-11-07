@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { ColorType, Time, UTCTimestamp, createChart } from "lightweight-charts";
+import { accent } from "../theme";
 
 export function EquityChart({ points, height = 180 }: { points: { t: number; v: number }[]; height?: number }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -14,7 +15,7 @@ export function EquityChart({ points, height = 180 }: { points: { t: number; v: 
       timeScale: { borderVisible: false, fixLeftEdge: true, fixRightEdge: true, tickMarkFormatter: (t: Time) => new Date((t as number) * 1000).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" }) },
       handleScroll: false,
       handleScale: false,
-      crosshair: { vertLine: { color: "rgba(232,194,106,0.3)" }, horzLine: { color: "rgba(232,194,106,0.3)" } },
+      crosshair: { vertLine: { color: accent(0.35) }, horzLine: { color: accent(0.35) } },
       localization: { priceFormatter: (p: number) => `${p.toFixed(0)} $` },
     });
     const s = c.addAreaSeries({

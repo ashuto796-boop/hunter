@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { ColorType, CrosshairMode, IChartApi, IPriceLine, ISeriesApi, LineStyle, SeriesMarker, Time, UTCTimestamp, createChart } from "lightweight-charts";
 import { bot } from "../bot";
 import { useGold } from "../store";
+import { accent, cssVar } from "../theme";
 
 const sec = (ms: number) => Math.floor(ms / 1000) as UTCTimestamp;
 const localTime = (t: number) => new Date(t * 1000).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
@@ -33,7 +34,7 @@ export function Chart({ height = 300 }: { height?: number }) {
       rightPriceScale: { borderVisible: false, scaleMargins: { top: 0.12, bottom: 0.08 } },
       timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false, rightOffset: 4, tickMarkFormatter: (t: Time) => localTime(t as number) },
       localization: { timeFormatter: (t: Time) => localTime(t as number), priceFormatter: (p: number) => p.toFixed(2) },
-      crosshair: { mode: CrosshairMode.Magnet, vertLine: { color: "rgba(232,194,106,0.4)" }, horzLine: { color: "rgba(232,194,106,0.4)" } },
+      crosshair: { mode: CrosshairMode.Magnet, vertLine: { color: accent(0.45) }, horzLine: { color: accent(0.45) } },
       handleScale: { axisPressedMouseMove: false },
     });
     candles.current = c.addCandlestickSeries({
@@ -43,7 +44,7 @@ export function Chart({ height = 300 }: { height?: number }) {
       wickUpColor: "rgba(47,214,155,0.7)",
       wickDownColor: "rgba(255,90,110,0.7)",
     });
-    ema20.current = c.addLineSeries({ color: "#e8c26a", lineWidth: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
+    ema20.current = c.addLineSeries({ color: cssVar("--gold"), lineWidth: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
     ema50.current = c.addLineSeries({ color: "rgba(122,167,255,0.7)", lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
     chart.current = c;
     return () => {
@@ -97,9 +98,9 @@ export function Chart({ height = 300 }: { height?: number }) {
     if (!position) return;
     const add = (price: number, color: string, title: string, style = LineStyle.Dashed) =>
       lines.current.push(s.createPriceLine({ price, color, lineWidth: 1, lineStyle: style, axisLabelVisible: true, title }));
-    add(position.entry, "#f3efe6", "Entrée", LineStyle.Solid);
+    add(position.entry, cssVar("--text"), "Entrée", LineStyle.Solid);
     add(position.sl, "#ff5a6e", position.tp1Done ? "Stop (BE+)" : "Stop");
-    if (!position.tp1Done) add(position.tp1, "#e8c26a", "TP1");
+    if (!position.tp1Done) add(position.tp1, cssVar("--gold"), "TP1");
     add(position.tp2, "#2fd69b", "TP2");
   }, [position?.id, position?.sl, position?.tp1Done]);
 
@@ -115,9 +116,9 @@ export function Chart({ height = 300 }: { height?: number }) {
     for (const t of trades) {
       if (t.closeTime < first) continue;
       marks.push({ time: snap(t.openTime), position: t.dir === 1 ? "belowBar" : "aboveBar", color: t.dir === 1 ? "#2fd69b" : "#ff5a6e", shape: t.dir === 1 ? "arrowUp" : "arrowDown", text: t.dir === 1 ? "A" : "V" });
-      marks.push({ time: snap(t.closeTime - 1), position: t.dir === 1 ? "aboveBar" : "belowBar", color: t.pnl >= 0 ? "#e8c26a" : "#8a8f99", shape: "circle", text: `${t.r >= 0 ? "+" : ""}${t.r.toFixed(1)}R` });
+      marks.push({ time: snap(t.closeTime - 1), position: t.dir === 1 ? "aboveBar" : "belowBar", color: t.pnl >= 0 ? cssVar("--gold") : "#8a8f99", shape: "circle", text: `${t.r >= 0 ? "+" : ""}${t.r.toFixed(1)}R` });
     }
-    if (position) marks.push({ time: snap(position.openTime), position: position.dir === 1 ? "belowBar" : "aboveBar", color: "#e8c26a", shape: position.dir === 1 ? "arrowUp" : "arrowDown", text: "EN COURS" });
+    if (position) marks.push({ time: snap(position.openTime), position: position.dir === 1 ? "belowBar" : "aboveBar", color: cssVar("--gold"), shape: position.dir === 1 ? "arrowUp" : "arrowDown", text: "EN COURS" });
     marks.sort((a, b) => (a.time as number) - (b.time as number));
     s.setMarkers(marks);
   }, [trades, position?.id, candleVersion]);

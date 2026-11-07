@@ -6,6 +6,7 @@ import { Settings } from "../engine/types";
 import { THRESHOLDS } from "../engine/brain";
 import { SOURCES } from "../data/feed";
 import { askNotifications } from "../device";
+import { THEMES, ThemeId, applyTheme, loadTheme } from "../theme";
 
 function Field({ label, help, children }: { label: string; help?: string; children: ReactNode }) {
   return (
@@ -16,6 +17,32 @@ function Field({ label, help, children }: { label: string; help?: string; childr
       </div>
       {children}
     </div>
+  );
+}
+
+function ThemeCard() {
+  const [theme, setTheme] = useState<ThemeId>(loadTheme);
+  return (
+    <section className="card">
+      <div className="card-title">Couleurs</div>
+      <div className="swatches" role="radiogroup" aria-label="Couleur de l'app">
+        {THEMES.map((t) => (
+          <button
+            key={t.id}
+            role="radio"
+            aria-checked={theme === t.id}
+            className={`swatch ${theme === t.id ? "on" : ""}`}
+            onClick={() => {
+              applyTheme(t.id);
+              setTheme(t.id);
+            }}
+          >
+            <i style={{ background: t.swatch }} />
+            {t.label}
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -126,6 +153,7 @@ export function SettingsPage() {
 
   return (
     <div className="page">
+      <ThemeCard />
       <ServerSection />
       {remote && (
         <div className="banner">
