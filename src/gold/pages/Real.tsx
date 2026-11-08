@@ -72,7 +72,7 @@ function Hero({ s, access }: { s: LiveState | null; access: Access }) {
         <div className="real-title">{access === "absent" ? "Pas encore relié" : access === "waiting" ? "En attente du serveur" : "Compte verrouillé"}</div>
         <p className="muted" style={{ fontSize: 13.5 }}>
           {access === "absent"
-            ? "L'IA trade pour l'instant sur son compte démo. Relie un compte OANDA pour qu'elle copie ses trades avec de l'argent : d'abord un compte d'essai gratuit, puis le vrai."
+            ? "L'IA trade pour l'instant sur son compte démo. Relie ton compte OANDA : elle copiera chacun de ses trades avec ton argent, 24 h/24."
             : access === "waiting"
               ? "Le compte OANDA est déclaré sur GitHub ; ses données apparaîtront ici après le prochain passage du serveur."
               : "Les données du compte sont chiffrées. Tape ton code secret pour les voir."}
@@ -246,20 +246,18 @@ function Readiness({ s }: { s: LiveState | null }) {
   const fwd = useMemo(() => trades.filter((t) => !t.replay), [trades]);
   const st = useMemo(() => computeStats(fwd, trader.capital), [fwd, trader.capital]);
   const gap = s ? runGapMin(s.runTimes) : remote && remote.runs > 1 ? (remote.updatedAt - remote.startedAt) / 60000 / (remote.runs - 1) : null;
-  const practice = s?.env === "practice" ? s : null;
   const checks = [
     { ok: fwd.length >= 30, label: "30 trades de l'IA en démo, en direct", value: `${fwd.length}/30` },
     { ok: fwd.length >= 10 && st.pf >= 1.2, label: "Gains ≥ 1,2 × pertes", value: fwd.length ? (Number.isFinite(st.pf) ? st.pf.toFixed(2) : "∞") : "—" },
     { ok: fwd.length >= 10 && st.pnl > 0, label: "Résultat net positif", value: fwd.length ? `${st.netPct >= 0 ? "+" : ""}${(st.netPct * 100).toFixed(1)} %` : "—" },
     { ok: fwd.length >= 10 && st.maxDD < 0.08, label: "Pire repli sous 8 %", value: fwd.length ? `${(st.maxDD * 100).toFixed(1)} %` : "—" },
     { ok: gap !== null && gap <= 20, label: "Serveur toutes les 20 min", value: gap === null ? "—" : `${Math.round(gap)} min` },
-    { ok: !!practice && practice.executions >= 5 && practice.errors === 0, label: "5 ordres d'essai sans erreur", value: practice ? `${practice.executions} · ${practice.errors} err.` : "—" },
   ];
   const done = checks.filter((c) => c.ok).length;
   return (
     <section className="card">
       <div className="card-title">
-        <span>Prêt pour l'argent réel ?</span>
+        <span>Indicateurs de confiance</span>
         <span className={`chip ${done === checks.length ? "up" : ""}`}>
           {done}/{checks.length}
         </span>
@@ -273,9 +271,8 @@ function Readiness({ s }: { s: LiveState | null }) {
         ))}
       </div>
       <p className="note" style={{ marginTop: 10 }}>
-        {done === checks.length
-          ? "Tout est vert sur la période observée. Ça ne garantit rien : commence petit, avec une somme que tu peux perdre."
-          : "Tant que tout n'est pas vert, reste sur le compte d'essai : l'IA n'a pas encore prouvé qu'elle gagne sur la durée."}
+        À titre indicatif, rien ne bloque l'argent réel : ces chiffres montrent ce que l'IA a prouvé jusqu'ici. Plus il y a de vert, plus ses résultats sont
+        solides.
       </p>
     </section>
   );
@@ -301,15 +298,15 @@ function Setup({ open }: { open: boolean }) {
           Relier un compte OANDA
         </summary>
         <div className="steps">
-          <Step n={1} title="Compte d'essai OANDA (gratuit)">
-            Sur oanda.com, ouvre un compte <b>démo</b> (argent fictif, vrais prix). Le vrai compte viendra après.
+          <Step n={1} title="Compte OANDA réel">
+            Sur oanda.com, ouvre un compte de trading (vérification d'identité) et dépose le montant que tu confies à l'IA.
           </Step>
           <Step n={2} title="Jeton d'accès">
-            Dans ton espace OANDA : « Gérer l'accès API » → génère un jeton. Note aussi le numéro du compte (format 101-004-1234567-001).
+            Dans ton espace OANDA : « Gérer l'accès API » → génère un jeton. Note aussi le numéro du compte v20 (format 001-004-1234567-001).
           </Step>
           <Step n={3} title="4 secrets sur GitHub">
-            <span className="mono-list">OANDA_TOKEN · OANDA_ACCOUNT_ID · OANDA_ENV = practice · AURUM_PASSPHRASE</span>
-            Le dernier est un code secret à toi (8 caractères ou plus) : il chiffre les données du compte.
+            <span className="mono-list">OANDA_TOKEN · OANDA_ACCOUNT_ID · OANDA_ENV = live · AURUM_PASSPHRASE</span>
+            Le dernier est un code secret à toi (8 caractères ou plus) : il chiffre les données du compte. Pour un compte démo OANDA, mets OANDA_ENV = practice.
             <a className="btn block" style={{ marginTop: 10 }} href={`${REPO}/settings/secrets/actions/new`} target="_blank" rel="noreferrer">
               Ajouter un secret sur GitHub
             </a>
@@ -317,9 +314,9 @@ function Setup({ open }: { open: boolean }) {
           <Step n={4} title="Le même code ici">
             Tape ton code secret dans cette page : il reste sur le téléphone.
           </Step>
-          <Step n={5} title="Argent réel, plus tard">
-            Quand la checklist est verte : compte réel OANDA, nouveau jeton, OANDA_ENV = live. L'IA ne passera aucun ordre réel tant que la phrase de confirmation n'est pas
-            dans la configuration du serveur : demande-la-moi le moment venu.
+          <Step n={5} title="C'est parti">
+            Au passage suivant du serveur (15 min au plus), le compte apparaît ici et l'IA copie ses trades : 0,5 % du compte risqué par trade, arrêt pour la journée à
+            −2 %, tout est coupé à −10 %.
           </Step>
         </div>
       </details>
@@ -371,8 +368,9 @@ export function Real() {
       <AiNow />
       {state && <Positions s={state} />}
       {state && <Activity s={state} />}
+      {access === "absent" && <Setup open />}
       <Readiness s={state} />
-      <Setup open={access === "absent"} />
+      {access !== "absent" && <Setup open={false} />}
       {state && (
         <button className="btn block" onClick={() => confirm("Oublier le code secret sur ce téléphone ?") && setPass("")}>
           Verrouiller (oublier le code sur ce téléphone)

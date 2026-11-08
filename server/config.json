@@ -16,7 +16,7 @@
     "maxEntryDelayMin": 20,
     "maxUnits": 20,
     "maxRunGapMin": 30,
-    "liveConfirm": "",
+    "liveConfirm": "J'accepte de risquer de l'argent réel",
     "reset": 0
   }
 }

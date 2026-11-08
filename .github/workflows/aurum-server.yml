@@ -10,13 +10,17 @@ name: AURUM serveur 24/7
 # OANDA_ACCOUNT_ID, OANDA_ENV ("practice" by default, "live" for real money, which also needs the
 # confirmation sentence in server/config.json) and AURUM_PASSPHRASE, which seals the account data.
 # To start over with a new account: delete aurum-data.
+# Each run is a session of about 5 h 40 with a passage every 15 minutes (server/session.sh);
+# at its end it starts the next session itself. The hourly schedule only restarts the chain if
+# it ever breaks.
 on:
   schedule:
-    - cron: "3,18,33,48 * * * *" # 3 min after each 15-min candle close (GitHub may run it later)
+    - cron: "7 * * * *"
   workflow_dispatch:
 
 permissions:
   contents: write
+  actions: write # to start the next session
 
 concurrency:
   group: aurum-server
@@ -25,7 +29,7 @@ concurrency:
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 355
     env:
       HAS_CLAUDE: ${{ secrets.ANTHROPIC_API_KEY != '' }}
     steps:
@@ -51,8 +55,9 @@ jobs:
         if: env.HAS_CLAUDE == 'true'
         run: npm install --no-audit --no-fund --legacy-peer-deps
 
-      - name: Run the AI
+      - name: Run the AI every 15 minutes
         env:
+          PUSH_URL: https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
@@ -61,13 +66,13 @@ jobs:
           OANDA_ACCOUNT_ID: ${{ secrets.OANDA_ACCOUNT_ID }}
           OANDA_ENV: ${{ secrets.OANDA_ENV }}
           AURUM_PASSPHRASE: ${{ secrets.AURUM_PASSPHRASE }}
-        run: npx -y tsx@4.19.2 server/main.ts --state state.json
+        run: bash server/session.sh
 
-      - name: Publish state
+      - name: Start the next session
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          mkdir publish && cp state.json memory.json stamp.json publish/ && cd publish
-          git init -q -b aurum-data
-          git add state.json memory.json stamp.json
-          git -c user.name="AURUM bot" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
-            commit -q -m "AURUM : état du $(date -u +'%Y-%m-%d %H:%M') UTC"
-          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" aurum-data
+          curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/aurum-server.yml/dispatches" \
+            -d '{"ref":"main"}' && echo "Session suivante lancée."

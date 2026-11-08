@@ -8,7 +8,7 @@ import { price } from "./ui/format";
 import { haptic } from "./device";
 
 const CONSENT_KEY = "aurum.consent";
-const CONSENT_VERSION = "1";
+const CONSENT_VERSION = "2";
 const HOLD_MS = 1300;
 
 const hasConsent = () => {
@@ -147,7 +147,7 @@ function HoldToStart({ disabled, onDone }: { disabled: boolean; onDone: () => vo
 
 const PROMISES = [
   "Je sais que l'IA peut perdre de l'argent, même plusieurs semaines de suite.",
-  "Je commence par la démo et le compte d'essai avant l'argent réel.",
+  "Je choisis moi-même la somme que je confie à l'IA.",
   "Je n'engagerai que de l'argent que je peux me permettre de perdre.",
 ];
 

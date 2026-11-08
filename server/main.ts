@@ -345,7 +345,7 @@ async function brokerStep(state: ServerState, cfg: BrokerConfig, realGold: boole
       status === 401 || status === 403
         ? "OANDA refuse le jeton : vérifie OANDA_TOKEN et OANDA_ENV (un jeton d'essai ne marche que sur le compte d'essai)."
         : status === 404 || status === 400
-          ? "OANDA ne trouve pas le compte : vérifie OANDA_ACCOUNT_ID (format 101-004-1234567-001)."
+          ? "OANDA ne trouve pas le compte : vérifie OANDA_ACCOUNT_ID (format 001-004-1234567-001 pour un compte réel, 101-… pour un compte démo) et OANDA_ENV."
           : "OANDA n'a pas répondu au dernier passage ; nouvel essai au prochain.";
     log(`compte réel : ${note}`);
     const again = state.live?.note === note;
