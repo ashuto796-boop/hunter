@@ -8,14 +8,14 @@
   --text: #eef0f6;
   --muted: #8a8f99;
   --faint: #5b606a;
-  /* accent palette ("--gold*" names kept for history): violet by default */
-  --gold: #a58fff;
-  --gold-hi: #d2c8ff;
-  --gold-lo: #6a4cf5;
-  --gold-grad: linear-gradient(135deg, #b9a9ff 0%, #7c5fff 48%, #5434e0 100%);
-  --gold-soft: rgba(165, 143, 255, 0.13);
-  --acc-rgb: 165, 143, 255;
-  --on-acc: #ffffff;
+  /* accent palette ("--gold*" names kept for history): neon cyan by default */
+  --gold: #2de2ff;
+  --gold-hi: #a8f4ff;
+  --gold-lo: #0a9fd8;
+  --gold-grad: linear-gradient(135deg, #9af3ff 0%, #2de2ff 45%, #0a8fd8 100%);
+  --gold-soft: rgba(45, 226, 255, 0.11);
+  --acc-rgb: 45, 226, 255;
+  --on-acc: #00141a;
   --up: #2fd69b;
   --up-soft: rgba(47, 214, 155, 0.12);
   --down: #ff5a6e;
@@ -25,6 +25,15 @@
   --mono: "IBM Plex Mono", ui-monospace, monospace;
   --sans: "Space Grotesk", system-ui, sans-serif;
   color-scheme: dark;
+}
+:root[data-theme="violet"] {
+  --gold: #a58fff;
+  --gold-hi: #d2c8ff;
+  --gold-lo: #6a4cf5;
+  --gold-grad: linear-gradient(135deg, #b9a9ff 0%, #7c5fff 48%, #5434e0 100%);
+  --gold-soft: rgba(165, 143, 255, 0.13);
+  --acc-rgb: 165, 143, 255;
+  --on-acc: #ffffff;
 }
 :root[data-theme="ocean"] {
   --gold: #5aaaff;
@@ -1765,4 +1774,508 @@ details > summary.card-title::after {
 }
 details[open] > summary.card-title::after {
   content: "−";
+}
+
+/* =====================================================================================
+   Design « Terminal néon × Luxe » — data in monospace with a neon glow, titles and main
+   phrases in an elegant italic serif. Overrides the base styles above.
+   ===================================================================================== */
+:root {
+  --bg: #030508;
+  --bg2: #060a0f;
+  --card: #070b11;
+  --card2: #0a0f16;
+  --line: rgba(255, 255, 255, 0.065);
+  --line2: rgba(var(--acc-rgb), 0.3);
+  --up: #19f5a0;
+  --up-soft: rgba(25, 245, 160, 0.1);
+  --down: #ff3d6e;
+  --down-soft: rgba(255, 61, 110, 0.1);
+  --radius: 6px;
+  --serif: "Cormorant Garamond", "Iowan Old Style", "Times New Roman", serif;
+}
+html,
+body {
+  font-family: var(--mono);
+  font-size: 13.5px;
+  letter-spacing: -0.01em;
+}
+.app {
+  background:
+    radial-gradient(100% 40% at 50% -6%, rgba(var(--acc-rgb), 0.11), transparent 62%),
+    linear-gradient(rgba(255, 255, 255, 0.022) 1px, transparent 1px) 0 0 / 100% 32px,
+    linear-gradient(90deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px) 0 0 / 32px 100%,
+    var(--bg);
+}
+.app::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 25;
+  pointer-events: none;
+  background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.16) 0 1px, transparent 1px 3px);
+  opacity: 0.45;
+}
+.elegant {
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+/* top bar */
+.topbar {
+  background: linear-gradient(rgba(3, 5, 8, 0.96) 70%, rgba(3, 5, 8, 0));
+}
+.brand-mark {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: rgba(var(--acc-rgb), 0.06);
+  border: 1px solid rgba(var(--acc-rgb), 0.55);
+  box-shadow: 0 0 14px rgba(var(--acc-rgb), 0.3), inset 0 0 10px rgba(var(--acc-rgb), 0.15);
+}
+.brand-mark svg path,
+.boot-logo svg path {
+  stroke: var(--gold) !important;
+}
+.brand-name {
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 600;
+  font-size: 25px;
+  letter-spacing: 0.05em;
+  line-height: 1;
+}
+.brand-sub {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(var(--acc-rgb), 0.75);
+  margin-top: 3px;
+}
+.feed-pill {
+  border-radius: 4px;
+  font-size: 11px;
+  border-color: rgba(var(--acc-rgb), 0.22);
+  background: rgba(var(--acc-rgb), 0.04);
+}
+
+/* cards */
+.card {
+  position: relative;
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, rgba(11, 16, 24, 0.94), rgba(6, 9, 14, 0.94));
+  border: 1px solid rgba(var(--acc-rgb), 0.13);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
+}
+.card::before,
+.card::after {
+  content: "";
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  pointer-events: none;
+  opacity: 0.85;
+}
+.card::before {
+  top: -1px;
+  left: -1px;
+  border-top: 1px solid var(--gold);
+  border-left: 1px solid var(--gold);
+  border-top-left-radius: var(--radius);
+}
+.card::after {
+  bottom: -1px;
+  right: -1px;
+  border-bottom: 1px solid var(--gold);
+  border-right: 1px solid var(--gold);
+  border-bottom-right-radius: var(--radius);
+}
+.card-title {
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 600;
+  font-size: 20px;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  color: var(--text);
+  padding-bottom: 10px;
+  border-bottom: 1px dashed rgba(var(--acc-rgb), 0.16);
+}
+.card-title > span:not(:first-child),
+.card-title .chip,
+.card-title .legend,
+.card-title .num {
+  font-family: var(--mono);
+  font-style: normal;
+  font-weight: 500;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+.hero-label {
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(var(--acc-rgb), 0.8);
+}
+.hero-price {
+  font-weight: 500;
+  font-size: 44px;
+  color: #fff;
+  text-shadow: 0 0 22px rgba(var(--acc-rgb), 0.35);
+}
+.real-title {
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 600;
+  font-size: 38px;
+  letter-spacing: 0;
+}
+.chip {
+  border-radius: 3px;
+  font-size: 11px;
+}
+.env-badge {
+  border-radius: 3px;
+}
+
+/* controls */
+.btn {
+  border-radius: 4px;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border: 1px solid rgba(var(--acc-rgb), 0.3);
+  background: rgba(var(--acc-rgb), 0.05);
+}
+.btn.gold {
+  background: var(--gold);
+  color: var(--on-acc);
+  border-color: transparent;
+  box-shadow: 0 0 20px rgba(var(--acc-rgb), 0.4);
+}
+.seg {
+  border-radius: 4px;
+  border: 1px solid rgba(var(--acc-rgb), 0.12);
+}
+.seg button {
+  border-radius: 3px;
+  font-size: 12px;
+}
+.seg button.on {
+  background: rgba(var(--acc-rgb), 0.13);
+  color: var(--gold-hi);
+  box-shadow: inset 0 0 0 1px rgba(var(--acc-rgb), 0.4);
+}
+.input {
+  border-radius: 4px;
+}
+.banner {
+  border-radius: 4px;
+  border-left: 2px solid var(--gold);
+}
+.side-dot,
+.tl-icon,
+.step-n,
+.swatch,
+.autopilot-icon {
+  border-radius: 4px;
+}
+.autopilot {
+  border-radius: var(--radius);
+}
+.swatch i {
+  border-radius: 3px;
+}
+.step-title,
+.sheet-title,
+.boot-title,
+.autopilot-title,
+.ai-verdict,
+.row-title {
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 600;
+}
+.step-title,
+.row-title {
+  font-size: 17px;
+}
+.autopilot-title,
+.ai-verdict {
+  font-size: 21px;
+}
+.boot-title {
+  font-size: 44px;
+  letter-spacing: 0.06em;
+}
+.boot-logo {
+  background: rgba(var(--acc-rgb), 0.06);
+  border: 1px solid rgba(var(--acc-rgb), 0.55);
+  border-radius: 10px;
+  box-shadow: 0 0 40px rgba(var(--acc-rgb), 0.35);
+}
+
+/* tab bar */
+.tabbar {
+  background: rgba(3, 5, 8, 0.93);
+  border-top: 1px solid rgba(var(--acc-rgb), 0.18);
+}
+.tab {
+  position: relative;
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.tab.active {
+  color: var(--gold);
+  text-shadow: 0 0 10px rgba(var(--acc-rgb), 0.7);
+}
+.tab.active svg {
+  filter: drop-shadow(0 0 6px rgba(var(--acc-rgb), 0.7));
+}
+.tab.active::before {
+  content: "";
+  position: absolute;
+  top: -9px;
+  left: 22%;
+  right: 22%;
+  height: 2px;
+  background: var(--gold);
+  box-shadow: 0 0 12px var(--gold);
+}
+
+/* entry gate: the luxury phrases */
+.gate-pill {
+  border-radius: 4px;
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.gate-mark {
+  width: 62px;
+  height: 62px;
+  border-radius: 10px;
+  background: rgba(var(--acc-rgb), 0.06);
+  border: 1px solid rgba(var(--acc-rgb), 0.6);
+  box-shadow: 0 0 50px rgba(var(--acc-rgb), 0.35), inset 0 0 18px rgba(var(--acc-rgb), 0.18);
+}
+.gate-mark svg path {
+  stroke: var(--gold) !important;
+}
+.gate-word {
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 600;
+  font-size: clamp(64px, 21vw, 112px);
+  letter-spacing: 0.08em;
+  padding: 0 0.08em 0.06em 0;
+  line-height: 1;
+  background: linear-gradient(180deg, #ffffff 30%, rgba(var(--acc-rgb), 0.75));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 24px rgba(var(--acc-rgb), 0.25));
+}
+.gate-slogan {
+  margin-top: 16px;
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 600;
+  font-size: 25px;
+  line-height: 1.2;
+  color: #fff;
+}
+.gate-tag {
+  margin-top: 8px;
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.6);
+}
+.bento {
+  border-radius: 6px;
+  border-color: rgba(var(--acc-rgb), 0.16);
+  gap: 2px;
+}
+.bento-v {
+  font-family: var(--mono);
+  font-size: 18px;
+  color: #fff;
+  text-shadow: 0 0 14px rgba(var(--acc-rgb), 0.35);
+}
+.bento-k {
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: rgba(255, 255, 255, 0.66);
+}
+.slide {
+  border-radius: 8px;
+  border-color: rgba(var(--acc-rgb), 0.3);
+  background: rgba(var(--acc-rgb), 0.04);
+}
+.slide-fill {
+  border-radius: 8px;
+}
+.slide-knob {
+  border-radius: 6px;
+  background: var(--gold);
+  box-shadow: 0 0 26px rgba(var(--acc-rgb), 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+.slide-text {
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 600;
+  font-size: 21px;
+  letter-spacing: 0.02em;
+}
+.gate-fine {
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.55);
+  text-align: center;
+}
+.sheet {
+  border-radius: 12px 12px 0 0;
+  border-color: rgba(var(--acc-rgb), 0.2);
+  background: linear-gradient(180deg, rgba(10, 15, 22, 0.97), rgba(4, 7, 11, 0.98));
+}
+.sheet-title {
+  font-size: 30px;
+  letter-spacing: 0;
+}
+.promise,
+.promise-box {
+  border-radius: 6px;
+}
+.promise-box {
+  border-radius: 3px;
+}
+.hold {
+  border-radius: 6px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.hold-fill {
+  background: var(--gold);
+  box-shadow: 0 0 22px rgba(var(--acc-rgb), 0.6);
+}
+.num,
+.row-title.num {
+  font-family: var(--mono);
+  font-style: normal;
+}
+.row-title.num {
+  font-size: 14px;
+  font-weight: 600;
+}
+.stat {
+  border-radius: var(--radius);
+  border-color: rgba(var(--acc-rgb), 0.12);
+  background: linear-gradient(180deg, rgba(11, 16, 24, 0.94), rgba(6, 9, 14, 0.94));
+}
+
+/* =====================================================================================
+   Computer screens: the same app as a website, with a side rail and two columns of cards
+   ===================================================================================== */
+@media (min-width: 960px) {
+  html,
+  body {
+    font-size: 14px;
+  }
+  .app {
+    max-width: none;
+    padding-left: 104px;
+  }
+  .topbar {
+    max-width: 1360px;
+    margin: 0 auto;
+    padding: 22px 36px 14px;
+  }
+  .page {
+    display: block;
+    max-width: 1360px;
+    margin: 0 auto;
+    padding: 6px 36px 56px;
+    columns: 2 440px;
+    column-gap: 18px;
+  }
+  .page > * {
+    break-inside: avoid;
+    margin-bottom: 18px;
+  }
+  .page > .hero,
+  .page > .banner,
+  .page > .disclaimer,
+  .page > .note {
+    column-span: all;
+  }
+  .page > .hero {
+    margin-bottom: 22px;
+  }
+  .hero-price {
+    font-size: 56px;
+  }
+  .tabbar {
+    top: 0;
+    bottom: 0;
+    left: 0;
+    transform: none;
+    width: 104px;
+    max-width: none;
+    grid-template-columns: 1fr;
+    grid-auto-rows: 76px;
+    align-content: center;
+    padding: 20px 10px;
+    border-top: none;
+    border-right: 1px solid rgba(var(--acc-rgb), 0.16);
+  }
+  .tab {
+    justify-content: center;
+    gap: 6px;
+    border-radius: 6px;
+  }
+  .tab:hover {
+    color: var(--text);
+    background: rgba(var(--acc-rgb), 0.05);
+  }
+  .tab.active {
+    background: rgba(var(--acc-rgb), 0.07);
+  }
+  .tab.active::before {
+    top: 18%;
+    bottom: 18%;
+    left: -10px;
+    right: auto;
+    width: 2px;
+    height: auto;
+  }
+  .btn:hover,
+  .seg button:hover {
+    filter: brightness(1.15);
+  }
+  .card.ai-now:hover {
+    border-color: rgba(var(--acc-rgb), 0.35);
+  }
+  .gate-center {
+    margin-top: 2vh;
+  }
+  .gate-bento {
+    max-width: 560px;
+  }
+  .gate-bottom {
+    max-width: 480px;
+  }
 }

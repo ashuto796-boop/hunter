@@ -1,8 +1,9 @@
 // Colour themes (a preference of this phone, kept in localStorage). The stylesheet holds the
 // palettes; the charts read the current one when they are drawn.
-export type ThemeId = "violet" | "ocean" | "rose" | "platine" | "or";
+export type ThemeId = "neon" | "violet" | "ocean" | "rose" | "platine" | "or";
 
 export const THEMES: { id: ThemeId; label: string; swatch: string }[] = [
+  { id: "neon", label: "Néon", swatch: "linear-gradient(135deg, #9af3ff, #0a8fd8)" },
   { id: "violet", label: "Violet", swatch: "linear-gradient(135deg, #b9a9ff, #6a4cf5)" },
   { id: "ocean", label: "Océan", swatch: "linear-gradient(135deg, #9fd0ff, #2560d8)" },
   { id: "rose", label: "Rose", swatch: "linear-gradient(135deg, #ffb0d4, #d0367b)" },
@@ -11,7 +12,7 @@ export const THEMES: { id: ThemeId; label: string; swatch: string }[] = [
 ];
 
 const KEY = "aurum.theme";
-export const DEFAULT_THEME: ThemeId = "violet";
+export const DEFAULT_THEME: ThemeId = "neon";
 
 export function loadTheme(): ThemeId {
   try {
@@ -34,4 +35,4 @@ export function applyTheme(id: ThemeId) {
 
 export const cssVar = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 // "r, g, b" of the accent, for translucent strokes in charts
-export const accent = (alpha: number) => `rgba(${cssVar("--acc-rgb") || "160, 140, 255"}, ${alpha})`;
+export const accent = (alpha: number) => `rgba(${cssVar("--acc-rgb") || "45, 226, 255"}, ${alpha})`;

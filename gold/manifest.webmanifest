@@ -1,13 +1,13 @@
 {
-  "name": "AURUM — IA de trading Or",
+  "name": "AURUM — L’intelligence artificielle au service de l’or",
   "short_name": "AURUM",
-  "description": "Intelligence de trading autonome spécialisée sur l'or (XAU/USD).",
+  "description": "L’or évolue. Votre trading aussi. 7 experts IA, veille 24/7 sur l’or (XAU/USD).",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#07080a",
-  "theme_color": "#07080a",
+  "background_color": "#030508",
+  "theme_color": "#030508",
   "lang": "fr",
   "icons": [
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },

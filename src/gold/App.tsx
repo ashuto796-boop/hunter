@@ -32,8 +32,8 @@ function Boot() {
       </div>
       <div>
         <div className="boot-title">AURUM</div>
-        <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
-          Intelligence de trading · Or
+        <div className="muted elegant" style={{ fontSize: 18, marginTop: 6 }}>
+          L’intelligence artificielle au service de l’or.
         </div>
       </div>
       {phase === "error" ? (
@@ -109,7 +109,7 @@ export default function App() {
           </div>
           <div>
             <div className="brand-name">AURUM</div>
-            <div className="brand-sub">IA de trading · Or</div>
+            <div className="brand-sub">XAU/USD · IA 24/7</div>
           </div>
         </div>
         <FeedPill />

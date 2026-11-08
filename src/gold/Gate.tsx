@@ -81,7 +81,7 @@ function SlideToEnter({ onDone }: { onDone: () => void }) {
     <div className={`slide ${nudge ? "nudge" : ""}`} ref={track} style={{ ["--p" as string]: frac }}>
       <div className="slide-fill" style={{ width: `calc(${x}px + 58px)` }} />
       <span className="slide-text" style={{ opacity: 1 - frac * 1.4 }}>
-        Glisse pour entrer
+        Découvrir AURUM
       </span>
       <button
         ref={knob}
@@ -92,7 +92,7 @@ function SlideToEnter({ onDone }: { onDone: () => void }) {
         onPointerUp={up}
         onPointerCancel={up}
         onKeyDown={key}
-        aria-label="Entrer dans AURUM (glisser, ou Entrée)"
+        aria-label="Découvrir AURUM (glisser, ou Entrée)"
       >
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M5 12h14M13 6l6 6-6 6" />
@@ -186,26 +186,27 @@ export function Gate({ onEnter }: { onEnter: () => void }) {
           <Logo size={34} />
         </div>
         <h1 className="gate-word">AURUM</h1>
-        <p className="gate-tag">L'intelligence qui trade l'or pour toi.</p>
+        <p className="gate-slogan">L’or évolue. Votre trading aussi.</p>
+        <p className="gate-tag">L’intelligence artificielle au service de l’or.</p>
         <div className="gate-bento">
           <div className="bento">
-            <span className="bento-k">Or · XAU/USD</span>
             <span className="bento-v num">{p ? price(p) : "—"}</span>
+            <span className="bento-k">Or — XAU/USD</span>
           </div>
           <div className="bento">
-            <span className="bento-k">Spécialistes</span>
             <span className="bento-v num">7</span>
+            <span className="bento-k">experts IA</span>
           </div>
           <div className="bento">
-            <span className="bento-k">Veille</span>
             <span className="bento-v num">24/7</span>
+            <span className="bento-k">Veille</span>
           </div>
         </div>
       </div>
 
       <div className="gate-bottom">
         <SlideToEnter onDone={entered} />
-        <p className="gate-fine">Trading à risque · aucune promesse de gain</p>
+        <p className="gate-fine">La puissance de l’IA. L’élégance de la précision.</p>
       </div>
 
       {sheet && (
@@ -215,7 +216,7 @@ export function Gate({ onEnter }: { onEnter: () => void }) {
             <h2 id="consent-title" className="sheet-title">
               Prêt à laisser l'IA trader ?
             </h2>
-            <p className="sheet-sub">Une seule fois. Ce que tu acceptes en entrant :</p>
+            <p className="sheet-sub">Une seule fois. Le trading comporte un risque de perte et aucun gain n'est promis. Ce que tu acceptes en entrant :</p>
             <div className="promises">
               {PROMISES.map((t, i) => (
                 <label key={i} className={`promise ${ticks[i] ? "on" : ""}`}>
