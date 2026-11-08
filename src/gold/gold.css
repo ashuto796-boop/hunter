@@ -2279,3 +2279,229 @@ body {
     max-width: 480px;
   }
 }
+
+/* =====================================================================================
+   Lisibilité — larger, sharper and higher-contrast text only. Same layout, same colours,
+   same behaviour: this block only raises sizes, weights, line spacing and the two greys.
+   Monospace runs wider than a regular font, so 15 px here reads like 16 px elsewhere.
+   ===================================================================================== */
+:root {
+  --muted: #a9afba; /* secondary text: was #8a8f99 */
+  --faint: #878d98; /* tertiary text: was #5b606a (below WCAG AA) */
+}
+html,
+body {
+  font-size: 15px;
+  line-height: 1.55;
+  letter-spacing: 0;
+  text-rendering: optimizeLegibility;
+}
+
+/* titles (elegant serif: a little bigger and bolder, it has a small x-height) */
+.card-title {
+  font-size: 21px;
+  font-weight: 700;
+}
+.row-title,
+.step-title {
+  font-size: 18px;
+  font-weight: 700;
+}
+.autopilot-title,
+.ai-verdict {
+  font-size: 22px;
+  font-weight: 700;
+}
+.sheet-title {
+  font-weight: 700;
+}
+
+/* small labels next to titles and above numbers */
+.card-title > span:not(:first-child),
+.card-title .chip,
+.card-title .legend,
+.card-title .num {
+  font-size: 12.5px;
+}
+.hero-label {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+}
+.brand-sub {
+  font-size: 11px;
+  font-weight: 500;
+}
+.feed-pill {
+  font-size: 12px;
+}
+.chip {
+  font-size: 12.5px;
+}
+.env-badge {
+  font-size: 11.5px;
+}
+.chip[style*="font-size: 10"] {
+  font-size: 11.5px !important;
+}
+.kv-label,
+.stat-label {
+  font-size: 12.5px;
+  font-weight: 500;
+}
+.kv-val {
+  font-size: 15px;
+}
+.stat-val {
+  font-size: 19px;
+}
+.bias-labels,
+.progress-legend,
+.legend,
+.calib-head {
+  font-size: 12.5px;
+}
+.ring-sub {
+  font-size: 11px;
+}
+.press-major {
+  font-size: 11px;
+}
+.tab {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+
+/* body text and descriptions */
+.thought-text,
+.reasons li,
+.tl-text,
+.press-title,
+.press-summary,
+.note-text,
+.empty,
+.ai-now-verdict {
+  font-size: 15px;
+  line-height: 1.55;
+}
+.banner,
+.step-body,
+.check,
+.field-help,
+.autopilot-sub,
+.row-sub,
+.memo,
+.calib {
+  font-size: 14px;
+  line-height: 1.55;
+}
+.note {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+.thought-time,
+.tl-time {
+  font-size: 12.5px;
+}
+.check-val {
+  font-size: 13.5px;
+}
+.mono-list {
+  font-size: 12.5px;
+}
+.note-text h4 {
+  font-size: 13px;
+}
+.swatch {
+  font-size: 12.5px;
+}
+.disclaimer {
+  font-size: 13px;
+  color: var(--muted);
+}
+.boot-msg {
+  font-size: 15px;
+}
+.page [style*="font-size: 13.5px"],
+.page [style*="font-size: 13px"],
+.page [style*="font-size: 12px"] {
+  font-size: 14.5px !important;
+}
+
+/* buttons and switches: same boxes, clearer labels */
+.btn {
+  font-size: 13.5px;
+  letter-spacing: 0.07em;
+}
+.seg button {
+  font-size: 13px;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+/* entry screen and risk confirmation: same layout, brighter secondary lines */
+.gate-pill {
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.88);
+}
+.gate-tag {
+  font-size: 19px;
+  color: rgba(255, 255, 255, 0.78);
+}
+.bento-k {
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.8);
+}
+.gate-fine {
+  font-size: 17px;
+  color: rgba(255, 255, 255, 0.72);
+}
+.sheet-sub {
+  font-size: 15px;
+  line-height: 1.5;
+}
+.promise {
+  font-size: 15.5px;
+}
+.hold {
+  font-size: 13.5px;
+}
+.sheet-cancel {
+  font-size: 15px;
+}
+
+@media (min-width: 960px) {
+  html,
+  body {
+    font-size: 15.5px;
+  }
+}
+.brand-sub {
+  white-space: nowrap;
+  letter-spacing: 0.1em;
+}
+@media (max-width: 519px) {
+  .swatches {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+@media (min-width: 520px) {
+  .swatches {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
+.ai-now-verdict {
+  white-space: normal;
+}
+@media (max-width: 380px) {
+  .brand-sub {
+    letter-spacing: 0.05em;
+  }
+  .feed-pill {
+    padding-left: 8px;
+    padding-right: 8px;
+    gap: 5px;
+  }
+}
