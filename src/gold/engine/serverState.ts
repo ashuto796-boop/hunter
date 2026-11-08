@@ -3,6 +3,7 @@ import { Decision, Settings, TraderState } from "./types";
 import { TrainingResult } from "./training";
 import { Thought } from "./narrate";
 import { MediaState } from "./media";
+import { LivePublic } from "./live";
 
 export const SERVER_STATE_VERSION = 1;
 
@@ -20,6 +21,7 @@ export interface ServerState {
   pushTag?: string; // fingerprint of the push channels already greeted (never the channel itself)
   media?: MediaState; // press review about gold
   note?: { day: string; at: number; text: string; model: string } | null; // evening log written by Claude
+  live?: LivePublic; // real-money account at the broker, sealed with the owner's passphrase
   autoThreshold: number;
   trainedAt: number;
   training: TrainingResult | null;

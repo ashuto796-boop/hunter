@@ -7,5 +7,16 @@
   "maxTradesDay": 4,
   "maxDailyLossPct": 3,
   "trainDays": 60,
-  "source": "auto"
+  "source": "auto",
+  "broker": {
+    "enabled": true,
+    "riskPct": 0.5,
+    "maxDailyLossPct": 2,
+    "maxDrawdownPct": 10,
+    "maxEntryDelayMin": 20,
+    "maxUnits": 20,
+    "maxRunGapMin": 30,
+    "liveConfirm": "",
+    "reset": 0
+  }
 }

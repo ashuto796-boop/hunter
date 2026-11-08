@@ -37,6 +37,21 @@ export const IconSettings = (p: SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
+export const IconWallet = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base} {...p}>
+    <path d="M4 7a3 3 0 0 1 3-3h10a2 2 0 0 1 2 2v1" />
+    <rect x="3" y="7" width="18" height="13" rx="3" />
+    <path d="M16 13.5h2" />
+  </svg>
+);
+
+export const IconFlask = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base} {...p}>
+    <rect x="3" y="4" width="18" height="16" rx="3" />
+    <path d="M7 15l3-3 2.5 2.5L17 10" />
+  </svg>
+);
+
 export const IconBolt = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base} {...p}>
     <path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z" />

@@ -23,6 +23,7 @@ function Hero() {
   return (
     <section className="hero">
       <div className="hero-label">
+        <span className="env-badge">DÉMO</span>
         OR · {source === "paxg" ? "PAXG/USDT" : source === "sim" ? "XAU/USD simulé" : "XAU/USD"}
       </div>
       <div className="hero-price num">
@@ -169,7 +170,7 @@ function AiCard() {
   );
 }
 
-// "claude-opus-5-5" -> "Claude Opus 5.5"
+// API model id -> display name
 const modelName = (id: string) =>
   id
     .replace(/-(\d+)-(\d+)$/, " $1.$2")

@@ -25,6 +25,10 @@ import { nyTime, sessionAt, tradingDay } from "../src/gold/engine/context";
 import { money } from "../src/gold/engine/narrate";
 import { MediaState, mediaShocks, moodLabel, moodOf } from "../src/gold/engine/media";
 import { updateMedia } from "./media";
+import { BrokerConfig, DEFAULT_BROKER, syncLive } from "./live";
+import { Oanda, OandaError } from "./broker/oanda";
+import { seal, unseal } from "../src/gold/engine/seal";
+import { LiveState } from "../src/gold/engine/live";
 import { SOURCES, Source, SourceId, fetchHistory, fetchNews, fetchPeers, probe } from "../src/gold/data/feed";
 
 const DAY = 864e5;
@@ -50,16 +54,17 @@ interface Config {
   source: SourceId | "auto";
   retrainMs: number;
   pressMs: number; // how often Claude re-reads the press (when a key is set)
+  broker: BrokerConfig;
 }
 
 function loadConfig(): Config {
   const raw = existsSync(CONFIG)
-    ? (JSON.parse(readFileSync(CONFIG, "utf8")) as Partial<Settings> & { retrainHours?: number; pressHours?: number })
+    ? (JSON.parse(readFileSync(CONFIG, "utf8")) as Partial<Settings> & { retrainHours?: number; pressHours?: number; broker?: Partial<BrokerConfig> })
     : {};
-  const { retrainHours = 20, pressHours = 3, ...rest } = raw;
+  const { retrainHours = 20, pressHours = 3, broker = {}, ...rest } = raw;
   const settings: Settings = { ...DEFAULT_SETTINGS, ...rest, server: false };
   const source = rest.source && rest.source !== "sim" ? rest.source : "auto";
-  return { settings, source, retrainMs: retrainHours * 3_600_000, pressMs: pressHours * 3_600_000 };
+  return { settings, source, retrainMs: retrainHours * 3_600_000, pressMs: pressHours * 3_600_000, broker: { ...DEFAULT_BROKER, ...broker } };
 }
 
 // Claude re-reads the press every few hours while gold trades, when new headlines came in
@@ -299,8 +304,58 @@ function freshState(settings: Settings, source: string): ServerState {
   };
 }
 
+// Copies the AI's trades onto the OANDA account when the owner configured one (GitHub secrets
+// OANDA_TOKEN, OANDA_ACCOUNT_ID, OANDA_ENV, AURUM_PASSPHRASE). Everything about the account is
+// sealed before it is published, and nothing about it is written to the (public) run logs.
+async function brokerStep(state: ServerState, cfg: BrokerConfig, realGold: boolean): Promise<[string, string][]> {
+  const token = process.env.OANDA_TOKEN;
+  const account = process.env.OANDA_ACCOUNT_ID;
+  const pass = process.env.AURUM_PASSPHRASE ?? "";
+  if (!token || !account) {
+    state.live = { configured: false, sealed: null, note: null };
+    return [];
+  }
+  if (pass.length < 8) {
+    state.live = { configured: true, sealed: null, note: "Il manque le secret AURUM_PASSPHRASE (8 caractères au moins) : sans lui, aucun ordre réel n'est passé." };
+    return [];
+  }
+  const env = process.env.OANDA_ENV === "live" ? "live" : "practice";
+  const prev = await unseal<LiveState>(state.live?.sealed, pass);
+  if (state.live?.sealed && !prev) log("compte réel : ancien état illisible (code secret changé ?), il repart de zéro");
+  try {
+    const res = await syncLive({
+      api: new Oanda(token, account, env),
+      env,
+      cfg,
+      prev,
+      position: state.st.position,
+      pending: state.st.pending,
+      decidedAt: state.lastProcessedT,
+      paperPrice: state.price,
+      realGold,
+      now: Date.now(),
+    });
+    state.live = { configured: true, sealed: await seal(res.state, pass), note: null };
+    log(`compte réel : synchronisé (${res.state.status})`);
+    return res.alerts;
+  } catch (e) {
+    // a broker outage never stops the AI; the last sealed state is kept as it was
+    const status = e instanceof OandaError ? e.status : 0;
+    const note =
+      status === 401 || status === 403
+        ? "OANDA refuse le jeton : vérifie OANDA_TOKEN et OANDA_ENV (un jeton d'essai ne marche que sur le compte d'essai)."
+        : status === 404 || status === 400
+          ? "OANDA ne trouve pas le compte : vérifie OANDA_ACCOUNT_ID (format 101-004-1234567-001)."
+          : "OANDA n'a pas répondu au dernier passage ; nouvel essai au prochain.";
+    log(`compte réel : ${note}`);
+    const again = state.live?.note === note;
+    state.live = { configured: true, sealed: state.live?.sealed ?? null, note };
+    return again ? [] : [["AURUM — compte OANDA", note]];
+  }
+}
+
 export async function runOnce(): Promise<ServerState> {
-  const { settings, source: pref, retrainMs, pressMs } = loadConfig();
+  const { settings, source: pref, retrainMs, pressMs, broker } = loadConfig();
   const prev = loadState();
   const tf = settings.tf;
   const tfMs = tf * 60000;
@@ -410,6 +465,7 @@ export async function runOnce(): Promise<ServerState> {
   state.thoughts = trimThoughts(thoughts);
   state.st.trades = state.st.trades.slice(-500);
   state.price = closed[last].c;
+  alerts.push(...(await brokerStep(state, broker, src.id === "xau" || src.id === "bitget")));
   state.runs++;
   state.host = HOST;
   state.updatedAt = Date.now();

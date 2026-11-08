@@ -6,6 +6,9 @@ name: AURUM serveur 24/7
 # (every past signal and its outcome, which the AI keeps learning from).
 # Settings: server/config.json. Optional push alerts: repository secrets NTFY_TOPIC (ntfy app)
 # or TELEGRAM_TOKEN + TELEGRAM_CHAT_ID. Optional evening log written by Claude: ANTHROPIC_API_KEY.
+# Optional real-money copy of the AI's trades on OANDA (server/live.ts): secrets OANDA_TOKEN,
+# OANDA_ACCOUNT_ID, OANDA_ENV ("practice" by default, "live" for real money, which also needs the
+# confirmation sentence in server/config.json) and AURUM_PASSPHRASE, which seals the account data.
 # To start over with a new account: delete aurum-data.
 on:
   schedule:
@@ -54,6 +57,10 @@ jobs:
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          OANDA_TOKEN: ${{ secrets.OANDA_TOKEN }}
+          OANDA_ACCOUNT_ID: ${{ secrets.OANDA_ACCOUNT_ID }}
+          OANDA_ENV: ${{ secrets.OANDA_ENV }}
+          AURUM_PASSPHRASE: ${{ secrets.AURUM_PASSPHRASE }}
         run: npx -y tsx@4.19.2 server/main.ts --state state.json
 
       - name: Publish state

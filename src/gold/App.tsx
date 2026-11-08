@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Tab, useGold } from "./store";
 import { bot } from "./bot";
 import { SOURCES } from "./data/feed";
@@ -7,10 +7,13 @@ import { Brain } from "./pages/Brain";
 import { Trades } from "./pages/Trades";
 import { Lab } from "./pages/Lab";
 import { SettingsPage } from "./pages/SettingsPage";
-import { IconBrain, IconJournal, IconLab, IconLive, IconSettings, Logo } from "./ui/Icons";
+import { Real } from "./pages/Real";
+import { Gate } from "./Gate";
+import { IconBrain, IconFlask, IconJournal, IconLab, IconLive, IconSettings, IconWallet, Logo } from "./ui/Icons";
 
 const TABS: { id: Tab; label: string; Icon: typeof IconLive }[] = [
-  { id: "live", label: "Live", Icon: IconLive },
+  { id: "reel", label: "Réel", Icon: IconWallet },
+  { id: "live", label: "Démo", Icon: IconFlask },
   { id: "brain", label: "Cerveau", Icon: IconBrain },
   { id: "trades", label: "Journal", Icon: IconJournal },
   { id: "lab", label: "Labo", Icon: IconLab },
@@ -71,6 +74,8 @@ function FeedPill() {
 export default function App() {
   const phase = useGold((s) => s.phase);
   const tab = useGold((s) => s.tab);
+  const [entered, setEntered] = useState(false);
+  const gate = !entered && <Gate onEnter={() => setEntered(true)} />;
 
   useEffect(() => {
     bot.boot();
@@ -87,7 +92,13 @@ export default function App() {
     window.scrollTo({ top: 0 });
   }, [tab]);
 
-  if (phase !== "ready") return <div className="app"><Boot /></div>;
+  if (phase !== "ready")
+    return (
+      <div className="app">
+        <Boot />
+        {gate}
+      </div>
+    );
 
   return (
     <div className="app">
@@ -103,6 +114,7 @@ export default function App() {
         </div>
         <FeedPill />
       </header>
+      {tab === "reel" && <Real />}
       {tab === "live" && <Live />}
       {tab === "brain" && <Brain />}
       {tab === "trades" && <Trades />}
@@ -116,6 +128,7 @@ export default function App() {
           </button>
         ))}
       </nav>
+      {gate}
     </div>
   );
 }

@@ -6,12 +6,13 @@ import { DEFAULT_SETTINGS } from "./engine/defaults";
 import { TrainingResult } from "./engine/training";
 import { Thought } from "./engine/narrate";
 import { MediaState } from "./engine/media";
+import { LivePublic } from "./engine/live";
 
 export { DEFAULT_SETTINGS };
 export type { Thought, TrainingResult };
 export type { Calibration, CalibrationRow } from "./engine/training";
 
-export type Tab = "live" | "brain" | "trades" | "lab" | "settings";
+export type Tab = "reel" | "live" | "brain" | "trades" | "lab" | "settings";
 
 // The phone mirrors the 24/7 server when one is publishing
 export interface RemoteInfo {
@@ -48,6 +49,7 @@ export interface GoldState {
   ctx: ContextMemory;
   note: { day: string; at: number; text: string; model: string } | null; // evening log written by Claude (server)
   media: MediaState | null; // press review about gold (server)
+  live: LivePublic | null; // real-money account (server, sealed)
   memStats: Record<string, ModuleStats>; // shadow-trade lessons per specialist (and per regime)
   memTotal: number;
   training: TrainingResult | null;
@@ -83,6 +85,7 @@ export const useGold = create<GoldState>(() => ({
   ctx: {},
   note: null,
   media: null,
+  live: null,
   memStats: {},
   memTotal: 0,
   training: null,
@@ -90,5 +93,5 @@ export const useGold = create<GoldState>(() => ({
   trader: DEFAULT_SETTINGS,
   autopilot: true,
   cooldownUntil: 0,
-  tab: "live",
+  tab: "reel",
 }));
