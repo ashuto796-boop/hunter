@@ -5,6 +5,7 @@ import { KeyboardEvent, PointerEvent, useEffect, useRef, useState } from "react"
 import { useGold } from "./store";
 import { Logo } from "./ui/Icons";
 import { price } from "./ui/format";
+import { haptic } from "./device";
 
 const CONSENT_KEY = "aurum.consent";
 const CONSENT_VERSION = "1";
@@ -56,7 +57,7 @@ function SlideToEnter({ onDone }: { onDone: () => void }) {
     setSnap(true);
     if (x >= d.max * 0.88) {
       setX(d.max);
-      navigator.vibrate?.(12);
+      haptic("medium");
       setTimeout(onDone, 160);
     } else {
       if (x < 6) {
@@ -119,7 +120,7 @@ function HoldToStart({ disabled, onDone }: { disabled: boolean; onDone: () => vo
       setP(f);
       if (f >= 1) {
         done.current = true;
-        navigator.vibrate?.([10, 40, 18]);
+        haptic("success", [10, 40, 18]);
         onDone();
       } else raf.current = requestAnimationFrame(tick);
     };

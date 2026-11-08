@@ -69,10 +69,23 @@ export function beep(kind: "open" | "win" | "loss") {
   }
 }
 
-export function vibrate(pattern: number[]) {
+// Inside the iPhone app (native shell), the page talks to iOS through this bridge
+type NativeWindow = Window & { AURUM_NATIVE?: { platform: string }; ReactNativeWebView?: { postMessage(data: string): void } };
+export const inNativeApp = () => !!(window as NativeWindow).AURUM_NATIVE;
+
+export type HapticStyle = "light" | "medium" | "heavy" | "select" | "success" | "warning" | "error";
+
+// Taptic Engine in the app, vibration elsewhere (Android), nothing on desktop
+export function haptic(style: HapticStyle, fallback: number[] = [12]) {
+  const w = window as NativeWindow;
   try {
-    navigator.vibrate?.(pattern);
+    if (w.ReactNativeWebView) w.ReactNativeWebView.postMessage(JSON.stringify({ type: "haptic", style }));
+    else navigator.vibrate?.(fallback);
   } catch {
     /* not supported */
   }
+}
+
+export function vibrate(pattern: number[]) {
+  haptic(pattern.length > 1 ? "success" : "heavy", pattern);
 }

@@ -8,7 +8,7 @@ import { REGIME_LABEL } from "../engine/brain";
 import { SESSION_LABEL } from "../engine/context";
 import { MODULE_INFO } from "../engine/modules";
 import { lots, pct, price, rr, side, time, tone, usd } from "../ui/format";
-import { askNotifications } from "../device";
+import { askNotifications, inNativeApp } from "../device";
 import { PressCard } from "../ui/Press";
 
 const MODE_LABEL = { auto: "Auto", prudent: "Prudent", equilibre: "Équilibré", agressif: "Agressif" } as const;
@@ -328,7 +328,7 @@ function InstallHint() {
     return () => window.removeEventListener("beforeinstallprompt", on);
   }, []);
   const standalone = window.matchMedia?.("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone;
-  if (hidden || standalone) return null;
+  if (hidden || standalone || inNativeApp()) return null;
   const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
   const close = () => {
     setHidden(true);

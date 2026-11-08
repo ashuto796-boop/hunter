@@ -15,7 +15,7 @@ import { ServerState } from "./engine/serverState";
 import { ExchangeFeed, Feed, SOURCES, Source, SourceId, SimFeed, fetchHistory, fetchKlines, fetchNews, fetchPeers, probe, refreshPeers } from "./data/feed";
 import { fetchServerStamp, fetchServerState } from "./data/remote";
 import { DEFAULT_SETTINGS, GoldState, useGold } from "./store";
-import { beep, keepAwake, notify, vibrate } from "./device";
+import { beep, haptic, keepAwake, notify, vibrate } from "./device";
 
 const KEY = "aurum.v1";
 const DAY = 864e5;
@@ -540,13 +540,14 @@ class Bot {
   private alertOpen(p: Position) {
     if (this.settings.notify) notify(...openAlert(p));
     if (this.settings.sound) beep("open");
-    vibrate([60, 40, 60]);
+    haptic("medium", [60, 40, 60]);
   }
 
   private alertClose(tr: Trade) {
     if (this.settings.notify) notify(...closeAlert(tr));
     if (this.settings.sound) beep(tr.pnl >= 0 ? "win" : "loss");
-    vibrate(tr.pnl >= 0 ? [40, 30, 40, 30, 120] : [200]);
+    if (tr.pnl >= 0) vibrate([40, 30, 40, 30, 120]);
+    else haptic("error", [200]);
   }
 
   private logClose(tr: Trade, live: boolean) {

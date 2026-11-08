@@ -1,0 +1,47 @@
+name: AURUM app iPhone
+
+# Builds the iPhone app (ios-app/) in Expo's cloud (EAS Build) and sends it to TestFlight.
+# Needs the repository secret EXPO_TOKEN, and the Apple credentials that the first, interactive
+# build stored on EAS (see ios-app/README.md). The build itself runs on Expo's servers, so this
+# job only queues it and ends.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: ios-app
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check the Expo token
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::error::Ajoute le secret EXPO_TOKEN (expo.dev → Account settings → Access tokens)."
+            exit 1
+          fi
+
+      - name: Install
+        run: npm ci
+
+      - name: Type-check
+        run: npx tsc --noEmit
+
+      - name: Build in Expo's cloud and send to TestFlight
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: npx -y eas-cli@27 build --platform ios --profile production --non-interactive --no-wait --auto-submit
