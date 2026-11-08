@@ -2505,3 +2505,42 @@ body {
     gap: 5px;
   }
 }
+
+/* ---------- logo (owner's artwork): shown as is, without the old frame ---------- */
+.brand-mark,
+.gate-mark,
+.boot-logo {
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+.logo-img {
+  display: block;
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.brand-mark {
+  width: 40px;
+  height: 40px;
+}
+.brand-mark .logo-img {
+  width: 40px;
+  height: 40px;
+  filter: drop-shadow(0 0 10px rgba(150, 80, 255, 0.35));
+}
+.gate-mark {
+  width: 104px;
+  height: 104px;
+}
+.gate-mark .logo-img {
+  width: 104px;
+  height: 104px;
+  filter: drop-shadow(0 0 34px rgba(150, 80, 255, 0.45));
+}
+.boot-logo .logo-img {
+  width: 84px;
+  height: 84px;
+  filter: drop-shadow(0 0 28px rgba(150, 80, 255, 0.45));
+}

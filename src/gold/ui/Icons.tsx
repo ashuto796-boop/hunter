@@ -58,9 +58,7 @@ export const IconBolt = (p: SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
+// AURUM's logo (public/logo.webp, cut out from the owner's artwork)
 export const Logo = ({ size = 20 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <path d="M4 18L12 5l8 13" style={{ stroke: "var(--on-acc)" }} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M7.5 13.5h9" style={{ stroke: "var(--on-acc)" }} strokeWidth="2.4" strokeLinecap="round" />
-  </svg>
+  <img className="logo-img" src="./logo.webp" width={size} height={size} alt="AURUM" draggable={false} />
 );
