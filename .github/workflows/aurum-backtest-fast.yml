@@ -1,0 +1,67 @@
+name: AURUM test sur 5 ans (rapide)
+
+# Same backtest as aurum-backtest.yml, but the history is downloaded by 10 machines at once
+# (6 months each): the public feed is slow per connection, not overall.
+on:
+  workflow_dispatch:
+    inputs:
+      years:
+        description: "Années d'historique"
+        default: "5"
+      retrain_days:
+        description: "Jours entre deux réentraînements"
+        default: "5"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: aurum-backtest-fast
+  cancel-in-progress: true
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        part: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download one slice of the history
+        run: python3 backtest/dukascopy.py --years "${{ inputs.years }}" --parts 10 --part ${{ matrix.part }} --workers 6 --out slice
+      - uses: actions/upload-artifact@v4
+        with:
+          name: slice-${{ matrix.part }}
+          path: slice
+
+  backtest:
+    needs: download
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: slice-*
+          path: backtest/parts
+      - name: Join the slices
+        run: python3 backtest/merge.py backtest/parts backtest/data
+      - name: Run the backtest
+        run: npx -y tsx@4.19.2 backtest/run.ts --data backtest/data --out backtest/out --retrain "${{ inputs.retrain_days }}"
+      - name: Publish the report
+        run: |
+          cd backtest/out
+          git init -q -b aurum-backtest
+          git add report.md report.json trades.csv
+          git -c user.name="AURUM bot" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "AURUM : test du $(date -u +'%Y-%m-%d %H:%M') UTC"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" aurum-backtest
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aurum-backtest
+          path: backtest/out

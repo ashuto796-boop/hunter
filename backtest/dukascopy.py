@@ -142,6 +142,8 @@ def main():
     ap.add_argument("--out", default="backtest/data")
     ap.add_argument("--workers", type=int, default=6)
     ap.add_argument("--probe", action="store_true", help="decode one recent day and stop")
+    ap.add_argument("--part", type=int, default=-1, help="with --parts: download only this slice of the period")
+    ap.add_argument("--parts", type=int, default=1)
     args = ap.parse_args()
     os.makedirs(args.out, exist_ok=True)
     end = date.today() - timedelta(days=1)
@@ -155,6 +157,10 @@ def main():
         return
     start = end - timedelta(days=int(args.years * 365.25))
     days = [start + timedelta(days=i) for i in range((end - start).days + 1)]
+    if args.part >= 0:  # one slice of the period, for parallel downloads on several machines
+        size = -(-len(days) // args.parts)
+        days = days[args.part * size : (args.part + 1) * size]
+        start, end = days[0], days[-1]
     days = [d for d in days if d.weekday() != 5]  # Saturday: gold is closed
     print(f"or : {len(days)} jours du {start} au {end}", flush=True)
     gold = gold_m15(days, args.workers)
@@ -167,7 +173,7 @@ def main():
         with open(os.path.join(args.out, f"{name}.json"), "w") as fh:
             json.dump(data, fh, separators=(",", ":"))
     print(f"fichiers manquants : {len(MISSING)}", flush=True)
-    if len(gold) < 1000 or len(MISSING) > 0.02 * 2 * len(days):
+    if len(gold) < (1000 if args.part < 0 else 100) or len(MISSING) > 0.02 * 2 * len(days):
         sys.exit("trop de données manquantes")
 
 
