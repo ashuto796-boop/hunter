@@ -1,0 +1,58 @@
+name: AURUM test sur 5 ans
+
+# Backtest of the gold AI on real historical prices (Dukascopy XAU/USD, bid and ask), with the
+# same engine and settings as the 24/7 server (backtest/run.ts). The report is published on the
+# aurum-backtest branch (report.md, report.json, trades.csv).
+on:
+  workflow_dispatch:
+    inputs:
+      years:
+        description: "Années d'historique"
+        default: "5"
+      retrain_days:
+        description: "Jours entre deux réentraînements"
+        default: "5"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: aurum-backtest
+  cancel-in-progress: true
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Check the data feed
+        run: python3 backtest/dukascopy.py --probe
+
+      - name: Download the history
+        run: python3 backtest/dukascopy.py --years "${{ inputs.years }}" --out backtest/data
+
+      - name: Run the backtest
+        run: npx -y tsx@4.19.2 backtest/run.ts --data backtest/data --out backtest/out --retrain "${{ inputs.retrain_days }}"
+
+      - name: Publish the report
+        run: |
+          cd backtest/out
+          git init -q -b aurum-backtest
+          git add report.md report.json trades.csv
+          git -c user.name="AURUM bot" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "AURUM : test du $(date -u +'%Y-%m-%d %H:%M') UTC"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" aurum-backtest
+
+      - name: Keep the report with the run
+        uses: actions/upload-artifact@v4
+        with:
+          name: aurum-backtest
+          path: backtest/out
