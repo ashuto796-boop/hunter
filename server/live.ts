@@ -16,7 +16,10 @@ import { OandaAccount, OandaEnv, OandaInstrument, OandaPrice, OandaTrade } from 
 
 export interface BrokerConfig {
   enabled: boolean; // false: no new entries (open trades are still managed and closed)
-  riskPct: number; // risk per trade, % of NAV (capped at 2)
+  riskPct: number; // risk per trade, % of NAV (capped by maxRiskPct)
+  maxRiskPct: number; // hard ceiling on the risk of one trade, % of NAV
+  allowMinSize: boolean; // small account: take the broker's minimum size (1 oz) when the budget is smaller, within maxRiskPct
+  marginUse: number; // share of the free margin a new position may use (0..1)
   maxDailyLossPct: number; // NAV down this much since the start of the day: no new entries today
   maxDrawdownPct: number; // NAV down this much since the start (or the last reset): close all, stop
   maxEntryDelayMin: number; // an entry older than this is skipped
@@ -29,6 +32,9 @@ export interface BrokerConfig {
 export const DEFAULT_BROKER: BrokerConfig = {
   enabled: true,
   riskPct: 0.5,
+  maxRiskPct: 2,
+  allowMinSize: false,
+  marginUse: 0.5,
   maxDailyLossPct: 2,
   maxDrawdownPct: 10,
   maxEntryDelayMin: 20,
@@ -223,12 +229,18 @@ export async function syncLive(inp: SyncInput): Promise<{ state: LiveState; aler
     const progress = (d * (mid - entry.ref)) / risk;
     const stopDist = d * (fill - entry.sl);
     const toHome = Number.isFinite(px.toHome) && px.toHome > 0 ? px.toHome : acct.currency === "USD" ? 1 : NaN;
-    const riskPct = Math.min(cfg.riskPct, 2);
+    const riskPct = Math.min(cfg.riskPct, cfg.maxRiskPct);
     const riskAmt = (acct.nav * riskPct) / 100;
-    let units = Math.min(Math.floor(riskAmt / (stopDist * toHome)), Math.floor(cfg.maxUnits));
+    const ozRisk = stopDist * toHome; // what one ounce loses if the stop is hit
+    const minRiskPct = (ozRisk * inst.minUnits * 100) / acct.nav;
+    let units = Math.floor(riskAmt / ozRisk);
+    // small account: the broker's minimum size, when the owner allows it and it stays under the ceiling
+    if (units < inst.minUnits && cfg.allowMinSize && minRiskPct <= cfg.maxRiskPct) units = inst.minUnits;
+    units = Math.min(units, Math.floor(cfg.maxUnits));
     // margin: keep a cushion so a normal move never triggers a margin closeout
     const marginPerOz = fill * toHome * inst.marginRate;
-    units = Math.min(units, Math.floor((acct.marginAvailable * 0.5) / marginPerOz));
+    const marginCap = Math.floor((acct.marginAvailable * Math.min(1, cfg.marginUse)) / marginPerOz);
+    units = Math.min(units, marginCap);
     const ageMin = (now - entry.t) / 60000;
     const skip =
       blocked ??
@@ -242,12 +254,14 @@ export async function syncLive(inp: SyncInput): Promise<{ state: LiveState; aler
               ? "le prix a déjà trop bougé depuis la décision"
               : !Number.isFinite(toHome)
                 ? `conversion USD → ${acct.currency} indisponible`
-                : units < inst.minUnits
-                  ? `compte trop petit pour ce stop (1 oz risquerait ${p2(stopDist * toHome)} ${acct.currency}, le budget est ${p2(riskAmt)})`
+                : units < inst.minUnits && marginCap < inst.minUnits
+                  ? `marge insuffisante (${inst.minUnits} oz demande ${p2(marginPerOz * inst.minUnits)} ${acct.currency} de marge chez OANDA, le compte en a ${p2(acct.marginAvailable)})`
+                  : units < inst.minUnits
+                    ? `compte trop petit pour ce stop (1 oz risquerait ${p2(ozRisk)} ${acct.currency}, soit ${minRiskPct.toFixed(1)} % du compte ; plafond ${cfg.maxRiskPct} %)`
                   : null);
     if (skip) say("ignoré", `Signal ${side(d)} ignoré : ${skip}.`, env === "live" || !blocked);
     else {
-      s.riskPct = riskPct;
+      s.riskPct = Math.max(riskPct, (units * ozRisk * 100) / acct.nav);
       const tp1 = fill + d * stopDist;
       const tp2 = d * (entry.tp2 - fill) >= 1.3 * stopDist ? entry.tp2 : fill + d * 2 * stopDist;
       const a = units >= 2 ? Math.floor(units / 2) : 0;

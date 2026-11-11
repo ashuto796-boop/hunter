@@ -315,8 +315,8 @@ function Setup({ open }: { open: boolean }) {
             Tape ton code secret dans cette page : il reste sur le téléphone.
           </Step>
           <Step n={5} title="C'est parti">
-            Au passage suivant du serveur (15 min au plus), le compte apparaît ici et l'IA copie ses trades : 0,5 % du compte risqué par trade, arrêt pour la journée à
-            −2 %, tout est coupé à −10 %.
+            Au passage suivant du serveur (15 min au plus), le compte apparaît ici et l'IA copie ses trades. Petit compte accepté dès environ 250 € : elle prend alors
+            la plus petite position possible (1 once), avec son stop posé chez OANDA. Arrêt pour la journée à −30 %, tout est coupé à −60 %.
           </Step>
         </div>
       </details>
