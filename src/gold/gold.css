@@ -2544,3 +2544,86 @@ body {
   height: 84px;
   filter: drop-shadow(0 0 28px rgba(150, 80, 255, 0.45));
 }
+
+/* =====================================================================================
+   Side rail on phones too (the owner's choice): the tabs stand on the left, as on computers,
+   in the same neon style. The bottom bar is gone.
+   ===================================================================================== */
+@media (max-width: 959px) {
+  .app {
+    padding-left: calc(72px + env(safe-area-inset-left));
+  }
+  .tabbar {
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: auto;
+    transform: none;
+    width: calc(72px + env(safe-area-inset-left));
+    max-width: none;
+    grid-template-columns: 1fr;
+    grid-auto-rows: 68px;
+    align-content: center;
+    gap: 4px;
+    padding: calc(env(safe-area-inset-top) + 12px) 6px calc(env(safe-area-inset-bottom) + 12px) calc(env(safe-area-inset-left) + 6px);
+    border-top: none;
+    border-right: 1px solid rgba(var(--acc-rgb), 0.16);
+    background: rgba(3, 5, 8, 0.96);
+  }
+  .tab {
+    justify-content: center;
+    gap: 6px;
+    border-radius: 6px;
+    font-size: 11px;
+    letter-spacing: 0.02em;
+  }
+  .tab.active {
+    background: rgba(var(--acc-rgb), 0.08);
+  }
+  .tab.active::before {
+    top: 18%;
+    bottom: 18%;
+    left: -6px;
+    right: auto;
+    width: 2px;
+    height: auto;
+  }
+  .topbar {
+    padding-left: 12px;
+    padding-right: 12px;
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+  .page {
+    padding-left: 12px;
+    padding-right: 12px;
+    padding-bottom: calc(env(safe-area-inset-bottom) + 32px);
+  }
+}
+/* narrow phones with the side rail: let a few dense blocks breathe */
+@media (max-width: 400px) {
+  .ai {
+    gap: 12px;
+  }
+  .ai .chip {
+    white-space: normal;
+  }
+  .grid3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .calib {
+    grid-template-columns: 40px minmax(0, 1fr) minmax(0, 1fr);
+    gap: 6px;
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+  .calib-head {
+    font-size: 11px;
+    letter-spacing: 0;
+  }
+  .seg button {
+    font-size: 12px;
+    padding-left: 2px;
+    padding-right: 2px;
+  }
+}
