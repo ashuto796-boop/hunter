@@ -21,19 +21,26 @@ BASE = "https://datafeed.dukascopy.com/datafeed"
 EXPECTED = {"XAUUSD": (500, 10000), "XAGUSD": (5, 200), "EURUSD": (0.5, 2.0)}
 
 
-def fetch(url, tries=5):
+MISSING = []
+
+
+def fetch(url, tries=8):
+    """The feed throttles bursts: retry with a growing pause. A file that still fails is skipped
+    (and counted) rather than stopping five years of downloads for one day."""
     for k in range(tries):
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (AURUM backtest)"})
-            with urllib.request.urlopen(req, timeout=30) as r:
+            with urllib.request.urlopen(req, timeout=45) as r:
                 return r.read()
         except urllib.error.HTTPError as e:
             if e.code == 404:
                 return b""
-            time.sleep(1.5 * (k + 1))
         except Exception:
-            time.sleep(1.5 * (k + 1))
-    raise RuntimeError(f"échec du téléchargement : {url}")
+            pass
+        time.sleep(min(60, 2 * 2**k))
+    MISSING.append(url)
+    print(f"  manquant après {tries} essais : {url}", flush=True)
+    return b""
 
 
 def decode(raw):
@@ -133,7 +140,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--years", type=float, default=5)
     ap.add_argument("--out", default="backtest/data")
-    ap.add_argument("--workers", type=int, default=12)
+    ap.add_argument("--workers", type=int, default=6)
     ap.add_argument("--probe", action="store_true", help="decode one recent day and stop")
     args = ap.parse_args()
     os.makedirs(args.out, exist_ok=True)
@@ -159,8 +166,9 @@ def main():
     for name, data in (("xau_m15", gold), ("xag_h1", xag), ("eur_h1", eur)):
         with open(os.path.join(args.out, f"{name}.json"), "w") as fh:
             json.dump(data, fh, separators=(",", ":"))
-    if len(gold) < 1000:
-        sys.exit("trop peu de données d'or")
+    print(f"fichiers manquants : {len(MISSING)}", flush=True)
+    if len(gold) < 1000 or len(MISSING) > 0.02 * 2 * len(days):
+        sys.exit("trop de données manquantes")
 
 
 if __name__ == "__main__":
