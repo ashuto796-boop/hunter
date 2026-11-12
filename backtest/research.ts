@@ -194,7 +194,7 @@ const CHAMPION: Idea = {
   settings: { trainDays: 365, maxTradesDay: 4 },
 };
 const IDEAS: Idea[] = [
-  { name: "règles par défaut (AURUM 30 min)", tf: 30, threshold: 50, rules: DEFAULT_STRATEGY, settings: { trainDays: 120, maxTradesDay: 6 } },
+  { name: "règles par défaut (AURUM 30 min)", tf: 30, threshold: 20, rules: DEFAULT_STRATEGY, settings: { trainDays: 60, maxTradesDay: 10 } },
   { name: "AURUM 2 h", tf: 120, threshold: 30, rules: AURUM_2H, settings: { trainDays: 365, maxTradesDay: 4 } },
   CHAMPION,
   { ...CHAMPION, name: "champion, écart de prix ×2", settings: { ...CHAMPION.settings, spread: 0.8 } },

@@ -76,17 +76,21 @@ export const AURUM_2H: Strategy = {
   realMoney: true,
 };
 
-// AURUM 30 min (the owner's choice, November 2026): more trades per year, about 130. 30-minute
-// candles, all 7 specialists, sweeps only in the London / New York killzones, no entry during the
-// Asian session, score 50, half taken at 1R then trailed. On 5 years with the server's retraining
-// it lost (-31R on 2022-2024, +4R on 2025-2026), so it runs on demo accounts only; AURUM_2H stays
-// ready (settings.tf 120 + DEFAULT_STRATEGY = AURUM_2H) and is the one cleared for real money.
+// AURUM 30 min (the owner's choice, November 2026): several trades a week, about 1.3 per trading
+// day. 30-minute candles, all 7 specialists, any session, score 20, one plain stop and target,
+// sells only when the higher timeframes lean down (0.3). The most active rule set that stayed
+// near break-even among 216 tested, with the server's retraining on 5 years of real prices:
+// -7.5R on 2022-2024 (1041 trades), +19.5R on 2025-2026 (618 trades), but a deep worst run
+// (59R), so it runs on demo accounts only. AURUM_2H stays ready (settings.tf 120 +
+// DEFAULT_STRATEGY = AURUM_2H) and is the one cleared for real money.
 export const AURUM_30M: Strategy = {
   ...LEGACY_M15,
-  sweepKillzoneOnly: true,
-  blockSessions: ["ASIE"],
+  minBiasShort: 0.3,
+  tp1Fraction: 0,
+  beAfterTp1: false,
+  trailAtr: 0,
   financingPctYear: 5,
-  fixedThreshold: 50,
+  fixedThreshold: 20,
   realMoney: false,
 };
 

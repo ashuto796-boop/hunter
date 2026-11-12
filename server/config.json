@@ -4,9 +4,9 @@
   "mode": "auto",
   "tf": 30,
   "spread": 0.3,
-  "maxTradesDay": 6,
+  "maxTradesDay": 10,
   "maxDailyLossPct": 3,
-  "trainDays": 120,
+  "trainDays": 60,
   "source": "auto",
   "broker": {
     "epic": "GOLD",
