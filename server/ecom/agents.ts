@@ -22,6 +22,8 @@ export interface Config extends Costs {
   usdToEur: number;
   adBudgetMaxMonthEur: number; // hard ceiling the owner accepts to lose on ads in a month
   adStopLossEur: number; // stop all paid ads if this much is spent without a single sale
+  claudeBudgetMonthUsd: number; // hard ceiling on the agents' Claude spend per calendar month
+  claudeSpentBeforeTrackingUsd: number; // first run of November 2026, before spend was tracked
 }
 
 export interface Ctx {
@@ -253,7 +255,7 @@ const hunter: Agent = async (ctx) => {
     cfg.model,
     system(ctx, "hunter", `Ton travail aujourd'hui : chercher sur le web des produits gagnants à vendre en dropshipping sur le marché ${cfg.market}. Cherche des signaux de demande récents (tendances TikTok et Instagram, « TikTok made me buy it », Google Trends, meilleures ventes AliExpress / Amazon, publicités qui tournent depuis longtemps dans la bibliothèque publicitaire Meta). Un bon produit : il résout un problème ou fait envie au premier regard, se montre en vidéo en 3 secondes, se vend 25 à 70 € soit au moins 3 fois son coût livré, n'est pas vendu en grande surface, est léger, peu fragile, sans taille, sans risque légal (pas d'électrique bas de gamme sans CE, pas de cosmétique ni de complément alimentaire, pas de marque, pas d'arme). Écris des notes détaillées avec, pour chaque produit, ce que tu as trouvé et où.`),
     `Niche : ${cfg.niche || "libre"}. Consignes du propriétaire : ${cfg.directives || "aucune"}.\nDéjà étudiés (ne les repropose pas) : ${known.join(", ") || "aucun"}.\nTrouve 6 à 8 candidats.`,
-    8,
+    5,
   );
   const { data, model } = await structured(
     cfg.model,
@@ -337,7 +339,7 @@ const sourcing: Agent = async (ctx) => {
     cfg.model,
     system(ctx, "sourcing", `Ton travail aujourd'hui : trouver pour chaque produit 2 ou 3 fournisseurs de dropshipping réels, en priorité avec un entrepôt en Europe (CJ Dropshipping entrepôts UE, BigBuy, Spocket, fournisseurs AliExpress avec stock en France ou en Europe), sinon depuis la Chine. Relève pour chacun le prix unitaire, le prix et le délai de livraison vers la France, les avis, et tout signal d'alerte (pas de CE, contrefaçon, qualité). Note aussi les prix pratiqués par les concurrents en France.`),
     `Produits à sourcer :\n${list}${cjData ? `\n${cjData}\nUtilise ces offres CJ comme base et complète avec d'autres fournisseurs (BigBuy, Spocket, AliExpress avec stock en Europe).` : ""}`,
-    8,
+    5,
   );
   const { data, model } = await structured(
     cfg.model,
@@ -451,7 +453,7 @@ const content: Agent = async (ctx) => {
     cfg.model,
     system(ctx, "content", `Ton travail aujourd'hui : repérer sur le web les formats de vidéos courtes qui marchent en ce moment en France sur TikTok et Instagram Reels pour vendre des produits (formats, sons, structures d'accroche, durée), en lien avec les produits de la boutique. Notes brèves et concrètes.`),
     `Produits : ${state.products.filter((p) => p.status !== "écarté").slice(0, 5).map((p) => p.name).join(", ") || "pas encore choisis"}. Niche : ${cfg.niche || "libre"}.`,
-    4,
+    3,
   );
   const { data, model } = await structured(
     cfg.model,
@@ -489,12 +491,20 @@ const ceo: Agent = async (ctx) => {
     system(ctx, "ceo", `Ton travail : lire les rapports de l'équipe, trancher les désaccords, et écrire le brief du jour. "summary" : où en est la boutique vers l'objectif, en une phrase chiffrée, puis la décision clé. Sections : « Décisions », « Ce que fait l'équipe », « Risques ». "todo" : exactement les 3 actions les plus importantes pour le propriétaire aujourd'hui (who = "toi"), concrètes, faisables en moins d'une heure chacune, dans l'ordre, puis au plus 2 tâches pour l'équipe. Si la boutique n'est pas encore lancée, guide-le pas à pas vers la première vente (statut, boutique, premier produit, échantillon, première vidéo).`),
     `Données :\n${memo(ctx)}`,
     ReportZ,
-    "high",
+    "medium",
   );
   return report("ceo", data, model, now);
 };
 
 export const AGENTS: Record<AgentId, Agent> = { finance, service, legal, hunter, sourcing, merch, ads, content, retention, ceo };
+
+// The most one pass of each agent has cost or may cost (research agents read many web pages).
+// An agent only starts if the month's spend plus this reserve stays under the ceiling.
+const RESERVE_USD: Record<AgentId, number> = { hunter: 1.5, sourcing: 1.5, content: 1.2, legal: 0.5, merch: 0.5, ads: 0.4, retention: 0.4, ceo: 0.5, finance: 0.2, service: 0.2 };
+
+export function overBudget(id: AgentId, ctx: Ctx, spentUsd: number): boolean {
+  return spentUsd + RESERVE_USD[id] > ctx.cfg.claudeBudgetMonthUsd;
+}
 
 export async function runAgent(id: AgentId, ctx: Ctx): Promise<AgentReport> {
   try {

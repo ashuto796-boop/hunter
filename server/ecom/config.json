@@ -15,9 +15,18 @@
   "autoDraftProducts": true,
   "minScoreForDraft": 65,
   "model": "claude-opus-5-5",
-  "everyHours": {},
+  "everyHours": {
+    "hunter": 168,
+    "sourcing": 168,
+    "content": 336,
+    "legal": 720,
+    "retention": 720,
+    "merch": 72
+  },
   "metaApiVersion": "v25.0",
   "usdToEur": 0.86,
   "adBudgetMaxMonthEur": 100,
-  "adStopLossEur": 50
+  "adStopLossEur": 50,
+  "claudeBudgetMonthUsd": 10,
+  "claudeSpentBeforeTrackingUsd": 2.56
 }

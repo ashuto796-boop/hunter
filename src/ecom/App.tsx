@@ -203,6 +203,23 @@ function Today({ state, openAgent }: { state: EcomState; openAgent: (id: AgentId
 
       <Progress state={state} />
 
+      {state.claude && (
+        <section className="card">
+          <div className="goal-head">
+            <span>Coût de l'équipe (Claude) ce mois-ci</span>
+            <span className="muted">plafond {state.claude.budget} $</span>
+          </div>
+          <div className="spend">
+            <b>{state.claude.usd.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} $</b>
+            <span className="muted small">mesuré sur chaque appel, {state.claude.runs} passage(s)</span>
+          </div>
+          <div className="bar" role="progressbar" aria-valuenow={Math.round((state.claude.usd / state.claude.budget) * 100)} aria-valuemin={0} aria-valuemax={100}>
+            <span style={{ width: `${Math.min(100, (state.claude.usd / state.claude.budget) * 100)}%`, background: state.claude.usd >= state.claude.budget * 0.8 ? "var(--warn)" : undefined }} />
+          </div>
+          <p className="muted small">Au plafond, les agents se mettent en pause jusqu'au mois suivant. Compare avec ta console Claude, onglet Usage.</p>
+        </section>
+      )}
+
       <section className="card">
         <h3>L'équipe</h3>
         <div className="mini-team">

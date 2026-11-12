@@ -135,6 +135,7 @@ export interface EcomState {
   products: ProductIdea[];
   calendar: ContentPost[];
   ads?: AdsSnapshot | null;
+  claude?: { month: string; usd: number; budget: number; runs: number }; // measured Claude spend of the agents this month
   log: { at: number; text: string }[];
 }
 
