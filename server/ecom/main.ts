@@ -109,6 +109,19 @@ if (ads) {
   const be = state.kpis?.breakEvenRoas ?? (live.length ? live.reduce((s, p) => s + p.breakEvenRoas, 0) / live.length : 2.2);
   const margin = live.length ? live.reduce((s, p) => s + p.marginEur, 0) / live.length : 12;
   verdicts(ads, be, margin);
+  // the owner's limits beat every other rule: stop-loss without a sale, then the monthly ceiling
+  const spent = ads.platforms.reduce((s, p) => s + p.spend30, 0);
+  const sales = ads.platforms.reduce((s, p) => s + p.purchases30, 0);
+  const all = ads.platforms.flatMap((p) => p.ads);
+  if (spent >= cfg.adStopLossEur && sales === 0) {
+    all.forEach((a) => (a.verdict = "couper"));
+    log(`Pubs : ${Math.round(spent)} € dépensés sans aucune vente, tout est à couper (limite ${cfg.adStopLossEur} €)`);
+  } else if (spent >= cfg.adBudgetMaxMonthEur) {
+    all.forEach((a) => (a.verdict = a.verdict === "augmenter" || a.verdict === "attendre" ? "couper" : a.verdict));
+    log(`Pubs : plafond de ${cfg.adBudgetMaxMonthEur} € atteint sur 30 jours, tout est à couper`);
+  } else if (spent >= cfg.adBudgetMaxMonthEur * 0.8) {
+    all.forEach((a) => (a.verdict = a.verdict === "augmenter" ? "attendre" : a.verdict));
+  }
   console.log(`Pubs : ${ads.platforms.map((p) => `${p.name} ${p.ads.length} pub(s)`).join(", ") || "aucune donnée"}${ads.errors.length ? `, ${ads.errors.length} erreur(s)` : ""}.`);
 }
 state.ads = ads;
