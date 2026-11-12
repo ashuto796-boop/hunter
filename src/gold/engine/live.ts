@@ -1,4 +1,4 @@
-// Real-money execution at the broker (OANDA), as the server records it and the app displays it.
+// Real-money execution at the broker (Capital.com), as the server records it and the app displays it.
 // The detailed state is sealed (see seal.ts): on the public data branch only its owner can read it.
 import { Sealed } from "./seal";
 
@@ -33,7 +33,7 @@ export interface LiveEvent {
 }
 
 export interface LiveState {
-  broker: "oanda";
+  broker: "capital" | "oanda";
   env: "practice" | "live";
   status: "actif" | "en pause" | "coupé";
   reason: string | null; // why new entries are paused, when they are
@@ -56,6 +56,7 @@ export interface LiveState {
   executions: number;
   errors: number;
   runTimes: number[]; // recent server runs, to judge whether positions are watched often enough
+  labels?: Record<string, string>; // broker deal id -> AURUM leg id (brokers without client labels)
   updatedAt: number;
 }
 

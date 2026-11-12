@@ -6,9 +6,10 @@ name: AURUM serveur 24/7
 # (every past signal and its outcome, which the AI keeps learning from).
 # Settings: server/config.json. Optional push alerts: repository secrets NTFY_TOPIC (ntfy app)
 # or TELEGRAM_TOKEN + TELEGRAM_CHAT_ID. Optional evening log written by Claude: ANTHROPIC_API_KEY.
-# Optional real-money copy of the AI's trades on OANDA (server/live.ts): secrets OANDA_TOKEN,
-# OANDA_ACCOUNT_ID, OANDA_ENV ("practice" by default, "live" for real money, which also needs the
-# confirmation sentence in server/config.json) and AURUM_PASSPHRASE, which seals the account data.
+# Optional real-money copy of the AI's trades on Capital.com (server/live.ts): secrets
+# CAPITAL_API_KEY, CAPITAL_IDENTIFIER (login e-mail), CAPITAL_PASSWORD (the API key's own password),
+# CAPITAL_ENV ("demo" by default, "live" for real money, which also needs the confirmation
+# sentence in server/config.json) and AURUM_PASSPHRASE, which seals the account data.
 # To start over with a new account: delete aurum-data.
 # Each run is a session of about 5 h 40 with a passage every 15 minutes (server/session.sh);
 # at its end it starts the next session itself. The hourly schedule only restarts the chain if
@@ -62,9 +63,10 @@ jobs:
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          OANDA_TOKEN: ${{ secrets.OANDA_TOKEN }}
-          OANDA_ACCOUNT_ID: ${{ secrets.OANDA_ACCOUNT_ID }}
-          OANDA_ENV: ${{ secrets.OANDA_ENV }}
+          CAPITAL_API_KEY: ${{ secrets.CAPITAL_API_KEY }}
+          CAPITAL_IDENTIFIER: ${{ secrets.CAPITAL_IDENTIFIER }}
+          CAPITAL_PASSWORD: ${{ secrets.CAPITAL_PASSWORD }}
+          CAPITAL_ENV: ${{ secrets.CAPITAL_ENV }}
           AURUM_PASSPHRASE: ${{ secrets.AURUM_PASSPHRASE }}
         run: bash server/session.sh
 

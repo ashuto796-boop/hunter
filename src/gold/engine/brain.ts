@@ -199,7 +199,7 @@ export function analyse(env: AnalyseEnv, st: TraderState, i: number): Decision {
   const bias = computeBias(m, i);
   const session = sessionAt(t);
   const kz = killzone(t);
-  const threshold = env.threshold ?? THRESHOLDS[settings.mode];
+  const threshold = env.threshold ?? STRATEGY.fixedThreshold ?? THRESHOLDS[settings.mode];
   const inter = computeIntermarket(m, i);
   const mem = env.noMemory ? undefined : st.mem;
   const mood = moodAt(env.media, t);

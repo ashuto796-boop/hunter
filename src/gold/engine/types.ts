@@ -156,7 +156,7 @@ export interface Settings {
   capital: number;
   riskPct: number;
   mode: Mode;
-  tf: 5 | 15;
+  tf: 5 | 15 | 60 | 120 | 240;
   spread: number; // $ per oz
   maxTradesDay: number;
   maxDailyLossPct: number;

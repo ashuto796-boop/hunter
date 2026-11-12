@@ -5,6 +5,7 @@
 import { Trade, TraderState } from "./types";
 import { AUTO_CANDIDATES, AnalyseEnv, THRESHOLDS } from "./brain";
 import { newTraderState, simulate, warmupIndex } from "./trader";
+import { STRATEGY } from "./strategy";
 import { Stats, computeStats, equityCurve, rSummary } from "./stats";
 
 const DAY = 864e5;
@@ -56,9 +57,9 @@ export async function train(env: AnalyseEnv, source: string, onProgress?: (msg: 
     return st;
   };
   let st: TraderState;
-  let threshold = THRESHOLDS[settings.mode];
+  let threshold = STRATEGY.fixedThreshold ?? THRESHOLDS[settings.mode];
   let calibration: Calibration | null = null;
-  if (settings.mode === "auto") {
+  if (settings.mode === "auto" && STRATEGY.fixedThreshold === null) {
     const splitT = m.ltf.c[from + Math.floor((to - from) * 0.7)].t;
     const candidates = to - from > 20000 ? [57, 61, 65] : AUTO_CANDIDATES;
     let best: { th: number; st: TraderState; obj: number } | null = null;

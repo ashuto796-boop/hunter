@@ -13,6 +13,8 @@ import { Thought, closeAlert, closeText, lossText, openAlert, openText, scanText
 import { GoldSimulator } from "./engine/sim";
 import { ServerState } from "./engine/serverState";
 import { ExchangeFeed, Feed, SOURCES, Source, SourceId, SimFeed, fetchHistory, fetchKlines, fetchNews, fetchPeers, probe, refreshPeers } from "./data/feed";
+import { tfLabel } from "./ui/format";
+import { STRATEGY } from "./engine/strategy";
 import { fetchServerStamp, fetchServerState } from "./data/remote";
 import { DEFAULT_SETTINGS, GoldState, useGold } from "./store";
 import { beep, haptic, keepAwake, notify, vibrate } from "./device";
@@ -79,6 +81,8 @@ class Bot {
   constructor() {
     const s = load();
     this.settings = { ...DEFAULT_SETTINGS, ...s.settings };
+    // AURUM 2 h: settings saved by the former 15-minute version move to the 2-hour strategy
+    if (this.settings.tf !== DEFAULT_SETTINGS.tf) this.settings = { ...this.settings, tf: DEFAULT_SETTINGS.tf, trainDays: DEFAULT_SETTINGS.trainDays };
     this.st = s.st ?? newTraderState(this.settings.capital);
     this.st.ctx ??= {}; // saved by an older version
     this.thoughts = s.thoughts ?? [];
@@ -116,6 +120,7 @@ class Bot {
 
   private threshold(): number {
     const r = this.remote;
+    if (STRATEGY.fixedThreshold !== null) return STRATEGY.fixedThreshold;
     if (r) return r.settings.mode === "auto" ? r.autoThreshold : THRESHOLDS[r.settings.mode];
     return this.settings.mode === "auto" ? this.autoThreshold : THRESHOLDS[this.settings.mode];
   }
@@ -344,7 +349,7 @@ class Bot {
     if (closed.length < 400) throw new Error("Historique insuffisant");
     this.candles = closed;
     this.rebuild();
-    this.think("info", `Flux : ${this.src.label}. ${closed.length} bougies M${tf} chargées.`);
+    this.think("info", `Flux : ${this.src.label}. ${closed.length} bougies de ${tfLabel(tf)} chargées.`);
     const radar = [this.peers.xag?.length ? "argent (XAG)" : "", this.peers.eur?.length ? "dollar (EUR/USD)" : ""].filter(Boolean);
     if (radar.length) this.think("info", `Radar intermarché actif : ${radar.join(" + ")}.`);
     if (this.news.length) this.think("info", `${this.news.length} annonces US à fort impact cette semaine : je me mettrai à l'écart autour.`);

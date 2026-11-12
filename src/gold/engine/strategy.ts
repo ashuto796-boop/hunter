@@ -22,9 +22,12 @@ export interface Strategy {
   weekendFlat: boolean; // close everything before the weekend
   sessionWeight: boolean; // weigh confidence by the session's liquidity (meaningful for intraday candles only)
   financingPctYear: number; // overnight financing charged by the broker, % of the position per year
+  fixedThreshold: number | null; // entry threshold used whatever the mode (null = the mode's / calibrated one)
 }
 
-export const DEFAULT_STRATEGY: Strategy = {
+// The rules AURUM used until November 2026: 15-minute intraday trading with all 7 specialists.
+// On 5 years of real gold prices they lost money every year (backtest/report on aurum-backtest).
+export const LEGACY_M15: Strategy = {
   fit: {
     sweep: { TREND: 0.85, RANGE: 1, SQUEEZE: 0.7, VOLATILE: 0.5 },
     pullback: { TREND: 1, RANGE: 0.45, SQUEEZE: 0.5, VOLATILE: 0.3 },
@@ -49,6 +52,25 @@ export const DEFAULT_STRATEGY: Strategy = {
   weekendFlat: true,
   sessionWeight: true,
   financingPctYear: 0,
+  fixedThreshold: null,
+};
+
+// AURUM 2 h (since November 2026), chosen among 256 rule sets on 2022-2024 and confirmed on
+// 2025-2026 with the server's retraining (backtest/research.ts): 2-hour candles (settings.tf),
+// the four specialists that held up (divergence, momentum, squeeze, liquidity sweep with the
+// trend), sells only in a clear downtrend, plain stop and target, flat within the day and before
+// weekends, overnight financing counted. Walk-forward: +15.8R on 2022-2024, +17.7R on 2025-2026.
+export const DEFAULT_STRATEGY: Strategy = {
+  ...LEGACY_M15,
+  base: { pullback: 0, london: 0, reversion: 0 },
+  sweepMinBias: 0,
+  minBiasShort: 0.5,
+  tp1Fraction: 0,
+  beAfterTp1: false,
+  trailAtr: 0,
+  sessionWeight: false,
+  financingPctYear: 5,
+  fixedThreshold: 30,
 };
 
 // The live rules (mutable so the research script can swap them; the app never does)

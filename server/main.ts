@@ -25,8 +25,10 @@ import { nyTime, sessionAt, tradingDay } from "../src/gold/engine/context";
 import { money } from "../src/gold/engine/narrate";
 import { MediaState, mediaShocks, moodLabel, moodOf } from "../src/gold/engine/media";
 import { updateMedia } from "./media";
+import { STRATEGY } from "../src/gold/engine/strategy";
+import { tfLabel } from "../src/gold/ui/format";
 import { BrokerConfig, DEFAULT_BROKER, syncLive } from "./live";
-import { Oanda, OandaError } from "./broker/oanda";
+import { Capital, CapitalError } from "./broker/capital";
 import { seal, unseal } from "../src/gold/engine/seal";
 import { LiveState } from "../src/gold/engine/live";
 import { SOURCES, Source, SourceId, fetchHistory, fetchNews, fetchPeers, probe } from "../src/gold/data/feed";
@@ -304,14 +306,16 @@ function freshState(settings: Settings, source: string): ServerState {
   };
 }
 
-// Copies the AI's trades onto the OANDA account when the owner configured one (GitHub secrets
-// OANDA_TOKEN, OANDA_ACCOUNT_ID, OANDA_ENV, AURUM_PASSPHRASE). Everything about the account is
-// sealed before it is published, and nothing about it is written to the (public) run logs.
+// Copies the AI's trades onto the Capital.com account when the owner configured one (GitHub
+// secrets CAPITAL_API_KEY, CAPITAL_IDENTIFIER, CAPITAL_PASSWORD, CAPITAL_ENV, AURUM_PASSPHRASE).
+// Everything about the account is sealed before it is published, and nothing about it is written
+// to the (public) run logs.
 async function brokerStep(state: ServerState, cfg: BrokerConfig, realGold: boolean): Promise<[string, string][]> {
-  const token = process.env.OANDA_TOKEN;
-  const account = process.env.OANDA_ACCOUNT_ID;
+  const apiKey = process.env.CAPITAL_API_KEY;
+  const identifier = process.env.CAPITAL_IDENTIFIER;
+  const password = process.env.CAPITAL_PASSWORD;
   const pass = process.env.AURUM_PASSPHRASE ?? "";
-  if (!token || !account) {
+  if (!apiKey || !identifier || !password) {
     state.live = { configured: false, sealed: null, note: null };
     return [];
   }
@@ -319,12 +323,13 @@ async function brokerStep(state: ServerState, cfg: BrokerConfig, realGold: boole
     state.live = { configured: true, sealed: null, note: "Il manque le secret AURUM_PASSPHRASE (8 caractères au moins) : sans lui, aucun ordre réel n'est passé." };
     return [];
   }
-  const env = process.env.OANDA_ENV === "live" ? "live" : "practice";
+  const live = process.env.CAPITAL_ENV === "live";
+  const env = live ? "live" : "practice";
   const prev = await unseal<LiveState>(state.live?.sealed, pass);
   if (state.live?.sealed && !prev) log("compte réel : ancien état illisible (code secret changé ?), il repart de zéro");
   try {
     const res = await syncLive({
-      api: new Oanda(token, account, env),
+      api: new Capital(apiKey, identifier, password, live ? "live" : "demo", cfg.epic),
       env,
       cfg,
       prev,
@@ -340,17 +345,19 @@ async function brokerStep(state: ServerState, cfg: BrokerConfig, realGold: boole
     return res.alerts;
   } catch (e) {
     // a broker outage never stops the AI; the last sealed state is kept as it was
-    const status = e instanceof OandaError ? e.status : 0;
+    const status = e instanceof CapitalError ? e.status : 0;
     const note =
-      status === 401 || status === 403
-        ? "OANDA refuse le jeton : vérifie OANDA_TOKEN et OANDA_ENV (un jeton d'essai ne marche que sur le compte d'essai)."
-        : status === 404 || status === 400
-          ? "OANDA ne trouve pas le compte : vérifie OANDA_ACCOUNT_ID (format 001-004-1234567-001 pour un compte réel, 101-… pour un compte démo) et OANDA_ENV."
-          : "OANDA n'a pas répondu au dernier passage ; nouvel essai au prochain.";
+      status === 401 || status === 400
+        ? `${(e as Error).message} (secrets CAPITAL_API_KEY, CAPITAL_IDENTIFIER, CAPITAL_PASSWORD ; CAPITAL_ENV = demo ou live selon la clé).`
+        : status === 404
+          ? "Capital.com ne trouve pas l'or (GOLD) sur ce compte : vérifie le type de compte (CFD)."
+          : status === 429
+            ? "Capital.com limite les requêtes : nouvel essai au prochain passage."
+            : "Capital.com n'a pas répondu au dernier passage ; nouvel essai au prochain.";
     log(`compte réel : ${note}`);
     const again = state.live?.note === note;
     state.live = { configured: true, sealed: state.live?.sealed ?? null, note };
-    return again ? [] : [["AURUM — compte OANDA", note]];
+    return again ? [] : [["AURUM — compte Capital.com", note]];
   }
 }
 
@@ -373,7 +380,7 @@ export async function runOnce(): Promise<ServerState> {
   if (prev && prev.source !== src.id) switchInstrument(state, src, think);
   if (prev && prev.settings.tf !== tf) {
     state = freshState(settings, src.id);
-    think("warn", `Unité de temps changée (M${prev.settings.tf} → M${tf}) : nouveau compte démo.`);
+    think("warn", `Nouvelle stratégie AURUM : bougies de ${tfLabel(tf)} au lieu de ${tfLabel(prev.settings.tf)}. Le compte démo repart à neuf.`);
   }
 
   const days = settings.trainDays + 10;
@@ -422,7 +429,7 @@ export async function runOnce(): Promise<ServerState> {
   }
   state.settings = settings;
 
-  const threshold = settings.mode === "auto" ? state.autoThreshold : THRESHOLDS[settings.mode];
+  const threshold = STRATEGY.fixedThreshold ?? (settings.mode === "auto" ? state.autoThreshold : THRESHOLDS[settings.mode]);
   // a breaking story pauses new entries like a scheduled announcement does
   const env = { m, settings, news: [...news, ...(media ? mediaShocks(media.headlines, now) : [])], threshold, media: media?.history };
   const alerts: [string, string][] = [];

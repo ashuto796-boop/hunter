@@ -7,7 +7,7 @@ import { IconBolt } from "../ui/Icons";
 import { REGIME_LABEL } from "../engine/brain";
 import { SESSION_LABEL } from "../engine/context";
 import { MODULE_INFO } from "../engine/modules";
-import { lots, pct, price, rr, side, time, tone, usd } from "../ui/format";
+import { lots, pct, price, rr, side, tfLabel, time, tone, usd } from "../ui/format";
 import { askNotifications, inNativeApp } from "../device";
 import { PressCard } from "../ui/Press";
 
@@ -390,7 +390,7 @@ export function Live() {
       <PositionCard />
       <section className="card chart-card">
         <div className="card-title">
-          <span>Graphique M{tf}</span>
+          <span>Graphique {tfLabel(tf)}</span>
           <span className="legend">
             <span>
               <i style={{ background: "var(--gold)" }} />

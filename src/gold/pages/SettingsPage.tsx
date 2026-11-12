@@ -1,5 +1,5 @@
 import { ReactNode, useState } from "react";
-import { dateTime } from "../ui/format";
+import { dateTime, tfLabel } from "../ui/format";
 import { useGold } from "../store";
 import { bot } from "../bot";
 import { Settings } from "../engine/types";
@@ -112,7 +112,7 @@ function ServerSection() {
       {remote && (
         <p className="note" style={{ margin: "10px 0" }}>
           Dernier passage le {dateTime(remote.updatedAt)} · {remote.runs} passages depuis le {dateTime(remote.startedAt)}. Réglages du serveur : risque {trader.riskPct} %, mode{" "}
-          {MODE_LABEL[trader.mode]}, M{trader.tf}, capital {trader.capital.toLocaleString("fr-FR")} $.
+          {MODE_LABEL[trader.mode]}, bougies de {tfLabel(trader.tf)}, capital {trader.capital.toLocaleString("fr-FR")} $.
         </p>
       )}
       {!remote && note && <p className="note" style={{ margin: "10px 0" }}>{note}</p>}
@@ -208,15 +208,8 @@ export function SettingsPage() {
 
       <section className="card">
         <div className="card-title">Marché</div>
-        <Field label="Unité de temps" help="Change de trader : le journal repart">
-          <Seg
-            value={s.tf}
-            options={[
-              [5, "M5"],
-              [15, "M15"],
-            ]}
-            onChange={(tf) => confirm("Changer d'unité de temps clôture la position et recharge l'IA. Continuer ?") && set({ tf })}
-          />
+        <Field label="Unité de temps" help="Stratégie AURUM 2 h, validée sur 5 ans de vrais prix">
+          <span className="chip gold">{tfLabel(s.tf)}</span>
         </Field>
         <div className="field" style={{ flexDirection: "column", alignItems: "stretch" }}>
           <div>

@@ -2,7 +2,7 @@
 // servers), tokenised gold (PAXG) as fallback, and a local simulator when no exchange is
 // reachable. All endpoints are public (no API key).
 import { Candle, NewsEvent } from "../engine/types";
-import { Peers } from "../engine/features";
+import { Peers, aggregate } from "../engine/features";
 import { GoldSimulator } from "../engine/sim";
 
 export type SourceId = "xau" | "bitget" | "paxg" | "sim";
@@ -109,8 +109,24 @@ async function bitgetPage(src: Endpoint, tf: number, endpoint: "candles" | "hist
   return toCandles(body.data ?? []).sort((a, b) => a.t - b.t);
 }
 
+// Candles longer than an hour (2 h, 4 h) are built from hourly ones, like the backtests:
+// every exchange serves 1 h candles, not all of them serve 2 h.
+const baseTf = (tf: number) => (tf > 60 && tf % 60 === 0 ? 60 : tf);
+
 // Returns candles oldest first; the last one may still be forming.
 export async function fetchKlines(src: Endpoint, tf: number, opts: { start?: number; limit?: number } = {}): Promise<Candle[]> {
+  const b = baseTf(tf);
+  if (b !== tf) {
+    const k = tf / b;
+    const start = opts.start === undefined ? undefined : opts.start - (opts.start % (tf * 60000));
+    const rows = await klinesAt(src, b, { start, limit: opts.limit === undefined ? undefined : Math.min(1000, opts.limit * k + k) });
+    const out = aggregate(rows, tf);
+    return opts.start === undefined ? out : out.filter((c) => c.t >= opts.start!);
+  }
+  return klinesAt(src, tf, opts);
+}
+
+async function klinesAt(src: Endpoint, tf: number, opts: { start?: number; limit?: number }): Promise<Candle[]> {
   if (src.api === "bitget") {
     const rows = await bitgetPage(src, tf, "candles", Math.min(opts.limit ?? src.maxLimit, 1000));
     return opts.start === undefined ? rows : rows.filter((k) => k.t >= opts.start!);
@@ -147,6 +163,12 @@ export async function probe(src: Source, tf: number): Promise<boolean> {
 }
 
 export async function fetchHistory(src: Endpoint, tf: number, days: number, onProgress?: (p: number) => void): Promise<Candle[]> {
+  const b = baseTf(tf);
+  if (b !== tf) return aggregate(await historyAt(src, b, days, onProgress), tf);
+  return historyAt(src, tf, days, onProgress);
+}
+
+async function historyAt(src: Endpoint, tf: number, days: number, onProgress?: (p: number) => void): Promise<Candle[]> {
   const ms = tf * 60000;
   const now = Date.now();
   const from = now - days * 864e5;
@@ -154,7 +176,7 @@ export async function fetchHistory(src: Endpoint, tf: number, days: number, onPr
   let start = from;
   const byT = new Map<number, Candle>();
   for (let guard = 0; guard < 80 && start < now; guard++) {
-    const batch = await fetchKlines(src, tf, { start });
+    const batch = await klinesAt(src, tf, { start });
     if (!batch.length) break;
     for (const k of batch) byT.set(k.t, k);
     start = batch[batch.length - 1].t + ms;

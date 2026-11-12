@@ -1,4 +1,4 @@
-// Real money: the OANDA account the server copies the AI's trades onto. Its data is published
+// Real money: the Capital.com account the server copies the AI's trades onto. Its data is published
 // sealed; the owner's secret code (kept on this phone only) opens it.
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import { useGold } from "../store";
@@ -68,13 +68,13 @@ function Hero({ s, access }: { s: LiveState | null; access: Access }) {
   if (!s) {
     return (
       <section className="hero real-hero">
-        <div className="hero-label">ARGENT RÉEL · OANDA</div>
+        <div className="hero-label">ARGENT RÉEL · CAPITAL.COM</div>
         <div className="real-title">{access === "absent" ? "Pas encore relié" : access === "waiting" ? "En attente du serveur" : "Compte verrouillé"}</div>
         <p className="muted" style={{ fontSize: 13.5 }}>
           {access === "absent"
-            ? "L'IA trade pour l'instant sur son compte démo. Relie ton compte OANDA : elle copiera chacun de ses trades avec ton argent, 24 h/24."
+            ? "L'IA trade pour l'instant sur son compte démo. Relie ton compte Capital.com (démo d'abord) : elle copiera chacun de ses trades, 24 h/24."
             : access === "waiting"
-              ? "Le compte OANDA est déclaré sur GitHub ; ses données apparaîtront ici après le prochain passage du serveur."
+              ? "Le compte Capital.com est déclaré sur GitHub ; ses données apparaîtront ici après le prochain passage du serveur."
               : "Les données du compte sont chiffrées. Tape ton code secret pour les voir."}
         </p>
       </section>
@@ -86,8 +86,8 @@ function Hero({ s, access }: { s: LiveState | null; access: Access }) {
   return (
     <section className="hero real-hero">
       <div className="hero-label">
-        <span className={`env-badge ${s.env}`}>{s.env === "live" ? "ARGENT RÉEL" : "COMPTE D'ESSAI"}</span>
-        OANDA · {s.currency}
+        <span className={`env-badge ${s.env}`}>{s.env === "live" ? "ARGENT RÉEL" : "COMPTE DÉMO"}</span>
+        {s.broker === "oanda" ? "OANDA" : "Capital.com"} · {s.currency}
       </div>
       <div className="hero-price num">
         {int}
@@ -295,18 +295,20 @@ function Setup({ open }: { open: boolean }) {
     <section className="card">
       <details open={open}>
         <summary className="card-title" style={{ marginBottom: 0, cursor: "pointer" }}>
-          Relier un compte OANDA
+          Relier un compte Capital.com
         </summary>
         <div className="steps">
-          <Step n={1} title="Compte OANDA réel">
-            Sur oanda.com, ouvre un compte de trading (vérification d'identité) et dépose le montant que tu confies à l'IA.
+          <Step n={1} title="Compte Capital.com">
+            Sur capital.com, ouvre un compte (vérification d'identité). Un compte démo est fourni avec : commence par lui, sans argent réel.
           </Step>
-          <Step n={2} title="Jeton d'accès">
-            Dans ton espace OANDA : « Gérer l'accès API » → génère un jeton. Note aussi le numéro du compte v20 (format 001-004-1234567-001).
+          <Step n={2} title="Clé API">
+            Active la double authentification (2FA), puis Paramètres → « Intégrations API » → génère une clé. Choisis un mot de passe propre à cette clé et note la
+            clé : elle n'est affichée qu'une fois.
           </Step>
-          <Step n={3} title="4 secrets sur GitHub">
-            <span className="mono-list">OANDA_TOKEN · OANDA_ACCOUNT_ID · OANDA_ENV = live · AURUM_PASSPHRASE</span>
-            Le dernier est un code secret à toi (8 caractères ou plus) : il chiffre les données du compte. Pour un compte démo OANDA, mets OANDA_ENV = practice.
+          <Step n={3} title="5 secrets sur GitHub">
+            <span className="mono-list">CAPITAL_API_KEY · CAPITAL_IDENTIFIER · CAPITAL_PASSWORD · CAPITAL_ENV · AURUM_PASSPHRASE</span>
+            L'identifiant est l'e-mail de connexion, le mot de passe est celui de la clé API. CAPITAL_ENV = demo pour le compte démo, live pour l'argent réel.
+            AURUM_PASSPHRASE est un code secret à toi (8 caractères ou plus) : il chiffre les données du compte. Ne les envoie jamais dans une discussion.
             <a className="btn block" style={{ marginTop: 10 }} href={`${REPO}/settings/secrets/actions/new`} target="_blank" rel="noreferrer">
               Ajouter un secret sur GitHub
             </a>
@@ -315,8 +317,9 @@ function Setup({ open }: { open: boolean }) {
             Tape ton code secret dans cette page : il reste sur le téléphone.
           </Step>
           <Step n={5} title="C'est parti">
-            Au passage suivant du serveur (15 min au plus), le compte apparaît ici et l'IA copie ses trades. Petit compte accepté dès environ 250 € : elle prend alors
-            la plus petite position possible (1 once), avec son stop posé chez OANDA. Arrêt pour la journée à −30 %, tout est coupé à −60 %.
+            Au passage suivant du serveur (15 min au plus), le compte apparaît ici et l'IA copie ses trades, avec stop et objectif posés chez Capital.com. Petit
+            compte accepté dès 100 € environ : elle prend alors la plus petite position permise. Arrêt pour la journée à −30 %, tout est coupé à −60 %. Elle ne
+            touche jamais aux positions que tu ouvres toi-même.
           </Step>
         </div>
       </details>

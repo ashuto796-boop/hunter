@@ -20,3 +20,6 @@ export const dateTime = (t: number) =>
 export const side = (d: number) => (d === 1 ? "ACHAT" : "VENTE");
 
 export const tone = (x: number) => (x > 0 ? "up" : x < 0 ? "down" : "");
+
+// "2 h" for 120, "15 min" for 15
+export const tfLabel = (tf: number) => (tf >= 60 ? `${tf / 60} h` : `${tf} min`);
