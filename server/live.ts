@@ -5,7 +5,7 @@
 // - a new entry is sent right after the candle that decided it, sized on the real account
 //   (risk % of NAV, converted to the account currency). With a partial first target the position
 //   is split in two legs like the demo account (leg a at 1R, leg b at the final target); with a
-//   single target (AURUM 2 h) it is one position. Stops and targets are held by the broker, so
+//   single target it is one position. Stops and targets are held by the broker, so
 //   they work between server runs.
 // - every run, the real stops follow the AI's stops (only ever tightened), leg a is closed when
 //   the AI takes its first profit, and anything the AI no longer holds is closed.
@@ -250,6 +250,7 @@ export async function syncLive(inp: SyncInput): Promise<{ state: LiveState; aler
   const gate = (): string | null => {
     if (!cfg.enabled) return "trading réel en pause (réglage « enabled »)";
     if (env === "live" && cfg.liveConfirm !== LIVE_CONFIRM) return "argent réel pas encore confirmé dans la configuration";
+    if (env === "live" && !STRATEGY.realMoney) return "la stratégie actuelle est réservée au compte démo";
     if (s.halt) return `coupe-circuit : ${s.halt.text}`;
     if (!inp.realGold) return "le flux de l'IA n'est pas l'or lui-même";
     if (env === "live" && gap !== null && gap > cfg.maxRunGapMin) return `le serveur passe trop rarement (toutes les ${Math.round(gap)} min)`;
@@ -311,7 +312,7 @@ export async function syncLive(inp: SyncInput): Promise<{ state: LiveState; aler
       s.riskPct = Math.max(riskPct, (units * ozRisk * 100) / acct.nav);
       const tp1 = fill + d * stopDist;
       const tp2 = d * (entry.tp2 - fill) >= 1.3 * stopDist ? entry.tp2 : fill + d * 2 * stopDist;
-      // two legs only when the strategy takes a partial profit at 1R (AURUM 2 h has one target)
+      // two legs only when the strategy takes a partial profit at 1R (a single target is one position)
       const a = STRATEGY.tp1Fraction > 0 && units >= 2 * inst.minUnits ? Math.max(inst.minUnits, floorTo(units * STRATEGY.tp1Fraction, step)) : 0;
       const legs: ["a" | "b", number, number][] = a && units - a >= inst.minUnits ? [["a", a, tp1], ["b", Number((units - a).toFixed(6)), tp2]] : [["b", units, tp2]];
       for (const [leg, n, tp] of legs) {

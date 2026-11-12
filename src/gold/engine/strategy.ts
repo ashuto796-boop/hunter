@@ -22,6 +22,7 @@ export interface Strategy {
   weekendFlat: boolean; // close everything before the weekend
   sessionWeight: boolean; // weigh confidence by the session's liquidity (meaningful for intraday candles only)
   financingPctYear: number; // overnight financing charged by the broker, % of the position per year
+  realMoney: boolean; // validated on 5 years: may trade a live (real-money) account
   fixedThreshold: number | null; // entry threshold used whatever the mode (null = the mode's / calibrated one)
 }
 
@@ -53,14 +54,15 @@ export const LEGACY_M15: Strategy = {
   sessionWeight: true,
   financingPctYear: 0,
   fixedThreshold: null,
+  realMoney: false,
 };
 
-// AURUM 2 h (since November 2026), chosen among 256 rule sets on 2022-2024 and confirmed on
+// AURUM 2 h, chosen among 256 rule sets on 2022-2024 and confirmed on
 // 2025-2026 with the server's retraining (backtest/research.ts): 2-hour candles (settings.tf),
 // the four specialists that held up (divergence, momentum, squeeze, liquidity sweep with the
 // trend), sells only in a clear downtrend, plain stop and target, flat within the day and before
 // weekends, overnight financing counted. Walk-forward: +15.8R on 2022-2024, +17.7R on 2025-2026.
-export const DEFAULT_STRATEGY: Strategy = {
+export const AURUM_2H: Strategy = {
   ...LEGACY_M15,
   base: { pullback: 0, london: 0, reversion: 0 },
   sweepMinBias: 0,
@@ -71,7 +73,24 @@ export const DEFAULT_STRATEGY: Strategy = {
   sessionWeight: false,
   financingPctYear: 5,
   fixedThreshold: 30,
+  realMoney: true,
 };
+
+// AURUM 30 min (the owner's choice, November 2026): more trades per year, about 130. 30-minute
+// candles, all 7 specialists, sweeps only in the London / New York killzones, no entry during the
+// Asian session, score 50, half taken at 1R then trailed. On 5 years with the server's retraining
+// it lost (-31R on 2022-2024, +4R on 2025-2026), so it runs on demo accounts only; AURUM_2H stays
+// ready (settings.tf 120 + DEFAULT_STRATEGY = AURUM_2H) and is the one cleared for real money.
+export const AURUM_30M: Strategy = {
+  ...LEGACY_M15,
+  sweepKillzoneOnly: true,
+  blockSessions: ["ASIE"],
+  financingPctYear: 5,
+  fixedThreshold: 50,
+  realMoney: false,
+};
+
+export const DEFAULT_STRATEGY: Strategy = AURUM_30M;
 
 // The live rules (mutable so the research script can swap them; the app never does)
 export const STRATEGY: Strategy = structuredClone(DEFAULT_STRATEGY);

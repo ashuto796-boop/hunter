@@ -5,6 +5,7 @@ import { useGold } from "../store";
 import { LiveState, runGapMin } from "../engine/live";
 import { unseal } from "../engine/seal";
 import { computeStats } from "../engine/stats";
+import { STRATEGY } from "../engine/strategy";
 import { dateTime, price, time } from "../ui/format";
 
 const REPO = "https://github.com/ashuto796-boop/hunter";
@@ -359,6 +360,12 @@ export function Real() {
         <div className="banner warn">
           <span>⚠️</span>
           <span>Le trading réel passe par le serveur 24/7 : active-le dans Réglages.</span>
+        </div>
+      )}
+      {!STRATEGY.realMoney && (
+        <div className="banner">
+          <span>🧪</span>
+          <span>Stratégie 30 min : compte démo seulement. Avec CAPITAL_ENV = demo, l'IA copie ses trades sur ton compte démo Capital.com ; un compte réel reste sans nouvelle entrée.</span>
         </div>
       )}
       {live?.note && (

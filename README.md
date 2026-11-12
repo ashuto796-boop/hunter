@@ -47,6 +47,7 @@ URL : https://ashuto796-boop.github.io/hunter/gold/ (sur téléphone : « Ajoute
 - **Monte-Carlo** (Labo) : 2 000 futurs de 30 jours tirés des trades simulés (médiane, fourchette 5-95 %, chance de finir positif, risque d'un creux de −10 %).
 - **Mode Auto** : l'IA compare plusieurs seuils de confiance sur 70 % de l'historique et vérifie son choix sur les 30 % restants (validation hors échantillon affichée dans le Labo).
 - **Risque** : sizing au % du capital, stop structurel, TP partiel à 1R + break-even, stop suiveur, limite de perte journalière, quota de trades, pause après 2 pertes, pas d'entrée autour des news US / FOMC / NFP ni avant le week-end.
+- **Stratégie** : AURUM 30 min (`src/gold/engine/strategy.ts`, `AURUM_30M`) : bougies de 30 min, les 7 spécialistes, balayages seulement pendant les killzones de Londres et New York, pas d'entrée en session asiatique, score 50, moitié prise à 1R puis stop suiveur ; environ 130 trades par an. Sur 5 ans de vrais prix elle perdait (−31R sur 2022-2024, +4R sur 2025-2026), elle tourne donc sur compte démo seulement : un compte réel ne reçoit aucune nouvelle entrée. `AURUM_2H` (bougies de 2 h, +14R puis +19,5R) reste prête et c'est elle qui est autorisée pour l'argent réel.
 - **Entraînement** : au démarrage l'IA rejoue 30 à 180 jours d'historique bougie par bougie (walk-forward, spread inclus) ; à la réouverture elle rejoue les bougies manquées comme un serveur 24/7.
 
 ### Serveur 24/7

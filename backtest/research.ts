@@ -8,7 +8,7 @@ import { aggregate, buildMarket, Peers } from "../src/gold/engine/features";
 import { newTraderState, simulate, warmupIndex } from "../src/gold/engine/trader";
 import { train } from "../src/gold/engine/training";
 import { DEFAULT_SETTINGS } from "../src/gold/engine/defaults";
-import { Strategy, useStrategy } from "../src/gold/engine/strategy";
+import { AURUM_2H, DEFAULT_STRATEGY, LEGACY_M15, Strategy, useStrategy } from "../src/gold/engine/strategy";
 import { Candle, Settings, Trade } from "../src/gold/engine/types";
 
 const DAY = 864e5;
@@ -71,7 +71,7 @@ function maxDDR(trades: Trade[]) {
 }
 
 export async function evaluate(idea: Idea) {
-  useStrategy(idea.rules ?? {});
+  useStrategy({ ...LEGACY_M15, ...idea.rules }); // ideas are changes to the original rules
   const tf = idea.tf ?? 15;
   const { c, m } = market(tf);
   const settings: Settings = { ...DEFAULT_SETTINGS, server: false, tf: tf as Settings["tf"], spread: 0.4, ...idea.settings };
@@ -194,7 +194,8 @@ const CHAMPION: Idea = {
   settings: { trainDays: 365, maxTradesDay: 4 },
 };
 const IDEAS: Idea[] = [
-  { name: "règles par défaut (AURUM 2 h)", tf: 120, threshold: 30, settings: { trainDays: 365, maxTradesDay: 4 } },
+  { name: "règles par défaut (AURUM 30 min)", tf: 30, threshold: 50, rules: DEFAULT_STRATEGY, settings: { trainDays: 120, maxTradesDay: 6 } },
+  { name: "AURUM 2 h", tf: 120, threshold: 30, rules: AURUM_2H, settings: { trainDays: 365, maxTradesDay: 4 } },
   CHAMPION,
   { ...CHAMPION, name: "champion, écart de prix ×2", settings: { ...CHAMPION.settings, spread: 0.8 } },
   { ...CHAMPION, name: "champion, financement 8 %", rules: { ...CHAMPION.rules, financingPctYear: 8 } },

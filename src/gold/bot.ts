@@ -81,8 +81,9 @@ class Bot {
   constructor() {
     const s = load();
     this.settings = { ...DEFAULT_SETTINGS, ...s.settings };
-    // AURUM 2 h: settings saved by the former 15-minute version move to the 2-hour strategy
-    if (this.settings.tf !== DEFAULT_SETTINGS.tf) this.settings = { ...this.settings, tf: DEFAULT_SETTINGS.tf, trainDays: DEFAULT_SETTINGS.trainDays };
+    // settings saved by an earlier version move to the current strategy's candles
+    if (this.settings.tf !== DEFAULT_SETTINGS.tf)
+      this.settings = { ...this.settings, tf: DEFAULT_SETTINGS.tf, trainDays: DEFAULT_SETTINGS.trainDays, maxTradesDay: DEFAULT_SETTINGS.maxTradesDay };
     this.st = s.st ?? newTraderState(this.settings.capital);
     this.st.ctx ??= {}; // saved by an older version
     this.thoughts = s.thoughts ?? [];
