@@ -1,0 +1,52 @@
+[
+  {
+    "name": "Nettoyeur de pattes pour chien (gobelet à picots en silicone)",
+    "problem": "Le chien rentre de promenade les pattes pleines de boue et salit le sol, le canapé et la voiture.",
+    "why": "Saison idéale de novembre à mars (pluie, boue, neige). Produit cité dans les listes de meilleures ventes pour animaux en 2026 ; vendu 17,59 € à 21,99 € sur zooplus.fr, souvent avec 8 à 11 jours de délai.",
+    "angle": "Avant / après : patte boueuse, 3 secondes dans le gobelet, patte propre, sol intact.",
+    "priceEur": 24.9,
+    "costEur": 10,
+    "score": 76,
+    "risks": ["Concurrence déjà présente sur zooplus et Amazon : se démarquer par la vidéo et la livraison rapide depuis l'Europe", "Bien indiquer les tailles de gobelet (petit / grand chien) pour éviter les retours"]
+  },
+  {
+    "name": "Kit anti-ennui : tapis de léchage + tapis de fouille",
+    "problem": "Le chien s'ennuie et stresse quand il est seul, mange trop vite et abîme la maison.",
+    "why": "Les produits d'occupation (enrichissement) sont parmi les plus cités en 2026. Vendus séparément 18,99 € à 25,99 € (léchage) et 24,72 € à 62,49 € (fouille) sur zooplus.fr : un kit des deux paraît une bonne affaire.",
+    "angle": "15 minutes de calme pendant que tu pars : le chien occupé, la maison intacte.",
+    "priceEur": 29.9,
+    "costEur": 12,
+    "score": 72,
+    "risks": ["Silicone : exiger du silicone alimentaire (certificat du fournisseur)", "Ne promettre aucun effet médical sur l'anxiété : parler d'occupation et de calme"]
+  },
+  {
+    "name": "Housse de banquette arrière pour chien, imperméable (hamac)",
+    "problem": "Poils, boue et griffes abîment les sièges de la voiture ; le chien glisse ou passe à l'avant.",
+    "why": "Panier plus élevé, donc plus de marge par vente. Prix en France de 15 € à plus de 100 € : un modèle sérieux autour de 40 € est crédible. Fêtes et vacances = trajets en voiture avec le chien.",
+    "angle": "La voiture reste propre, même après la plage ou la forêt.",
+    "priceEur": 39.9,
+    "costEur": 18,
+    "score": 68,
+    "risks": ["Colis plus lourd et volumineux : port plus cher, à vérifier", "Dimensions de banquette : indiquer clairement les mesures"]
+  },
+  {
+    "name": "Brosse autonettoyante anti-poils pour chat et chien",
+    "problem": "Les poils morts partout pendant la mue ; les brosses classiques sont pénibles à nettoyer.",
+    "why": "Produit très visuel (un clic, la touffe de poils tombe). Vendu 12,99 € à 28,59 € sur zooplus.fr. Prix bas : à vendre surtout en complément d'un autre produit ou en lot.",
+    "angle": "Un clic, tous les poils partent : la vidéo satisfaisante qui fait vendre.",
+    "priceEur": 19.9,
+    "costEur": 7,
+    "score": 62,
+    "risks": ["Marge par vente faible pour payer de la pub seul : à proposer en vente additionnelle", "Très concurrencé"]
+  },
+  {
+    "name": "Fontaine à eau sans fil pour chat + filtres de rechange",
+    "problem": "Le chat boit peu ou boude l'eau qui stagne dans sa gamelle.",
+    "why": "Une des meilleures ventes pour chats en 2026, avec des filtres à racheter régulièrement (client qui revient). Modèles sans fil vendus 50 € à 90 € en France.",
+    "angle": "De l'eau qui coule, un chat qui boit : sans câble, posable partout.",
+    "priceEur": 49.9,
+    "costEur": 28,
+    "score": 58,
+    "risks": ["Appareil électrique avec batterie : marquage CE et documents de conformité obligatoires, fournisseur sérieux uniquement", "Plus cher à tester ; à lancer après un premier produit gagnant", "Aucune promesse sur la santé du chat"]
+  }
+]
