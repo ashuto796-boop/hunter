@@ -1,0 +1,5 @@
+1 https://open-api.capital.com/ 1095202
+2 https://capital.com/api-request-examples 222295
+3 https://raw.githubusercontent.com/mraniki/python-capitalcom/main/capitalcom/client.py 14
+4 https://raw.githubusercontent.com/tunga3109/python-capitalcom/main/capitalcom/client.py 17547
+5 https://jentic.com/apis/capital.com/capital.md 10334

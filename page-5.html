@@ -1,0 +1,143 @@
+canonical: https://jentic.com/apis/capital.com/capital
+
+# Capital.com Trading API
+
+Jentic publishes the only available OpenAPI specification for Capital.com Trading API, keeping it validated and agent-ready. The Capital.com Trading API exposes the full retail trading surface for CFDs and spread betting: session creation, account state, opening and closing positions, placing working orders, retrieving market metadata and price history, polling client sentiment, and managing watchlists. It supports both live and demo trading servers and uses a three-token auth flow (API key plus session-derived CST and X-SECURITY-TOKEN). Trading bots, portfolio dashboards, and algorithmic strategies use it as their execution and market-data feed.
+
+## For AI agents
+
+Open and close trading positions, place working orders, and stream market data on Capital.com for CFDs and spread betting. Supports live and demo accounts via a session-based auth flow.
+
+## Scope
+
+Does not handle KYC onboarding, payment processing, or tax reporting - use for session creation, market data, position and order management on Capital.com only.
+
+## Capabilities
+
+- Open a market or limit position on a specific epic with size, direction, and stop-loss
+- Place a working order at a target level and amend or cancel it before execution
+- Retrieve historical price candles for an instrument across configurable resolutions
+- Read account balance, transaction history, and activity logs for reconciliation
+- Inspect client sentiment percentages on instruments to inform a strategy
+- Manage watchlists and add or remove epics to track instruments of interest
+
+## Use cases
+
+### Algorithmic CFD Execution
+
+Quant strategies execute CFD trades programmatically via POST `/api/v1/positions`, supplying epic, direction, size, and stop/limit levels. The endpoint returns a dealReference that GET `/api/v1/confirms/{dealReference}` resolves to the final fill or rejection. The same flow handles demo and live accounts by switching the base URL.
+
+Example prompt: POST `/api/v1/positions` with epic, direction=BUY, size, and stopLevel, then GET `/api/v1/confirms/{dealReference}` to confirm the fill.
+
+### Portfolio Snapshot Dashboard
+
+A trader-facing dashboard pulls account state, open positions, and transaction history every minute to render P&L and margin utilisation. GET `/api/v1/accounts`, GET `/api/v1/positions`, and GET `/api/v1/history/transactions` provide the structured data, and the dashboard refreshes the session token before it expires using POST `/api/v1/session.`
+
+Example prompt: Fetch GET `/api/v1/accounts` and GET `/api/v1/positions` every minute and render the combined balance and unrealised P&L.
+
+### Sentiment-Informed Strategy
+
+Strategies that fade or follow retail sentiment poll GET `/api/v1/clientSentiment/{epic}` to read the long/short percentage on a given instrument. The signal feeds directly into a sizing rule before placing or scaling a position. Combined with price history from GET `/api/v1/history/prices`, this builds a self-contained signal pipeline against a single broker API.
+
+Example prompt: GET `/api/v1/clientSentiment/EURUSD` and GET `/api/v1/history/prices` for the same epic, then size the next order based on the combined signal.
+
+### AI Agent Trading Assistant
+
+An agent that tracks portfolio positions and executes user-approved trades uses Capital.com via Jentic. It searches for the open-position operation, loads the schema, and submits the trade once the user confirms. Session tokens stay encrypted in Jentic's vault and are refreshed automatically.
+
+Example prompt: Search Jentic for 'open a Capital.com position', load the createPosition schema, and execute POST `/api/v1/positions` after the user confirms the size and direction.
+
+## Key endpoints
+
+| Method | Path | Description |
+| --- | --- | --- |
+| POST | `/api/v1/session` | Create a trading session and get CST and X-SECURITY-TOKEN headers |
+| POST | `/api/v1/positions` | Open a new position |
+| POST | `/api/v1/workingorders` | Place a working order |
+| GET | `/api/v1/positions` | List all open positions |
+| GET | `/api/v1/history/prices` | Retrieve historical price candles |
+| GET | `/api/v1/clientSentiment/{epic}` | Get client sentiment for an instrument |
+| GET | `/api/v1/confirms/{dealReference}` | Confirm the status of a deal |
+
+## Key resources
+
+- **Session** — Create and refresh session tokens (CST and X-SECURITY-TOKEN)
+- **Accounts** — Read balance, preferences, top up demo, and pull activity and transaction history
+- **Positions** — Open, list, amend, and close positions
+- **Working Orders** — Create, list, amend, and cancel pending working orders
+- **Markets** — Search markets, retrieve epic metadata, and traverse the market navigation tree
+- **Prices** — Retrieve historical price candles by resolution and date range
+- **Confirms** — Resolve a dealReference into the final deal status
+- **Sentiment** — Read client sentiment percentages by instrument
+- **Watchlists** — Create and manage watchlists and the epics inside them
+
+## AI readiness
+
+This API is usable in Jentic One now. Its AI-readiness score against Jentic's framework shows where it stands today and where improvements would make it even easier for agents to use.
+
+- **Score:** 64 / 100
+- **Maturity:** AI-Aware
+- **Dimensions:**
+  - Foundational Compliance: 87 / 100
+  - Developer Experience & Jentic Compatibility: 56 / 100
+  - AI-Readiness & Agent Experience: 47 / 100
+  - Agent Usability: 94 / 100
+  - Security: 50 / 100
+  - AI Discoverability: 100 / 100
+- **View full report:** https://jentic.com/apis/capital.com/capital/scorecard
+- **How the score is calculated:** https://docs.jentic.com/reference/api-readiness-framework/overview/
+- **More about the dimensions:** https://docs.jentic.com/reference/api-readiness-framework/specification/#dimensional-model-overview
+
+### Score it yourself
+
+Every API in the directory is allowlisted, so you can re-score it with no key required.
+
+- **Score your own API:** https://jentic.com/scorecard.md
+- **Scoring CLI agent skill:** https://github.com/jentic/jentic-api-scorecard/blob/main/skills/jentic-api-scorecard/SKILL.md
+
+```sh
+npx @jentic/api-scorecard-cli score <openapi-url>
+```
+
+## Why Jentic
+
+- **Setup:** Wiring the Capital.com Trading API by hand means creating a session from your X-CAP-API-KEY, tracking the derived CST and X-SECURITY-TOKEN headers, and choosing the live or demo host yourself. Through Jentic you install once, import Capital.com from the API Directory, store the key once, and your agent calls it.
+- **Permission scoping:** Capital.com carries its trade instructions in the request body rather than as a resource in the URL path, so limit the agent to the operations it needs, such as retrieving market data and price history. You choose the operations it may call, so opening positions or placing working orders is not included unless you add them.
+- **Credential handling:** Your X-CAP-API-KEY and the session-derived CST and X-SECURITY-TOKEN headers are stored once, encrypted, by your own Jentic One instance, which refreshes the session and injects them at execution time. They never enter the agent's prompt, logs, or context.
+- **Discovery method:** Agents search Jentic by intent such as 'retrieve Capital.com price history' or 'check client sentiment for an instrument', and Jentic returns the matching operation with its input schema so the agent calls the right endpoint without browsing the reference docs.
+
+## Related APIs
+
+- **Capital.com (alternate)** — Alternate Capital.com spec variant in the Jentic API Directory
+- **CaptureIQ** — Document capture for trading-related paperwork and statements
+- **canibuild API** — Unrelated domain data; pair only when a workflow spans both
+
+## FAQ
+
+### Why is there no official OpenAPI spec for Capital.com Trading API?
+
+Capital.com publishes documentation but not an OpenAPI specification on its developer portal. Jentic generates and maintains this spec so that AI agents and developers can call Capital.com Trading API via structured tooling. It is validated against the live API and kept up to date. Get started with Jentic One, the self-hosted execution layer.
+
+### What authentication does the Capital.com Trading API use?
+
+It uses a three-header flow. POST `/api/v1/session` with the X-CAP-API-KEY header returns CST and X-SECURITY-TOKEN response headers; both must be sent on subsequent calls. Through Jentic the API key and session tokens are stored encrypted in the vault and rotated automatically.
+
+### Can I open a CFD position on a specific instrument with the Capital.com API?
+
+Yes. POST `/api/v1/positions` with epic, direction, size, and optional stopLevel and limitLevel returns a dealReference. Resolve the final state by calling GET `/api/v1/confirms/{dealReference}.`
+
+### How do I retrieve historical price candles through Jentic?
+
+Search Jentic for 'Capital.com price history', load the getPriceHistory operation, and execute GET `/api/v1/history/prices` with the epic, resolution, and date range. The response returns OHLC candles for the requested window.
+
+### What are the rate limits for the Capital.com Trading API?
+
+Capital.com applies per-account rate limits that are not enumerated in the OpenAPI spec - its public docs cite 10 requests per second for general endpoints and tighter limits on session creation. Implement client-side backoff on 429 responses.
+
+### Can I use a demo account before going live?
+
+Yes. The spec lists both servers: live (https://api-capital.backend-capital.com) and demo (https://demo-api-capital.backend-capital.com). Switch the base URL when instantiating the client to test against the demo environment first.
+
+### Can I limit what my agent is allowed to do with the Capital.com Trading API?
+
+Yes. Because Jentic One is self-hosted, you decide which Capital.com operations your agent may call, and your own rules govern the credentials it uses. Since Capital.com carries its trade instructions in the request body rather than in the URL path, you can grant read-only access such as GET `/api/v1/history/prices` and GET `/api/v1/clientSentiment/{epic}` while withholding write operations like POST `/api/v1/positions` and POST `/api/v1/workingorders.` Those position and working-order calls stay unavailable to the agent unless you explicitly add them.
