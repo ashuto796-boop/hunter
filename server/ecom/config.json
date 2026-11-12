@@ -1,0 +1,19 @@
+{
+  "goalNetMonthEur": 10000,
+  "startBudgetEur": 2000,
+  "market": "France",
+  "niche": "",
+  "directives": "",
+  "adSpendMonthEur": 0,
+  "fixedCostsMonthEur": 45,
+  "defaultCogsPct": 35,
+  "shipCostPerOrderEur": 0,
+  "paymentFeePct": 1.5,
+  "paymentFeeFixedEur": 0.25,
+  "socialChargesPct": 12.3,
+  "vatPct": 0,
+  "autoDraftProducts": true,
+  "minScoreForDraft": 65,
+  "model": "claude-opus-5-5",
+  "everyHours": {}
+}

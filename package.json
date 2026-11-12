@@ -11,8 +11,11 @@
     "build:gold": "tsc && vite build --config vite.gold.config.ts",
     "dev:saas": "vite --config vite.saas.config.ts",
     "build:saas": "tsc && vite build --config vite.saas.config.ts",
+    "dev:ecom": "vite --config vite.ecom.config.ts",
+    "build:ecom": "tsc && vite build --config vite.ecom.config.ts",
     "server": "tsx server/main.ts",
     "server:loop": "tsx server/main.ts --loop --port 8787",
+    "agents": "tsx server/ecom/main.ts --state state.json",
     "check:server": "tsc -p server"
   },
   "dependencies": {
