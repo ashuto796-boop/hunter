@@ -3,7 +3,7 @@
   "startBudgetEur": 2000,
   "market": "France",
   "niche": "Animaux de compagnie (chiens et chats) : des produits qui règlent les petits problèmes du quotidien des propriétaires (poils, boue, ennui, voiture, eau)",
-  "directives": "Je débute. Priorité aux produits non électriques, légers, sans taille, stockés en Europe (livraison en moins de 8 jours, pas de droits de douane par colis). Publicité la moins chère possible : d'abord le gratuit (vidéos TikTok et Reels sans visage chaque jour, fiches gratuites Google Shopping via l'app Google & YouTube de Shopify, Pinterest), puis les micro-influenceurs animaliers payés en produit offert ou en commission sur les ventes, et seulement ensuite la pub payante (Spark Ads TikTok sur les vidéos qui marchent déjà, 10 à 20 € par jour maximum pendant les tests). Pas de pub payante pendant Black Friday et Noël : on accélère en janvier.",
+  "directives": "Je débute. Priorité aux produits non électriques, légers, sans taille, stockés en Europe (livraison en moins de 8 jours, pas de droits de douane par colis). Publicité la moins chère possible : d'abord le gratuit (vidéos TikTok et Reels sans visage chaque jour, fiches gratuites Google Shopping via l'app Google & YouTube de Shopify, Pinterest), puis les micro-influenceurs animaliers payés en produit offert ou en commission sur les ventes, et seulement ensuite la pub payante : uniquement des Spark Ads TikTok sur une vidéo qui a déjà marché gratuitement (beaucoup de vues ou des ventes), dans la limite stricte du plafond de pub mensuel. Je ne veux pas perdre plus que ce plafond si ça ne marche pas. Pas de pub payante pendant Black Friday et Noël : on accélère en janvier.",
   "adSpendMonthEur": 0,
   "fixedCostsMonthEur": 45,
   "defaultCogsPct": 35,
@@ -17,5 +17,7 @@
   "model": "claude-opus-5-5",
   "everyHours": {},
   "metaApiVersion": "v25.0",
-  "usdToEur": 0.86
+  "usdToEur": 0.86,
+  "adBudgetMaxMonthEur": 100,
+  "adStopLossEur": 50
 }

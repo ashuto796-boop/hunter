@@ -20,6 +20,8 @@ export interface Config extends Costs {
   everyHours: Partial<Record<AgentId, number>>;
   metaApiVersion: string;
   usdToEur: number;
+  adBudgetMaxMonthEur: number; // hard ceiling the owner accepts to lose on ads in a month
+  adStopLossEur: number; // stop all paid ads if this much is spent without a single sale
 }
 
 export interface Ctx {
@@ -54,6 +56,7 @@ ${team}
 
 Règles de la maison :
 - Honnêteté avant tout. N'invente aucun chiffre : ceux de la boutique viennent des données fournies (calculées par le code) ; toute estimation est écrite « estimé » avec son hypothèse ou sa source. Si l'objectif est loin, dis-le clairement, sans décourager ni enjoliver.
+- Publicité payante : jamais au-delà de ${c.adBudgetMaxMonthEur} € par mois au total, toutes plateformes confondues, et arrêt complet de toute pub payante dès que ${c.adStopLossEur} € ont été dépensés sans aucune vente. Le gratuit (vidéos, Google Shopping, Pinterest, influenceurs payés en produit) passe toujours avant.
 - Le propriétaire décide et paie. Tu proposes ; aucune dépense, publication, commande ou promesse client ne se fait sans lui.
 - Loi française et européenne : prix TTC affichés, droit de rétractation de 14 jours, délais de livraison annoncés réalistes, pas de fausse promotion (le prix barré doit être le plus bas des 30 derniers jours), pas de faux avis ni de faux compte à rebours, pas d'allégation de santé ou médicale, produits conformes (marquage CE quand il est exigé, règlement GPSR sur la sécurité des produits), aucune contrefaçon, aucune marque ou personnage protégé.
 - Coûts d'importation : depuis juillet 2026, tout colis venant d'un pays hors UE paie 3 € de droit de douane par catégorie d'article, et des frais de traitement d'environ 2 € par colis s'y ajoutent depuis novembre 2026. Compte-les dans le coût d'un produit expédié de Chine ; un fournisseur avec entrepôt dans l'UE les évite.
@@ -83,6 +86,8 @@ function memo(ctx: Ctx, extra: Record<string, unknown> = {}): string {
       consignes_du_proprietaire: cfg.directives || "aucune",
       budget_depart_eur: cfg.startBudgetEur,
       pub_depensee_ce_mois_eur: cfg.adSpendMonthEur,
+      plafond_pub_mois_eur: cfg.adBudgetMaxMonthEur,
+      arret_si_depense_sans_vente_eur: cfg.adStopLossEur,
       frais_fixes_mois_eur: cfg.fixedCostsMonthEur,
       charges_sociales_pct: cfg.socialChargesPct,
       tva_pct: cfg.vatPct,
@@ -428,7 +433,7 @@ const ads: Agent = async (ctx) => {
   if (!hasClaude()) return waiting("ads", NEED_CLAUDE, now);
   const { data, model } = await structured(
     cfg.model,
-    system(ctx, "ads", `Ton travail : préparer la publicité payante (TikTok Ads et Meta Ads) pour les produits en brouillon ou en vente, sinon pour le meilleur produit sourcé. Donne : 3 angles différents, 5 accroches de 3 secondes, le plan de test (budget par jour par produit, durée, nombre de créas, ciblage large France 18-55, pixel et API de conversion installés avant tout), et les règles chiffrées pour couper ou augmenter une pub à partir du ROAS minimum de chaque produit (couper si dépense > 1,5 fois la marge sans vente ; augmenter de 20 % par jour si ROAS > ROAS minimum × 1,3 sur 3 jours). Le budget de test ne dépasse jamais 40 % du budget de départ. Si la pub dépensée est connue, dis si elle est rentable. Si les résultats réels des pubs sont fournis ("publicites_7_jours"), commence par eux : pour chaque pub, la "decision_du_code" (couper, augmenter, attendre) est calculée à partir du ROAS minimum ; explique-la simplement et propose les nouvelles créas pour remplacer celles à couper. Tout reste une proposition : le propriétaire paie et lance.`),
+    system(ctx, "ads", `Ton travail : préparer la publicité payante (TikTok Ads et Meta Ads) pour les produits en brouillon ou en vente, sinon pour le meilleur produit sourcé. Donne : 3 angles différents, 5 accroches de 3 secondes, le plan de test (budget par jour par produit, durée, nombre de créas, ciblage large France 18-55, pixel et API de conversion installés avant tout), et les règles chiffrées pour couper ou augmenter une pub à partir du ROAS minimum de chaque produit (couper si dépense > 1,5 fois la marge sans vente ; augmenter de 20 % par jour si ROAS > ROAS minimum × 1,3 sur 3 jours). Le total de la pub ne dépasse jamais ${cfg.adBudgetMaxMonthEur} € par mois ; si ${cfg.adStopLossEur} € ont été dépensés sans aucune vente, la décision est d'arrêter toute pub payante et de retravailler le produit ou les vidéos gratuites. Commence toujours par ce qui est gratuit. Si la pub dépensée est connue, dis si elle est rentable. Si les résultats réels des pubs sont fournis ("publicites_7_jours"), commence par eux : pour chaque pub, la "decision_du_code" (couper, augmenter, attendre) est calculée à partir du ROAS minimum ; explique-la simplement et propose les nouvelles créas pour remplacer celles à couper. Tout reste une proposition : le propriétaire paie et lance.`),
     `Données :\n${memo(ctx)}`,
     ReportZ,
     "medium",
