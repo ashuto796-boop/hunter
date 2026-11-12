@@ -12,7 +12,7 @@
 import type { Order } from "../../src/ecom/shared/finance";
 import type { ShopInfo } from "../../src/ecom/shared/types";
 
-const API_VERSION = "2025-10";
+const API_VERSION = "2026-10";
 
 export interface Policy {
   type: string;
