@@ -208,7 +208,7 @@ export function SettingsPage() {
 
       <section className="card">
         <div className="card-title">Marché</div>
-        <Field label="Unité de temps" help="Stratégie AURUM 30 min : environ 1 à 2 trades par jour, compte démo seulement">
+        <Field label="Unité de temps" help="Stratégie AURUM 5 min : vise une dizaine de trades par jour, compte démo seulement">
           <span className="chip gold">{tfLabel(s.tf)}</span>
         </Field>
         <div className="field" style={{ flexDirection: "column", alignItems: "stretch" }}>

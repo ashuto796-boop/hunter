@@ -8,7 +8,7 @@ import { aggregate, buildMarket, Peers } from "../src/gold/engine/features";
 import { newTraderState, simulate, warmupIndex } from "../src/gold/engine/trader";
 import { train } from "../src/gold/engine/training";
 import { DEFAULT_SETTINGS } from "../src/gold/engine/defaults";
-import { AURUM_2H, DEFAULT_STRATEGY, LEGACY_M15, Strategy, useStrategy } from "../src/gold/engine/strategy";
+import { AURUM_2H, AURUM_30M, LEGACY_M15, Strategy, useStrategy } from "../src/gold/engine/strategy";
 import { Candle, Settings, Trade } from "../src/gold/engine/types";
 
 const DAY = 864e5;
@@ -194,7 +194,7 @@ const CHAMPION: Idea = {
   settings: { trainDays: 365, maxTradesDay: 4 },
 };
 const IDEAS: Idea[] = [
-  { name: "règles par défaut (AURUM 30 min)", tf: 30, threshold: 20, rules: DEFAULT_STRATEGY, settings: { trainDays: 60, maxTradesDay: 10 } },
+  { name: "AURUM 30 min", tf: 30, threshold: 20, rules: AURUM_30M, settings: { trainDays: 60, maxTradesDay: 10 } },
   { name: "AURUM 2 h", tf: 120, threshold: 30, rules: AURUM_2H, settings: { trainDays: 365, maxTradesDay: 4 } },
   CHAMPION,
   { ...CHAMPION, name: "champion, écart de prix ×2", settings: { ...CHAMPION.settings, spread: 0.8 } },

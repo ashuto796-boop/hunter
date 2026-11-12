@@ -23,6 +23,7 @@ export interface Strategy {
   sessionWeight: boolean; // weigh confidence by the session's liquidity (meaningful for intraday candles only)
   financingPctYear: number; // overnight financing charged by the broker, % of the position per year
   realMoney: boolean; // validated on 5 years: may trade a live (real-money) account
+  cooldownMin: number; // pause after two losing trades in a row
   fixedThreshold: number | null; // entry threshold used whatever the mode (null = the mode's / calibrated one)
 }
 
@@ -55,6 +56,7 @@ export const LEGACY_M15: Strategy = {
   financingPctYear: 0,
   fixedThreshold: null,
   realMoney: false,
+  cooldownMin: 120,
 };
 
 // AURUM 2 h, chosen among 256 rule sets on 2022-2024 and confirmed on
@@ -94,7 +96,25 @@ export const AURUM_30M: Strategy = {
   realMoney: false,
 };
 
-export const DEFAULT_STRATEGY: Strategy = AURUM_30M;
+// AURUM 5 min (the owner's choice, November 2026): aims at about 10 trades a day. 5-minute
+// candles, all 7 specialists, score 5, half at 1R with the stop moved to the entry, every trade
+// closed after 1 hour at most, 15-minute pause after two losses in a row. Not testable on the
+// 5-year data (kept in 15-minute candles); on those, every rule set trading 3 or more times a day
+// lost heavily, so this one runs on demo accounts only. The server measures it on the last 30
+// days of real 5-minute prices at each retraining.
+export const AURUM_5M: Strategy = {
+  ...LEGACY_M15,
+  tp1Fraction: 0.5,
+  beAfterTp1: true,
+  trailAtr: 0,
+  timeStopMin: 60,
+  financingPctYear: 5,
+  fixedThreshold: 5,
+  realMoney: false,
+  cooldownMin: 15,
+};
+
+export const DEFAULT_STRATEGY: Strategy = AURUM_5M;
 
 // The live rules (mutable so the research script can swap them; the app never does)
 export const STRATEGY: Strategy = structuredClone(DEFAULT_STRATEGY);

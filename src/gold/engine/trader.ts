@@ -125,7 +125,7 @@ export function closePosition(st: TraderState, exitFill: number, t: number, reas
     st.lossStreak++;
     st.lastLoss = { dir: d, t };
     if (st.lossStreak >= 2) {
-      st.cooldownUntil = t + 2 * 3_600_000;
+      st.cooldownUntil = t + STRATEGY.cooldownMin * 60_000;
       st.lossStreak = 0;
     }
   } else if (tr.r > 0.1) st.lossStreak = 0;

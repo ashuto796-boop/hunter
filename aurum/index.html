@@ -988,8 +988,8 @@ const TF = {
   y:   { key: 'y', label: '1A', name: 'Année', sec: 31557600, n: 22, sig: 0.12, rel: true, grow: 6.5 },
   all: { key: 'all', label: 'Tout', name: 'Tout l’historique', sec: 604800, n: 1150, sig: 0.022, rel: true, grow: 6.5, area: true }
 };
-if (!CFG.simulation) Object.assign(TF.s, { label: '30m', name: '30 minutes (les bougies du bot)', sec: 1800, n: 300 });
-const BG = { s: '30m', m: '1m', h: '1H', d: '1D', mo: '1M', y: '1M', all: '1W' };
+if (!CFG.simulation) Object.assign(TF.s, { label: '5m', name: '5 minutes (les bougies du bot)', sec: 300, n: 300 });
+const BG = { s: '5m', m: '1m', h: '1H', d: '1D', mo: '1M', y: '1M', all: '1W' };
 function bucket(t, tf) { return Math.floor(t / tf.sec) * tf.sec; }
 function history(tf) {
   const r = rng(tf.sec * 7 + 3);
