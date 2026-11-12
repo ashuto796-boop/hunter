@@ -171,6 +171,12 @@ function table(title: string, rows: Record<string, { n: number; winRate: number;
   return [`#### ${title}`, "", "| | Trades | Réussite | Total | Gains/pertes |", "|---|---:|---:|---:|---:|", ...lines, ""].join("\n");
 }
 
+function missingNote(): string {
+  if (!existsSync(`${DATA}/missing.json`)) return "";
+  const m = JSON.parse(readFileSync(`${DATA}/missing.json`, "utf8")) as { missing: number; requested: number };
+  return m.missing ? `Données : ${m.missing} fichiers journaliers sur ${m.requested} n'ont pas pu être téléchargés (${((m.missing / m.requested) * 100).toFixed(1)} %), ce qui laisse quelques jours vides.\n` : "";
+}
+
 async function main() {
   mkdirSync(OUT, { recursive: true });
   const t0 = Date.now();
@@ -258,6 +264,7 @@ async function main() {
     "|---|---:|---:|",
     ...Object.entries(sessionSpread).map(([k, v]) => `| ${k} | ${v.median.toFixed(3)} $ | ${v.p90.toFixed(3)} $ |`),
     "",
+    missingNote(),
     "Limites : pas de calendrier historique des annonces (Fed, emploi), donc le filtre d'annonces ne joue pas ici ; pas d'humeur de la presse dans le passé ; frais de financement de nuit non comptés (positions de 8 h maximum).",
     "",
   ].join("\n");

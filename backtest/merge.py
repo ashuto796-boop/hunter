@@ -15,3 +15,11 @@ for name in ("xau_m15", "xag_h1", "eur_h1"):
     with open(os.path.join(out, f"{name}.json"), "w") as fh:
         json.dump(merged, fh, separators=(",", ":"))
     print(f"{name} : {len(merged)} bougies")
+miss = {"missing": 0, "requested": 0}
+for f in glob.glob(os.path.join(parts, "*", "missing.json")):
+    m = json.load(open(f))
+    miss["missing"] += m["missing"]
+    miss["requested"] += m["requested"]
+with open(os.path.join(out, "missing.json"), "w") as fh:
+    json.dump(miss, fh)
+print(f"fichiers manquants : {miss['missing']} sur {miss['requested']}")

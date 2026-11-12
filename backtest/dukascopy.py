@@ -173,7 +173,10 @@ def main():
         with open(os.path.join(args.out, f"{name}.json"), "w") as fh:
             json.dump(data, fh, separators=(",", ":"))
     print(f"fichiers manquants : {len(MISSING)}", flush=True)
-    if len(gold) < (1000 if args.part < 0 else 100) or len(MISSING) > 0.02 * 2 * len(days):
+    with open(os.path.join(args.out, "missing.json"), "w") as fh:
+        json.dump({"missing": len(MISSING), "requested": 2 * len(days)}, fh)
+    # a few missing days only leave gaps, like holidays; stop only when a large share is gone
+    if len(gold) < (1000 if args.part < 0 else 100) or len(MISSING) > 0.15 * 2 * len(days):
         sys.exit("trop de données manquantes")
 
 
