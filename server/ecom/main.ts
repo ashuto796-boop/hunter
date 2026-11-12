@@ -12,6 +12,8 @@ import type { AgentId, EcomState, ProductIdea, PublishedState } from "../../src/
 import { isDue, runAgent, syncProducts, type Config, type Ctx } from "./agents";
 import { hasClaude, usage } from "./claude";
 import { Shopify, type Policy } from "./shopify";
+import { adsConfigured, fetchAds, verdicts } from "./ads";
+import { CJ, cjConfigured } from "./cj";
 
 const args = process.argv.slice(2);
 const arg = (name: string) => {
@@ -58,7 +60,7 @@ const state = await load();
 // First run: start from the products researched by hand (server/ecom/seed-products.json).
 // They enter as ideas, so the sourcing agent checks real supplier prices before anything else.
 if (!state.products.length) {
-  type Seed = Pick<ProductIdea, "name" | "problem" | "why" | "angle" | "priceEur" | "costEur" | "score" | "risks">;
+  type Seed = Pick<ProductIdea, "name" | "problem" | "why" | "angle" | "priceEur" | "costEur" | "score" | "risks" | "searchEn">;
   const seeds = JSON.parse(readFileSync(fileURLToPath(new URL("./seed-products.json", import.meta.url)), "utf8")) as Seed[];
   for (const s of seeds) {
     const u = unitEconomics(s.priceEur, s.costEur, cfg);
@@ -100,17 +102,40 @@ if (Shopify.configured()) {
 }
 if (!hasClaude()) console.log("Claude pas encore connecté (secret ANTHROPIC_API_KEY) : seuls les calculs tournent.");
 
-const ctx: Ctx = { cfg, state, shop, policies, orders, now, log };
+// Ad results (read-only) and the CJ catalogue, each optional
+const ads = adsConfigured() ? await fetchAds(cfg.metaApiVersion, log) : null;
+if (ads) {
+  const live = state.products.filter((p) => p.status === "en vente" || p.status === "brouillon" || p.status === "sourcé");
+  const be = state.kpis?.breakEvenRoas ?? (live.length ? live.reduce((s, p) => s + p.breakEvenRoas, 0) / live.length : 2.2);
+  const margin = live.length ? live.reduce((s, p) => s + p.marginEur, 0) / live.length : 12;
+  verdicts(ads, be, margin);
+  console.log(`Pubs : ${ads.platforms.map((p) => `${p.name} ${p.ads.length} pub(s)`).join(", ") || "aucune donnée"}${ads.errors.length ? `, ${ads.errors.length} erreur(s)` : ""}.`);
+}
+state.ads = ads;
+let cj: CJ | null = null;
+if (cjConfigured()) {
+  try {
+    cj = await CJ.connect();
+    console.log("CJ Dropshipping connecté.");
+  } catch (e) {
+    log(`CJ : ${(e as Error).message}`);
+    console.log("::warning::CJ Dropshipping : connexion refusée");
+  }
+}
+
+const ctx: Ctx = { cfg, state, shop, policies, orders, ads, cj, now, log };
 let ran = 0;
+let worked = 0; // agents that produced a fresh report with the model this run
 for (const a of ROSTER) {
   if (only.length && !only.includes(a.id)) continue;
   // the CEO writes the brief whenever someone else worked
-  const due = a.id === "ceo" ? ran > 0 || isDue("ceo", ctx, force) : isDue(a.id, ctx, force);
+  const due = a.id === "ceo" ? worked > 0 || isDue("ceo", ctx, force) : isDue(a.id, ctx, force);
   if (!due) continue;
   const t0 = Date.now();
   const r = await runAgent(a.id, ctx);
   state.agents[a.id] = r;
   ran++;
+  if (r.status === "ok" && r.model && r.at === now) worked++;
   console.log(`${a.name} (${a.role}) : ${r.status} en ${Math.round((Date.now() - t0) / 1000)} s`);
 }
 

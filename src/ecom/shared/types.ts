@@ -48,6 +48,7 @@ export interface ProductIdea {
   suppliers: Supplier[];
   status: "idée" | "sourcé" | "brouillon" | "en vente" | "écarté";
   shopifyId?: string;
+  searchEn?: string; // supplier search keywords
   listing?: { title: string; descriptionHtml: string; price: number; compareAt: number | null; at: number };
   foundAt: number;
 }
@@ -93,6 +94,36 @@ export interface ContentPost {
   caption: string;
 }
 
+export interface AdLine {
+  name: string;
+  campaign: string;
+  spend: number; // last 7 days
+  impressions: number;
+  clicks: number;
+  purchases: number;
+  value: number;
+  roas: number | null;
+  verdict?: "couper" | "augmenter" | "attendre"; // decided in code from the break-even ROAS
+}
+
+export interface PlatformAds {
+  name: string; // Meta, TikTok
+  spend7: number;
+  purchases7: number;
+  roas7: number | null;
+  spend30: number;
+  purchases30: number;
+  roas30: number | null;
+  ads: AdLine[];
+}
+
+export interface AdsSnapshot {
+  at: number;
+  platforms: PlatformAds[];
+  errors: string[];
+  spend30: number;
+}
+
 export interface EcomState {
   v: 1;
   at: number;
@@ -103,6 +134,7 @@ export interface EcomState {
   agents: Partial<Record<AgentId, AgentReport>>;
   products: ProductIdea[];
   calendar: ContentPost[];
+  ads?: AdsSnapshot | null;
   log: { at: number; text: string }[];
 }
 

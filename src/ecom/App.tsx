@@ -456,6 +456,7 @@ function Content({ state, openAgent }: { state: EcomState; openAgent: (id: Agent
         </div>
         <p>{state.agents.ads?.summary || state.agents.ads?.note || "Pas encore de plan."}</p>
       </button>
+      {state.ads && <AdsTable ads={state.ads} />}
       {state.calendar.length ? (
         state.calendar.map((c, i) => (
           <article key={i} className="card post">
@@ -477,6 +478,49 @@ function Content({ state, openAgent }: { state: EcomState; openAgent: (id: Agent
         <div className="card muted">Le planning arrive après le premier passage de Nathan.</div>
       )}
     </>
+  );
+}
+
+const VERDICT: Record<string, string> = { couper: "Couper", augmenter: "Augmenter", attendre: "Attendre" };
+
+function AdsTable({ ads }: { ads: NonNullable<EcomState["ads"]> }) {
+  return (
+    <section className="card">
+      <h3>Tes pubs, 7 derniers jours</h3>
+      {ads.errors.map((e, i) => (
+        <p key={i} className="note error">{e}</p>
+      ))}
+      {ads.platforms.map((p) => (
+        <div key={p.name} className="ads">
+          <div className="tiles three">
+            <Tile label={`${p.name} · dépense`} value={eur(p.spend7)} />
+            <Tile label="Achats" value={String(p.purchases7)} />
+            <Tile label="ROAS" value={p.roas7 != null ? `× ${p.roas7.toLocaleString("fr-FR")}` : "—"} />
+          </div>
+          {p.ads.length > 0 && (
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>Pub</th><th>Dépense</th><th>Achats</th><th>ROAS</th><th>Décision</th></tr>
+                </thead>
+                <tbody>
+                  {p.ads.map((a, i) => (
+                    <tr key={i}>
+                      <td>{a.name}</td>
+                      <td>{eur(a.spend)}</td>
+                      <td>{a.purchases}</td>
+                      <td>{a.roas != null ? `× ${a.roas.toLocaleString("fr-FR")}` : "—"}</td>
+                      <td><span className={`chip v-${a.verdict ?? "attendre"}`}>{VERDICT[a.verdict ?? "attendre"]}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      ))}
+      <p className="muted small">Décision calculée par le code à partir du ROAS minimum. Les agents ne touchent jamais à tes pubs : c'est toi qui coupes ou augmentes.</p>
+    </section>
   );
 }
 
@@ -557,6 +601,15 @@ function Setup() {
           </ul>
         </li>
         <li><b>Premier passage.</b> Onglet <a href={`${REPO_URL}/actions/workflows/ecom-agents.yml`} target="_blank" rel="noreferrer">Actions › Boutique : les 10 agents</a> › <i>Run workflow</i>. Ensuite l'équipe travaille seule chaque matin vers 7 h.</li>
+        <li>
+          <b>Plus tard, pour aller plus loin (facultatif).</b> Ajoute ces secrets quand tu en es là :
+          <ul>
+            <li><code>CJ_API_KEY</code> : ta clé CJ Dropshipping (CJ › Authorization › API). Léa verra les vrais prix, le stock en Europe et le port ;</li>
+            <li><code>META_ACCESS_TOKEN</code> et <code>META_AD_ACCOUNT_ID</code> : lecture de tes pubs Facebook / Instagram ;</li>
+            <li><code>TIKTOK_ACCESS_TOKEN</code> et <code>TIKTOK_ADVERTISER_ID</code> : lecture de tes pubs TikTok.</li>
+          </ul>
+          Avec les pubs branchées, Sofia dit chaque jour quelle pub couper ou augmenter, et Camille compte ta vraie dépense pub.
+        </li>
         <li><b>Ici.</b> Tape la même phrase secrète dans l'app : tu verras le brief, tes 3 actions du jour et les rapports.</li>
         <li><b>Piloter.</b> Dans <a href={`${REPO_URL}/edit/main/server/ecom/config.json`} target="_blank" rel="noreferrer">server/ecom/config.json</a>, indique ta niche, tes consignes et chaque semaine ta dépense pub réelle (<code>adSpendMonthEur</code>).</li>
       </ol>

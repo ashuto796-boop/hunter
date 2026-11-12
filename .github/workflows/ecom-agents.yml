@@ -7,10 +7,12 @@ name: "Boutique : les 10 agents"
 # ecom-data branch, where the Vitrine app (/hunter/ecom/) reads it.
 # Secrets: ECOM_PASSPHRASE (required), ANTHROPIC_API_KEY, SHOPIFY_STORE and either SHOPIFY_TOKEN
 # or SHOPIFY_CLIENT_ID + SHOPIFY_CLIENT_SECRET. Agents only ever create DRAFT products in Shopify.
+# Optional, read-only: META_ACCESS_TOKEN + META_AD_ACCOUNT_ID, TIKTOK_ACCESS_TOKEN +
+# TIKTOK_ADVERTISER_ID (ad results), CJ_API_KEY (CJ Dropshipping catalogue, stock and shipping).
 # To start over: delete the ecom-data branch.
 on:
   schedule:
-    - cron: "41 5 * * *" # about 7 h in Paris
+    - cron: "41 5,11,17 * * *" # about 7 h, 13 h and 19 h in Paris (each agent only works when its turn comes)
   workflow_dispatch:
     inputs:
       force:
@@ -61,6 +63,11 @@ jobs:
           SHOPIFY_TOKEN: ${{ secrets.SHOPIFY_TOKEN }}
           SHOPIFY_CLIENT_ID: ${{ secrets.SHOPIFY_CLIENT_ID }}
           SHOPIFY_CLIENT_SECRET: ${{ secrets.SHOPIFY_CLIENT_SECRET }}
+          META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
+          META_AD_ACCOUNT_ID: ${{ secrets.META_AD_ACCOUNT_ID }}
+          TIKTOK_ACCESS_TOKEN: ${{ secrets.TIKTOK_ACCESS_TOKEN }}
+          TIKTOK_ADVERTISER_ID: ${{ secrets.TIKTOK_ADVERTISER_ID }}
+          CJ_API_KEY: ${{ secrets.CJ_API_KEY }}
           ECOM_FORCE: ${{ inputs.force }}
           ECOM_ONLY: ${{ inputs.only }}
         run: npx tsx server/ecom/main.ts --state state.json

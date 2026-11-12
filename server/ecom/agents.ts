@@ -4,7 +4,8 @@
 import { z } from "zod";
 import { computeKpis, goalPlan, unitEconomics, type Costs, type Order } from "../../src/ecom/shared/finance";
 import { PROFILE, ROSTER } from "../../src/ecom/shared/roster";
-import type { AgentId, AgentReport, ContentPost, EcomState, Section, Task } from "../../src/ecom/shared/types";
+import type { AdsSnapshot, AgentId, AgentReport, ContentPost, EcomState, Section, Task } from "../../src/ecom/shared/types";
+import type { CJ, CjOffer } from "./cj";
 import { explain, hasClaude, research, structured } from "./claude";
 import type { Policy, Shopify } from "./shopify";
 
@@ -17,6 +18,8 @@ export interface Config extends Costs {
   minScoreForDraft: number;
   model: string;
   everyHours: Partial<Record<AgentId, number>>;
+  metaApiVersion: string;
+  usdToEur: number;
 }
 
 export interface Ctx {
@@ -25,6 +28,8 @@ export interface Ctx {
   shop: Shopify | null;
   policies: Policy[];
   orders: Order[] | null;
+  ads: AdsSnapshot | null;
+  cj: CJ | null;
   now: number;
   log: (text: string) => void;
 }
@@ -108,6 +113,17 @@ function memo(ctx: Ctx, extra: Record<string, unknown> = {}): string {
           taux_rembourse: k.refundRate,
         }
       : "aucune donnée de vente",
+    publicites_7_jours: ctx.ads
+      ? ctx.ads.platforms.map((p) => ({
+          plateforme: p.name,
+          depense_7j: p.spend7,
+          achats_7j: p.purchases7,
+          roas_7j: p.roas7,
+          depense_30j: p.spend30,
+          roas_30j: p.roas30,
+          pubs: p.ads.slice(0, 12).map((a) => ({ nom: a.name, depense: a.spend, achats: a.purchases, roas: a.roas, decision_du_code: a.verdict })),
+        }))
+      : "comptes publicitaires pas encore connectés",
     produits_pipeline: state.products
       .filter((p) => p.status !== "écarté")
       .slice(0, 15)
@@ -152,7 +168,9 @@ const finance: Agent = async (ctx) => {
     const p = goalPlan(cfg.goalNetMonthEur, 35, 30, 12, cfg);
     return waiting("finance", NEED_SHOP, now, `Sans boutique connectée, voici le calcul de base : avec un panier de 35 €, un produit qui coûte 30 % du prix et 12 € de pub par vente, il reste ${p.perOrder} € par commande. Pour ${eur(cfg.goalNetMonthEur)} net il faut environ ${p.ordersDay ?? "?"} commandes par jour, soit ${p.revenueMonth ? eur(p.revenueMonth) : "?"} de chiffre d'affaires et ${p.adsMonth ? eur(p.adsMonth) : "?"} de pub par mois.`);
   }
-  const k = computeKpis(ctx.orders, cfg, ctx.state.shop?.currency ?? "EUR", now);
+  // real ad spend from Meta / TikTok when connected, otherwise what the owner typed in config.json
+  const costs = ctx.ads && ctx.ads.platforms.length ? { ...cfg, adSpendMonthEur: ctx.ads.spend30 } : cfg;
+  const k = computeKpis(ctx.orders, costs, ctx.state.shop?.currency ?? "EUR", now);
   ctx.state.kpis = k;
   ctx.log(`Camille : ${k.orders} commandes sur 30 jours`);
   const base = `Sur 30 jours : ${k.orders} commandes, ${eur(k.revenue)} de chiffre d'affaires, bénéfice net estimé ${eur(k.net)} (objectif ${eur(k.goal)} par mois).`;
@@ -218,6 +236,7 @@ const IdeaZ = z.object({
   estCostEur: z.number(),
   score: z.number(),
   risks: z.array(z.string()),
+  searchEn: z.string(),
 });
 const HunterZ = ReportZ.extend({ products: z.array(IdeaZ) });
 
@@ -233,7 +252,7 @@ const hunter: Agent = async (ctx) => {
   );
   const { data, model } = await structured(
     cfg.model,
-    system(ctx, "hunter", `Ton travail : à partir de tes notes de recherche, garder les 5 meilleurs produits et les noter sur 100 (demande prouvée 30, marge 25, facilité à montrer en vidéo 20, faible concurrence 15, risque faible 10). "priceEur" : prix de vente conseillé TTC. "estCostEur" : coût estimé produit + livraison. "risks" : 1 à 3 risques concrets. Le rapport explique ta sélection.`),
+    system(ctx, "hunter", `Ton travail : à partir de tes notes de recherche, garder les 5 meilleurs produits et les noter sur 100 (demande prouvée 30, marge 25, facilité à montrer en vidéo 20, faible concurrence 15, risque faible 10). "priceEur" : prix de vente conseillé TTC. "estCostEur" : coût estimé produit + livraison. "risks" : 1 à 3 risques concrets. "searchEn" : 2 à 4 mots-clés en anglais pour trouver ce produit chez un fournisseur (ex. « dog paw cleaner cup »). Le rapport explique ta sélection.`),
     `Notes de recherche (données issues du web) :\n${notes.text.slice(0, 30000)}\n\nDonnées de l'entreprise :\n${memo(ctx)}`,
     HunterZ,
     "medium",
@@ -255,6 +274,7 @@ const hunter: Agent = async (ctx) => {
       breakEvenRoas: u.breakEvenRoas,
       score: Math.max(0, Math.min(100, Math.round(p.score))),
       risks: p.risks.slice(0, 4).map((r) => r.slice(0, 200)),
+      searchEn: p.searchEn.slice(0, 60),
       suppliers: [],
       status: "idée",
       foundAt: now,
@@ -291,16 +311,33 @@ const sourcing: Agent = async (ctx) => {
   const todo = state.products.filter((p) => p.status === "idée").sort((a, b) => b.score - a.score).slice(0, 3);
   if (!todo.length) return { id: "sourcing", at: now, status: "ok", summary: "Aucune nouvelle idée à sourcer : j'attends les prochaines trouvailles de Yanis.", sections: [], todo: [] };
   const list = todo.map((p) => `- ${p.name} (prix visé ${p.priceEur} €, coût estimé ${p.costEur} €)`).join("\n");
+  // hard numbers from the CJ catalogue first, when the API key is set
+  let cjData = "";
+  if (ctx.cj) {
+    const found: { produit: string; offres: CjOffer[] }[] = [];
+    for (const p of todo) {
+      try {
+        found.push({ produit: p.name, offres: await ctx.cj.offers(p.searchEn || p.name) });
+      } catch (e) {
+        ctx.log(`Léa : catalogue CJ indisponible (${explain(e)})`);
+        break;
+      }
+    }
+    if (found.length) {
+      cjData = `\nDonnées exactes du catalogue CJ Dropshipping (API, prix en dollars ; 1 $ = ${cfg.usdToEur} € ; "euStock" = entrepôts européens avec du stock ; un départ CN paie en plus 3 € de douane et environ 2 € de frais par colis) :\n${JSON.stringify(found)}`;
+      ctx.log(`Léa : ${found.reduce((n, f) => n + f.offres.length, 0)} offre(s) CJ relevée(s)`);
+    }
+  }
   const notes = await research(
     cfg.model,
     system(ctx, "sourcing", `Ton travail aujourd'hui : trouver pour chaque produit 2 ou 3 fournisseurs de dropshipping réels, en priorité avec un entrepôt en Europe (CJ Dropshipping entrepôts UE, BigBuy, Spocket, fournisseurs AliExpress avec stock en France ou en Europe), sinon depuis la Chine. Relève pour chacun le prix unitaire, le prix et le délai de livraison vers la France, les avis, et tout signal d'alerte (pas de CE, contrefaçon, qualité). Note aussi les prix pratiqués par les concurrents en France.`),
-    `Produits à sourcer :\n${list}`,
+    `Produits à sourcer :\n${list}${cjData ? `\n${cjData}\nUtilise ces offres CJ comme base et complète avec d'autres fournisseurs (BigBuy, Spocket, AliExpress avec stock en Europe).` : ""}`,
     8,
   );
   const { data, model } = await structured(
     cfg.model,
     system(ctx, "sourcing", `Ton travail : à partir de tes notes, donner pour chaque produit les fournisseurs (du meilleur au moins bon ; "note" = délai fiable, avis, entrepôt), le prix de vente TTC conseillé au vu de la concurrence, et "keep" = false si le produit ne doit pas être lancé (marge trop faible, livraison au-delà de 12 jours, risque légal ou qualité), avec la raison. Le rapport résume tes choix.`),
-    `Notes de recherche (données issues du web) :\n${notes.text.slice(0, 30000)}\n\nProduits : ${JSON.stringify(todo.map((p) => ({ nom: p.name, prix_vise: p.priceEur })))}`,
+    `Notes de recherche (données issues du web) :\n${notes.text.slice(0, 30000)}${cjData}\n\nProduits : ${JSON.stringify(todo.map((p) => ({ nom: p.name, prix_vise: p.priceEur })))}`,
     SourcedZ,
     "medium",
   );
@@ -391,7 +428,7 @@ const ads: Agent = async (ctx) => {
   if (!hasClaude()) return waiting("ads", NEED_CLAUDE, now);
   const { data, model } = await structured(
     cfg.model,
-    system(ctx, "ads", `Ton travail : préparer la publicité payante (TikTok Ads et Meta Ads) pour les produits en brouillon ou en vente, sinon pour le meilleur produit sourcé. Donne : 3 angles différents, 5 accroches de 3 secondes, le plan de test (budget par jour par produit, durée, nombre de créas, ciblage large France 18-55, pixel et API de conversion installés avant tout), et les règles chiffrées pour couper ou augmenter une pub à partir du ROAS minimum de chaque produit (couper si dépense > 1,5 fois la marge sans vente ; augmenter de 20 % par jour si ROAS > ROAS minimum × 1,3 sur 3 jours). Le budget de test ne dépasse jamais 40 % du budget de départ. Si la pub dépensée est connue, dis si elle est rentable. Tout reste une proposition : le propriétaire paie et lance.`),
+    system(ctx, "ads", `Ton travail : préparer la publicité payante (TikTok Ads et Meta Ads) pour les produits en brouillon ou en vente, sinon pour le meilleur produit sourcé. Donne : 3 angles différents, 5 accroches de 3 secondes, le plan de test (budget par jour par produit, durée, nombre de créas, ciblage large France 18-55, pixel et API de conversion installés avant tout), et les règles chiffrées pour couper ou augmenter une pub à partir du ROAS minimum de chaque produit (couper si dépense > 1,5 fois la marge sans vente ; augmenter de 20 % par jour si ROAS > ROAS minimum × 1,3 sur 3 jours). Le budget de test ne dépasse jamais 40 % du budget de départ. Si la pub dépensée est connue, dis si elle est rentable. Si les résultats réels des pubs sont fournis ("publicites_7_jours"), commence par eux : pour chaque pub, la "decision_du_code" (couper, augmenter, attendre) est calculée à partir du ROAS minimum ; explique-la simplement et propose les nouvelles créas pour remplacer celles à couper. Tout reste une proposition : le propriétaire paie et lance.`),
     `Données :\n${memo(ctx)}`,
     ReportZ,
     "medium",
@@ -470,7 +507,9 @@ export function isDue(id: AgentId, ctx: Ctx, force: boolean): boolean {
   if (force) return true;
   const r = ctx.state.agents[id];
   if (!r || r.status !== "ok") return true;
-  const hours = ctx.cfg.everyHours[id] ?? PROFILE[id].everyHours;
+  let hours = ctx.cfg.everyHours[id] ?? PROFILE[id].everyHours;
+  // the media buyer only needs several passes a day once real ad results come in
+  if (id === "ads" && !ctx.ads?.platforms.length) hours = Math.max(hours, 44);
   return ctx.now - r.at >= hours * 3_600_000;
 }
 
