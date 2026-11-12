@@ -109,3 +109,19 @@ npm run build
 Auto-deploys to GitHub Pages on every push to `main`.
 
 URL: https://ashuto796-boop.github.io/hunter/
+
+## Vitrine — boutique Shopify tenue par 10 agents IA
+
+Application mobile (PWA) + équipe de 10 agents qui travaillent chaque matin sur GitHub Actions pour une boutique de dropshipping Shopify.
+
+URL : https://ashuto796-boop.github.io/hunter/ecom/
+
+- **L'équipe** (`src/ecom/shared/roster.ts`, dans l'ordre de passage) : Camille (finances), Inès (service client & logistique), Hugo (juriste & conformité), Yanis (chasseur de produits, recherche web), Léa (fournisseurs, recherche web), Maxime (fiches produits, brouillons Shopify), Sofia (publicité TikTok / Meta), Nathan (vidéos de la semaine), Clara (e-mails, SEO), Adam (directeur : brief du jour et 3 actions pour le propriétaire). Chacun lit les rapports des précédents.
+- **Chiffres** : calculés par le code (`src/ecom/shared/finance.ts`), jamais par le modèle : CA, coût produits, frais de paiement, pub, charges de micro-entreprise, bénéfice net, ROAS minimum, ventes par jour nécessaires pour l'objectif.
+- **Garde-fous** : les agents ne créent que des produits en **brouillon** ; ils ne publient, ne paient, ne lancent de pub et ne contactent aucun client. Aucune donnée client (nom, e-mail, adresse) n'est lue. Les textes du web sont traités comme des données. L'état est chiffré (AES-GCM, `ECOM_PASSPHRASE`) avant d'être publié sur la branche `ecom-data` ; les journaux publics n'affichent que des comptes.
+- **Secrets du dépôt** : `ECOM_PASSPHRASE` (obligatoire), `ANTHROPIC_API_KEY`, `SHOPIFY_STORE` (`ma-boutique.myshopify.com`) et `SHOPIFY_TOKEN` ou `SHOPIFY_CLIENT_ID` + `SHOPIFY_CLIENT_SECRET` (app du Dev Dashboard Shopify, droits `read_products`, `write_products`, `read_orders`, `read_legal_policies`). Sans Claude, seuls les calculs tournent ; sans Shopify, la recherche et les textes tournent quand même.
+- **Réglages** : `server/ecom/config.json` (objectif, budget, niche, consignes, pub dépensée ce mois, frais, charges, TVA, cadence `everyHours` par agent, modèle).
+- **Lancer à la main** : Actions › « Boutique : les 10 agents » › Run workflow (option « force » pour tous). En local : `ECOM_PASSPHRASE=... npm run agents`.
+- **Repartir de zéro** : supprimer la branche `ecom-data`.
+
+Code : `server/ecom/` (agents, Shopify, Claude) et `src/ecom/` (app). Après une modification de l'app : `npm run build:ecom` et committer le dossier `ecom/`.

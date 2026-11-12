@@ -1,0 +1,79 @@
+name: "Boutique : les 10 agents"
+
+# The ten agents of the Shopify shop (server/ecom/) work here every morning: finance, customer
+# service, compliance, product hunting, sourcing, product pages, ads, content, e-mail and the CEO's
+# brief. Each one runs when its turn comes (cadence in src/ecom/shared/roster.ts, overridable in
+# server/ecom/config.json). The state is sealed with ECOM_PASSPHRASE and published on the
+# ecom-data branch, where the Vitrine app (/hunter/ecom/) reads it.
+# Secrets: ECOM_PASSPHRASE (required), ANTHROPIC_API_KEY, SHOPIFY_STORE and either SHOPIFY_TOKEN
+# or SHOPIFY_CLIENT_ID + SHOPIFY_CLIENT_SECRET. Agents only ever create DRAFT products in Shopify.
+# To start over: delete the ecom-data branch.
+on:
+  schedule:
+    - cron: "41 5 * * *" # about 7 h in Paris
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Faire travailler tous les agents maintenant, même ceux dont ce n'est pas le tour"
+        type: boolean
+        default: false
+      only:
+        description: "Seulement ces agents (ex. hunter,sourcing), vide = tous"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ecom-agents
+  cancel-in-progress: false
+
+jobs:
+  work:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install
+        run: npm install --no-audit --no-fund --legacy-peer-deps
+
+      - name: Load previous state
+        run: |
+          if git fetch -q origin ecom-data 2>/dev/null; then
+            git show FETCH_HEAD:state.json > state.json && echo "État précédent chargé."
+          else
+            echo "Premier passage."
+          fi
+
+      - name: The agents work
+        env:
+          ECOM_PASSPHRASE: ${{ secrets.ECOM_PASSPHRASE }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SHOPIFY_STORE: ${{ secrets.SHOPIFY_STORE }}
+          SHOPIFY_TOKEN: ${{ secrets.SHOPIFY_TOKEN }}
+          SHOPIFY_CLIENT_ID: ${{ secrets.SHOPIFY_CLIENT_ID }}
+          SHOPIFY_CLIENT_SECRET: ${{ secrets.SHOPIFY_CLIENT_SECRET }}
+          ECOM_FORCE: ${{ inputs.force }}
+          ECOM_ONLY: ${{ inputs.only }}
+        run: npx tsx server/ecom/main.ts --state state.json
+
+      - name: Publish the sealed state
+        env:
+          PUSH_URL: https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git
+        run: |
+          rm -rf publish && mkdir publish && cp state.json publish/
+          cd publish
+          git init -q -b ecom-data
+          git add state.json
+          git -c user.name="Vitrine bot" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "Vitrine : journée du $(date -u +'%Y-%m-%d %H:%M') UTC"
+          git push -q -f "$PUSH_URL" ecom-data
+          echo "Rapports publiés."
