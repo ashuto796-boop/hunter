@@ -3,7 +3,7 @@
 // on 2025-2026 (never used to choose): an idea is kept only if it helps in both periods.
 //
 //   npx tsx backtest/research.ts --data backtest/data [--only name,name] [--wf]
-import { readFileSync } from "fs";
+import { readFileSync, writeFileSync } from "fs";
 import { aggregate, buildMarket, Peers } from "../src/gold/engine/features";
 import { newTraderState, simulate, warmupIndex } from "../src/gold/engine/trader";
 import { train } from "../src/gold/engine/training";
@@ -94,8 +94,8 @@ export async function evaluate(idea: Idea) {
       return lo;
     };
     for (let T = c[0].t + 72 * DAY; T < c[c.length - 1].t; T += 5 * DAY) {
-      const w = c.slice(idx(T - 70 * DAY), idx(T));
-      if (w.length < (1000 * 15) / tf) continue;
+      const w = c.slice(idx(T - (settings.trainDays + 10) * DAY), idx(T));
+      if (w.length < 400) continue;
       const tr = await train({ m: buildMarket(w, tf, { xag: peers.xag?.filter((k) => k.t >= T - 100 * DAY && k.t < T), eur: peers.eur?.filter((k) => k.t >= T - 100 * DAY && k.t < T) }), settings, news: [] }, "dukascopy");
       st.brain = tr.st.brain;
       st.ctx = tr.st.ctx;
@@ -123,28 +123,102 @@ export async function runAll(ideas: Idea[]) {
     const t0 = Date.now();
     const r = await evaluate(idea);
     console.log(line(r), `(${((Date.now() - t0) / 1000).toFixed(0)} s)`);
+    if (args.includes("--detail")) {
+      const by = (k: (t: Trade) => string) => {
+        const g: Record<string, Trade[]> = {};
+        for (const t of r.trades) (g[k(t)] ??= []).push(t);
+        return Object.entries(g)
+          .sort()
+          .map(([n, v]) => `${n} ${v.length}tr ${v.reduce((a, t) => a + t.r, 0) >= 0 ? "+" : ""}${v.reduce((a, t) => a + t.r, 0).toFixed(1)}R`)
+          .join(" · ");
+      };
+      console.log("   années :", by((t) => String(new Date(t.openTime).getUTCFullYear())));
+      console.log("   sens   :", by((t) => `${t.dir === 1 ? "achat" : "vente"}-${t.openTime < SPLIT ? "22/24" : "25/26"}`));
+      console.log("   spécialiste :", by((t) => t.primary));
+    }
   }
 }
 
 const FIN = { financingPctYear: 5 };
-const H4 = (name: string, extra: Partial<Strategy>, threshold = 55, tf = 240): Idea => ({
-  name,
-  tf,
-  threshold,
-  rules: { ...FIN, timeStopMin: 5 * 1440, weekendFlat: false, sessionWeight: false, ...extra },
-  settings: { trainDays: 365, maxTradesDay: 2 },
+// AURUM Swing: 4-hour candles, trades held for days. Specialists kept = positive on 2022-2024
+// only (backtest/edges.ts, 4 h, 5-day holds): divergence, momentum, squeeze, sweep with the trend.
+const SWING_BASE = { base: { pullback: 0, london: 0, reversion: 0 } };
+const swingRules = (extra: Partial<Strategy> = {}): Partial<Strategy> => ({
+  ...FIN,
+  ...SWING_BASE,
+  sweepMinBias: 0,
+  sessionWeight: false,
+  timeStopMin: 5 * 1440,
+  weekendFlat: false,
+  ...extra,
 });
-const PICK = { base: { london: 0, reversion: 0 } };
+const PURE = { tp1Fraction: 0, beAfterTp1: false, trailAtr: 0 };
+const sw = (name: string, threshold: number, extra: Partial<Strategy> = {}, settings: Partial<Settings> = {}): Idea => ({
+  name,
+  tf: 240,
+  threshold,
+  rules: swingRules(extra),
+  settings: { trainDays: 365, maxTradesDay: 2, ...settings },
+});
+// Systematic search: every combination below (256 strategies), judged on 2022-2024 only.
+function grid(): Idea[] {
+  const out: Idea[] = [];
+  for (const tf of [30, 60, 120, 240])
+    for (const threshold of [30, 40, 50, 61])
+      for (const shorts of [-1, 0.5])
+        for (const exits of ["mixte", "simple"] as const)
+          for (const hold of ["journée", "plusieurs jours"] as const)
+            for (const team of ["4 spécialistes", "7 spécialistes"] as const)
+              out.push({
+                name: `M${tf} s${threshold} ventes${shorts < 0 ? "=libres" : ">0.5"} ${exits} ${hold} ${team}`,
+                tf,
+                threshold,
+                rules: {
+                  ...FIN,
+                  ...(team === "4 spécialistes" ? { ...SWING_BASE, sweepMinBias: 0 } : {}),
+                  ...(exits === "simple" ? PURE : {}),
+                  minBiasShort: shorts,
+                  sessionWeight: tf <= 60,
+                  ...(hold === "journée" ? { timeStopMin: 480, weekendFlat: true } : { timeStopMin: 5 * 1440, weekendFlat: false }),
+                },
+                settings: { trainDays: tf >= 120 ? 365 : 120, maxTradesDay: 4 },
+              });
+  return out;
+}
+
+const CHAMPION: Idea = {
+  name: "champion M120",
+  tf: 120,
+  threshold: 30,
+  rules: { ...FIN, ...SWING_BASE, sweepMinBias: 0, ...PURE, minBiasShort: 0.5, sessionWeight: false, timeStopMin: 480, weekendFlat: true },
+  settings: { trainDays: 365, maxTradesDay: 4 },
+};
 const IDEAS: Idea[] = [
-  H4("H4 sans poids de session s55", {}),
-  H4("H4 sens tendance s55", { minBias: 0 }),
-  H4("H4 sens tendance s45", { minBias: 0 }, 45),
-  H4("H4 sens tendance s65", { minBias: 0 }, 65),
-  H4("H4 tendance + sélection s50", { minBias: 0, ...PICK }, 50),
-  H4("H4 tendance + sélection s45", { minBias: 0, ...PICK }, 45),
-  H4("H4 tendance + sélection sans BE s50", { minBias: 0, ...PICK, beAfterTp1: false }, 50),
-  H4("H4 tendance + sélection trail 3.5", { minBias: 0, ...PICK, trailAtr: 3.5 }, 50),
-  H4("H2 tendance + sélection s50", { minBias: 0, ...PICK }, 50, 120),
-  H4("H1 tendance + sélection s50", { minBias: 0, ...PICK }, 50, 60),
+  CHAMPION,
+  { ...CHAMPION, name: "champion, écart de prix ×2", settings: { ...CHAMPION.settings, spread: 0.8 } },
+  { ...CHAMPION, name: "champion, financement 8 %", rules: { ...CHAMPION.rules, financingPctYear: 8 } },
+  { ...CHAMPION, name: "champion, entraînement 120 j", settings: { ...CHAMPION.settings, trainDays: 120 } },
+  sw("swing s30", 30),
+  sw("swing s30 ventes si tendance > 0.3", 30, { minBiasShort: 0.3 }),
+  sw("swing s30 ventes si tendance > 0.5", 30, { minBiasShort: 0.5 }),
+  sw("swing s30 ventes si tendance > 0.7", 30, { minBiasShort: 0.7 }),
+  sw("swing s30 achats seulement", 30, { minBiasShort: 2 }),
+  sw("swing s50 simples, ventes > 0.5", 50, { ...PURE, minBiasShort: 0.5 }),
 ];
-if (import.meta.url === `file://${process.argv[1]}`) runAll(IDEAS);
+async function searchGrid(file: string) {
+  const ideas = grid();
+  const rows: { name: string; is: ReturnType<typeof period>; oos: ReturnType<typeof period>; dd: number }[] = [];
+  const t0 = Date.now();
+  for (const [k, idea] of ideas.entries()) {
+    const r = await evaluate(idea);
+    rows.push({ name: r.name, is: r.is, oos: r.oos, dd: r.dd });
+    if ((k + 1) % 32 === 0) console.log(`${k + 1}/${ideas.length} stratégies (${((Date.now() - t0) / 1000).toFixed(0)} s)`);
+  }
+  writeFileSync(file, JSON.stringify(rows, null, 1));
+  console.log(`résultats : ${file}`);
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  if (args.includes("--grid")) searchGrid(opt("save", "grid.json"));
+  else runAll(IDEAS);
+}

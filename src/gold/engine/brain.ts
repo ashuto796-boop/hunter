@@ -279,6 +279,7 @@ export function analyse(env: AnalyseEnv, st: TraderState, i: number): Decision {
   if (!blocked && dir && STRATEGY.blockRegimes.includes(regime)) blocked = `Je ne trade pas en ${REGIME_LABEL[regime].toLowerCase()}`;
   if (!blocked && dir && STRATEGY.blockSessions.includes(session)) blocked = `Je ne trade pas pendant la ${SESSION_LABEL[session].toLowerCase()}`;
   if (!blocked && dir && dir * bias < STRATEGY.minBias) blocked = "Contre la tendance de fond H1/H4 — j'attends un setup dans le bon sens";
+  if (!blocked && dir === -1 && -bias < STRATEGY.minBiasShort) blocked = "Vente refusée : la tendance de fond n'est pas assez baissière";
 
   let plan: Plan | null = null;
   let verdict = "";

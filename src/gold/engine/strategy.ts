@@ -12,6 +12,7 @@ export interface Strategy {
   sweepMinBias: number; // sweeps need at least this much higher-timeframe agreement (-1 = any)
   sweepNeedFvg: boolean; // sweeps need a displacement with a fair value gap
   minBias: number; // any entry needs at least this much H1/H4 agreement (-1 = any)
+  minBiasShort: number; // sells need at least this much (gold drifts up over time; -1 = same as buys)
   blockRegimes: Regime[]; // no new entry in these market states
   blockSessions: Session[]; // no new entry in these sessions
   tp1Fraction: number; // share of the position taken off at the first target (1R)
@@ -38,6 +39,7 @@ export const DEFAULT_STRATEGY: Strategy = {
   sweepMinBias: -1,
   sweepNeedFvg: false,
   minBias: -1,
+  minBiasShort: -1,
   blockRegimes: [],
   blockSessions: [],
   tp1Fraction: 0.5,
