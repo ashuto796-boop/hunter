@@ -123,6 +123,36 @@ def gold_m15(days, workers):
     return out
 
 
+def gold_m1(days, workers):
+    """1-minute gold candles for scalping tests: [unix seconds, open, high, low, close, spread], mid
+    prices in dollars, spread (ask - bid) at the minute's close."""
+    rows = []
+    factor = None
+    done = 0
+
+    def job(d):
+        return d, minute_day("XAUUSD", "BID", d), minute_day("XAUUSD", "ASK", d)
+
+    with ThreadPoolExecutor(workers) as ex:
+        for d, bid, ask in ex.map(job, days):
+            done += 1
+            if done % 50 == 0:
+                print(f"  or M1 : {done}/{len(days)} jours", flush=True)
+            if not bid or not ask:
+                continue
+            if factor is None:
+                factor = factor_for("XAUUSD", bid)
+            askmap = {r[0]: r for r in ask}
+            for t, o, c, lo, hi, v in bid:
+                a = askmap.get(t)
+                if a is None or v <= 0:
+                    continue
+                f = 2 * factor
+                rows.append([t, round((o + a[1]) / f, 3), round((hi + a[4]) / f, 3), round((lo + a[3]) / f, 3), round((c + a[2]) / f, 3), round((a[2] - c) / factor, 3)])
+    rows.sort()
+    return rows
+
+
 def peer_h1(symbol, months, workers):
     rows = []
     with ThreadPoolExecutor(workers) as ex:
@@ -144,6 +174,7 @@ def main():
     ap.add_argument("--probe", action="store_true", help="decode one recent day and stop")
     ap.add_argument("--part", type=int, default=-1, help="with --parts: download only this slice of the period")
     ap.add_argument("--parts", type=int, default=1)
+    ap.add_argument("--m1", action="store_true", help="gold 1-minute candles only (xau_m1.json), for scalping tests")
     args = ap.parse_args()
     os.makedirs(args.out, exist_ok=True)
     end = date.today() - timedelta(days=1)
@@ -163,6 +194,14 @@ def main():
         start, end = days[0], days[-1]
     days = [d for d in days if d.weekday() != 5]  # Saturday: gold is closed
     print(f"or : {len(days)} jours du {start} au {end}", flush=True)
+    if args.m1:
+        m1 = gold_m1(days, args.workers)
+        print(f"or : {len(m1)} bougies M1, fichiers manquants : {len(MISSING)}", flush=True)
+        with open(os.path.join(args.out, "xau_m1.json"), "w") as fh:
+            json.dump(m1, fh, separators=(",", ":"))
+        if len(m1) < 1000 or len(MISSING) > 0.15 * 2 * len(days):
+            sys.exit("trop de données manquantes")
+        return
     gold = gold_m15(days, args.workers)
     print(f"or : {len(gold)} bougies M15", flush=True)
     months = sorted({(d.year, d.month) for d in days})

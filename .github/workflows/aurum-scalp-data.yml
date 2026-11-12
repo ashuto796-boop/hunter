@@ -1,0 +1,70 @@
+name: AURUM données minute (scalping)
+
+# Downloads 1-minute gold candles with their real spread (Dukascopy, bid and ask) on 12 machines
+# at once and saves them on the aurum-scalp-data branch (gzipped JSON) for the scalping tests
+# (backtest/scalp.ts).
+on:
+  workflow_dispatch:
+    inputs:
+      years:
+        description: "Années d'historique"
+        default: "2"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: aurum-scalp-data
+  cancel-in-progress: true
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        part: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download one slice
+        run: python3 backtest/dukascopy.py --m1 --years "${{ inputs.years }}" --parts 12 --part ${{ matrix.part }} --workers 6 --out slice
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: m1-${{ matrix.part }}
+          path: slice
+
+  save:
+    needs: download
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: m1-*
+          path: parts
+      - name: Join and compress
+        run: |
+          mkdir data
+          python3 - <<'PY'
+          import glob, json
+          rows = {}
+          for f in glob.glob("parts/*/xau_m1.json"):
+              for r in json.load(open(f)):
+                  rows[r[0]] = r
+          out = [rows[k] for k in sorted(rows)]
+          json.dump(out, open("data/xau_m1.json", "w"), separators=(",", ":"))
+          print(len(out), "minutes")
+          PY
+          gzip -9 data/xau_m1.json
+          ls -la data
+      - name: Publish
+        run: |
+          cd data
+          git init -q -b aurum-scalp-data
+          git add .
+          git -c user.name="AURUM bot" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "AURUM : données minute (lancement ${{ github.run_id }})"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" aurum-scalp-data
