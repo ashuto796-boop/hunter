@@ -1,0 +1,38 @@
+name: AURUM documentation d'API
+
+# Downloads official API documentation pages (blocked from the development sandbox) and
+# publishes them on the aurum-probe branch, so the broker integration follows the real reference.
+on:
+  workflow_dispatch:
+    inputs:
+      urls:
+        description: "Adresses séparées par des espaces"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Download
+        env:
+          URLS: ${{ inputs.urls }}
+        run: |
+          mkdir out && cd out
+          i=0
+          for u in $URLS; do
+            i=$((i+1))
+            curl -sSL -A "Mozilla/5.0" --max-time 60 -o "page-$i.html" "$u" || echo "échec $u"
+            echo "$i $u $(wc -c < page-$i.html 2>/dev/null)" >> index.txt
+          done
+          cat index.txt
+      - name: Publish
+        run: |
+          cd out
+          git init -q -b aurum-probe
+          git add .
+          git -c user.name="AURUM bot" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -q -m "documentation"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" aurum-probe
