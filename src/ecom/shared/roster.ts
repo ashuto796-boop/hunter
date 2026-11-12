@@ -5,7 +5,7 @@ export interface AgentProfile {
   name: string; // first name, so the team reads like a team
   role: string;
   mission: string;
-  tools: ("Claude" | "Web" | "Shopify lecture" | "Shopify brouillons" | "Calcul")[];
+  tools: ("Claude" | "Web" | "Shopify lecture" | "Shopify brouillons" | "Calcul" | "CJ Dropshipping" | "Meta / TikTok lecture")[];
   everyHours: number; // default cadence, overridable in server/ecom/config.json
   color: string;
 }
@@ -18,7 +18,7 @@ export const ROSTER: AgentProfile[] = [
     role: "Directrice financière",
     mission: "Calcule chaque jour le chiffre d'affaires, la marge, les frais, les charges et le bénéfice net réel à partir des commandes Shopify. Fixe le ROAS minimum pour ne pas perdre d'argent et dit combien de ventes par jour il faut pour 10 000 € net.",
     tools: ["Shopify lecture", "Calcul", "Claude"],
-    everyHours: 20,
+    everyHours: 7,
     color: "#128a5a",
   },
   {
@@ -27,7 +27,7 @@ export const ROSTER: AgentProfile[] = [
     role: "Service client & logistique",
     mission: "Surveille les commandes payées non expédiées, les remboursements et les délais. Prépare les réponses types (retard, suivi, retour, remboursement) et signale ce qu'il faut traiter aujourd'hui.",
     tools: ["Shopify lecture", "Claude"],
-    everyHours: 20,
+    everyHours: 7,
     color: "#0e7490",
   },
   {
@@ -52,8 +52,8 @@ export const ROSTER: AgentProfile[] = [
     id: "sourcing",
     name: "Léa",
     role: "Acheteuse & fournisseurs",
-    mission: "Trouve pour les meilleures idées les fournisseurs (de préférence avec entrepôt en Europe pour livrer en moins de 8 jours), compare coût, port et délais, et calcule la marge réelle de chaque produit.",
-    tools: ["Web", "Claude", "Calcul"],
+    mission: "Interroge le catalogue CJ Dropshipping (prix, stock en Europe, port vers la France) et le web pour trouver les meilleurs fournisseurs, puis calcule la marge réelle de chaque produit.",
+    tools: ["CJ Dropshipping", "Web", "Claude", "Calcul"],
     everyHours: 70,
     color: "#b45309",
   },
@@ -70,9 +70,9 @@ export const ROSTER: AgentProfile[] = [
     id: "ads",
     name: "Sofia",
     role: "Media buyer (publicité)",
-    mission: "Prépare les campagnes TikTok et Meta : angles, accroches, budget de test, règles pour couper ou augmenter une pub selon le ROAS minimum de Camille. Elle propose, tu dépenses.",
-    tools: ["Claude", "Calcul"],
-    everyHours: 44,
+    mission: "Lit les vrais résultats de tes pubs TikTok et Meta, dit pour chacune s'il faut la couper, l'augmenter ou attendre (selon le ROAS minimum de Camille), et prépare les nouvelles accroches. Elle propose, tu dépenses.",
+    tools: ["Meta / TikTok lecture", "Claude", "Calcul"],
+    everyHours: 7,
     color: "#db2777",
   },
   {
