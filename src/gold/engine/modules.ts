@@ -4,6 +4,7 @@
 import { Dir, ModuleId, Regime, Session, Vote } from "./types";
 import { Market, knownPivots } from "./features";
 import { Pivot } from "./indicators";
+import { STRATEGY } from "./strategy";
 
 export interface Ctx {
   bias: number; // signed for the view direction (+1 = fully with us)
@@ -188,6 +189,8 @@ type ModuleFn = (v: View, i: number, x: Ctx) => Raw | null;
 
 // 1. Liquidity sweep + market structure shift (smart-money reversal)
 const sweep: ModuleFn = (v, i, x) => {
+  if (STRATEGY.sweepKillzoneOnly && !x.killzone) return null;
+  if (x.bias < STRATEGY.sweepMinBias) return null;
   const a = v.atr(i);
   for (let k = 0; k <= 5; k++) {
     const j = i - k;
@@ -209,6 +212,7 @@ const sweep: ModuleFn = (v, i, x) => {
     for (let q = j; q < i; q++) if (v.c(q) > mss) fresh = false;
     if (!fresh) continue;
     const fvg = v.l(i) > v.h(i - 2) || v.l(i - 1) > v.h(i - 3);
+    if (STRATEGY.sweepNeedFvg && !fvg) return null;
     const entry = v.c(i);
     const sl = v.l(j) - 0.25 * a;
     const tg = target(v, i, entry, entry - sl, 1.8, 2.5);

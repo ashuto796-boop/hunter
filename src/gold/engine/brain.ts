@@ -8,6 +8,7 @@ import { MediaState, mediaMult, moodAt, moodLabel } from "./media";
 import { pctRank } from "./indicators";
 import { MODULE_IDS, MODULE_INFO, runModules } from "./modules";
 import { SESSION_LABEL, SESSION_QUALITY, killzone, newsBlock, sessionAt, weekendRisk } from "./context";
+import { RegimeKey, STRATEGY } from "./strategy";
 
 // "auto" starts at the balanced value until the calibration picks its own threshold
 export const THRESHOLDS: Record<Mode, number> = { auto: 61, prudent: 70, equilibre: 61, agressif: 53 };
@@ -31,7 +32,6 @@ export function learnedMult(s: ModuleStats): number {
   return toMult(expectancy(s, PRIOR_N, PRIOR_R));
 }
 
-type RegimeKey = "TREND" | "RANGE" | "SQUEEZE" | "VOLATILE";
 const regimeKey = (r: Regime): RegimeKey => (r === "TREND_UP" || r === "TREND_DOWN" ? "TREND" : r);
 export const ctxKey = (id: ModuleId, r: Regime) => `${id}:${regimeKey(r)}`;
 
@@ -142,19 +142,10 @@ export const REGIME_LABEL: Record<Regime, string> = {
   VOLATILE: "Volatilité extrême",
 };
 
-const FIT: Record<ModuleId, Record<RegimeKey, number>> = {
-  sweep: { TREND: 0.85, RANGE: 1, SQUEEZE: 0.7, VOLATILE: 0.5 },
-  pullback: { TREND: 1, RANGE: 0.45, SQUEEZE: 0.5, VOLATILE: 0.3 },
-  london: { TREND: 0.9, RANGE: 0.75, SQUEEZE: 1, VOLATILE: 0.4 },
-  squeeze: { TREND: 0.7, RANGE: 0.65, SQUEEZE: 1, VOLATILE: 0.3 },
-  momentum: { TREND: 1, RANGE: 0.35, SQUEEZE: 0.7, VOLATILE: 0.4 },
-  reversion: { TREND: 0.25, RANGE: 1, SQUEEZE: 0.4, VOLATILE: 0.2 },
-  divergence: { TREND: 0.45, RANGE: 0.9, SQUEEZE: 0.6, VOLATILE: 0.4 },
-};
 const REVERSAL: ModuleId[] = ["sweep", "reversion", "divergence"];
 
 function regimeFit(id: ModuleId, regime: Regime, dir: Dir): number {
-  let f = FIT[id][regimeKey(regime)];
+  let f = STRATEGY.fit[id][regimeKey(regime)];
   const trendDir = regime === "TREND_UP" ? 1 : regime === "TREND_DOWN" ? -1 : 0;
   if (trendDir && trendDir !== dir) f *= REVERSAL.includes(id) ? 0.75 : 0.5;
   return f;
@@ -222,7 +213,7 @@ export function analyse(env: AnalyseEnv, st: TraderState, i: number): Decision {
     // déjà vu: similar past situations that paid get more say, those that lost get less
     const T = MEMORY_TUNING;
     const rec = deja ? clamp(1 + T.recallGain * (deja.expR - T.recallBias), T.recallMin, T.recallMax) : 1;
-    return { ...v, fit, learned, f, deja, recall: rec, weight: 0.85 * v.strength * MODULE_INFO[v.id].base * fit * learned * rec };
+    return { ...v, fit, learned, f, deja, recall: rec, weight: 0.85 * v.strength * (STRATEGY.base[v.id] ?? MODULE_INFO[v.id].base) * fit * learned * rec };
   });
 
   const sideScore = (d: Dir) => {
@@ -233,7 +224,7 @@ export function analyse(env: AnalyseEnv, st: TraderState, i: number): Decision {
     const b = d * bias;
     const trend = regime === "TREND_UP" || regime === "TREND_DOWN";
     const htf = trend || regime === "SQUEEZE" ? 0.85 + 0.25 * b : 0.95 + 0.1 * b;
-    const sess = SESSION_QUALITY[session];
+    const sess = STRATEGY.sessionWeight ? SESSION_QUALITY[session] : 1;
     const atrP = pctRank(s.atr, i, 300);
     const vol = atrP < 0.05 ? 0.85 : regime === "VOLATILE" ? 0.75 : 1;
     const peers = inter ? 1 + 0.08 * d * inter.score : 1;
@@ -285,6 +276,9 @@ export function analyse(env: AnalyseEnv, st: TraderState, i: number): Decision {
   if (!blocked && st.day.pnl <= (-settings.maxDailyLossPct / 100) * st.day.startBalance) blocked = "Limite de perte journalière atteinte — reprise demain";
   if (!blocked && st.cooldownUntil > t) blocked = "Pause après 2 pertes d'affilée — je me remets à zéro";
   if (!blocked && dir && st.lastLoss && st.lastLoss.dir === dir && t - st.lastLoss.t < tfBars(45) * tfMs) blocked = "Pas de revenge trading dans le même sens";
+  if (!blocked && dir && STRATEGY.blockRegimes.includes(regime)) blocked = `Je ne trade pas en ${REGIME_LABEL[regime].toLowerCase()}`;
+  if (!blocked && dir && STRATEGY.blockSessions.includes(session)) blocked = `Je ne trade pas pendant la ${SESSION_LABEL[session].toLowerCase()}`;
+  if (!blocked && dir && dir * bias < STRATEGY.minBias) blocked = "Contre la tendance de fond H1/H4 — j'attends un setup dans le bon sens";
 
   let plan: Plan | null = null;
   let verdict = "";

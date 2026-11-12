@@ -5,6 +5,7 @@ import { AnalyseEnv, analyse, ctxKey, emptyBrain } from "./brain";
 import { Market } from "./features";
 import { tradingDay, weekendRisk } from "./context";
 import { emptyMemory, recordShadows, resolveShadows } from "./memory";
+import { STRATEGY } from "./strategy";
 
 const SLIPPAGE = 0.05; // $ per oz on stop exits
 
@@ -148,13 +149,13 @@ export function manageBar(st: TraderState, k: Candle, t: number, spread: number)
     return closePosition(st, fill, t, reason);
   }
   if (!p.tp1Done && d * (favor - p.tp1) >= 0) {
-    const half1 = Math.max(1, Math.floor(p.oz / 2));
-    if (half1 < p.oz) {
+    const half1 = STRATEGY.tp1Fraction > 0 ? Math.max(1, Math.floor(p.oz * STRATEGY.tp1Fraction)) : 0;
+    if (half1 > 0 && half1 < p.oz) {
       p.realized += d * (p.tp1 - p.entry) * half1;
       p.oz -= half1;
     }
     p.tp1Done = true;
-    p.sl = p.entry; // break-even on the runner
+    if (STRATEGY.beAfterTp1) p.sl = p.entry; // break-even on the runner
   }
   if (p.tp1Done && d * (favor - p.tp2) >= 0) return closePosition(st, p.tp2, t, "TP2");
   p.bestPrice = d === 1 ? Math.max(p.bestPrice, k.h) : Math.min(p.bestPrice, k.l);
@@ -172,13 +173,15 @@ export function endOfBar(st: TraderState, m: Market, i: number, spread: number):
   const close = s.close[i];
   const exitMid = close - (d * spread) / 2;
   p.barsHeld++;
-  if (weekendRisk(t) === "flatten") return closePosition(st, exitMid, t, "WEEKEND");
+  // overnight financing, accrued bar by bar on what is still open
+  if (STRATEGY.financingPctYear > 0) p.realized -= (STRATEGY.financingPctYear / 100) * close * p.oz * (s.tf / 525600);
+  if (STRATEGY.weekendFlat && weekendRisk(t) === "flatten") return closePosition(st, exitMid, t, "WEEKEND");
   const risk = d * (p.entry - p.sl0);
-  if (!p.tp1Done && p.barsHeld >= Math.round(480 / s.tf) && d * (exitMid - p.entry) < 0.3 * risk) {
+  if (!p.tp1Done && p.barsHeld >= Math.round(STRATEGY.timeStopMin / s.tf) && d * (exitMid - p.entry) < 0.3 * risk) {
     return closePosition(st, exitMid, t, "TEMPS");
   }
-  if (p.tp1Done) {
-    const trail = p.bestPrice - d * 2.5 * a;
+  if (p.tp1Done && STRATEGY.trailAtr > 0) {
+    const trail = p.bestPrice - d * STRATEGY.trailAtr * a;
     if (d * (trail - p.sl) > 0 && d * (close - trail) > 0) p.sl = trail;
   }
   return null;

@@ -1,0 +1,57 @@
+// The strategy's adjustable rules, in one place. The values below are what the app and the
+// server trade with; backtest/research.ts changes them to test ideas on 5 years of real gold
+// prices before any of them is adopted.
+import { ModuleId, Regime, Session } from "./types";
+
+export type RegimeKey = "TREND" | "RANGE" | "SQUEEZE" | "VOLATILE";
+
+export interface Strategy {
+  fit: Record<ModuleId, Record<RegimeKey, number>>; // how well each specialist suits each market state
+  base: Partial<Record<ModuleId, number>>; // overrides of each specialist's base weight
+  sweepKillzoneOnly: boolean; // liquidity sweeps only during the London / New York killzones
+  sweepMinBias: number; // sweeps need at least this much higher-timeframe agreement (-1 = any)
+  sweepNeedFvg: boolean; // sweeps need a displacement with a fair value gap
+  minBias: number; // any entry needs at least this much H1/H4 agreement (-1 = any)
+  blockRegimes: Regime[]; // no new entry in these market states
+  blockSessions: Session[]; // no new entry in these sessions
+  tp1Fraction: number; // share of the position taken off at the first target (1R)
+  beAfterTp1: boolean; // move the stop to the entry once the first target is hit
+  trailAtr: number; // trailing distance after the first target, in ATR (0 = no trailing)
+  timeStopMin: number; // close a trade going nowhere after this many minutes
+  weekendFlat: boolean; // close everything before the weekend
+  sessionWeight: boolean; // weigh confidence by the session's liquidity (meaningful for intraday candles only)
+  financingPctYear: number; // overnight financing charged by the broker, % of the position per year
+}
+
+export const DEFAULT_STRATEGY: Strategy = {
+  fit: {
+    sweep: { TREND: 0.85, RANGE: 1, SQUEEZE: 0.7, VOLATILE: 0.5 },
+    pullback: { TREND: 1, RANGE: 0.45, SQUEEZE: 0.5, VOLATILE: 0.3 },
+    london: { TREND: 0.9, RANGE: 0.75, SQUEEZE: 1, VOLATILE: 0.4 },
+    squeeze: { TREND: 0.7, RANGE: 0.65, SQUEEZE: 1, VOLATILE: 0.3 },
+    momentum: { TREND: 1, RANGE: 0.35, SQUEEZE: 0.7, VOLATILE: 0.4 },
+    reversion: { TREND: 0.25, RANGE: 1, SQUEEZE: 0.4, VOLATILE: 0.2 },
+    divergence: { TREND: 0.45, RANGE: 0.9, SQUEEZE: 0.6, VOLATILE: 0.4 },
+  },
+  base: {},
+  sweepKillzoneOnly: false,
+  sweepMinBias: -1,
+  sweepNeedFvg: false,
+  minBias: -1,
+  blockRegimes: [],
+  blockSessions: [],
+  tp1Fraction: 0.5,
+  beAfterTp1: true,
+  trailAtr: 2.5,
+  timeStopMin: 480,
+  weekendFlat: true,
+  sessionWeight: true,
+  financingPctYear: 0,
+};
+
+// The live rules (mutable so the research script can swap them; the app never does)
+export const STRATEGY: Strategy = structuredClone(DEFAULT_STRATEGY);
+
+export function useStrategy(s: Partial<Strategy>) {
+  Object.assign(STRATEGY, structuredClone(DEFAULT_STRATEGY), structuredClone(s));
+}
