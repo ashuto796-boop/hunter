@@ -7,7 +7,11 @@
     "priceEur": 24.9,
     "costEur": 10,
     "score": 76,
-    "risks": ["Concurrence déjà présente sur zooplus et Amazon : se démarquer par la vidéo et la livraison rapide depuis l'Europe", "Bien indiquer les tailles de gobelet (petit / grand chien) pour éviter les retours"]
+    "risks": [
+      "Concurrence déjà présente sur zooplus et Amazon : se démarquer par la vidéo et la livraison rapide depuis l'Europe",
+      "Bien indiquer les tailles de gobelet (petit / grand chien) pour éviter les retours"
+    ],
+    "searchEn": "dog paw cleaner cup"
   },
   {
     "name": "Kit anti-ennui : tapis de léchage + tapis de fouille",
@@ -17,7 +21,11 @@
     "priceEur": 29.9,
     "costEur": 12,
     "score": 72,
-    "risks": ["Silicone : exiger du silicone alimentaire (certificat du fournisseur)", "Ne promettre aucun effet médical sur l'anxiété : parler d'occupation et de calme"]
+    "risks": [
+      "Silicone : exiger du silicone alimentaire (certificat du fournisseur)",
+      "Ne promettre aucun effet médical sur l'anxiété : parler d'occupation et de calme"
+    ],
+    "searchEn": "dog lick mat snuffle mat"
   },
   {
     "name": "Housse de banquette arrière pour chien, imperméable (hamac)",
@@ -27,7 +35,11 @@
     "priceEur": 39.9,
     "costEur": 18,
     "score": 68,
-    "risks": ["Colis plus lourd et volumineux : port plus cher, à vérifier", "Dimensions de banquette : indiquer clairement les mesures"]
+    "risks": [
+      "Colis plus lourd et volumineux : port plus cher, à vérifier",
+      "Dimensions de banquette : indiquer clairement les mesures"
+    ],
+    "searchEn": "dog car seat cover hammock waterproof"
   },
   {
     "name": "Brosse autonettoyante anti-poils pour chat et chien",
@@ -37,7 +49,11 @@
     "priceEur": 19.9,
     "costEur": 7,
     "score": 62,
-    "risks": ["Marge par vente faible pour payer de la pub seul : à proposer en vente additionnelle", "Très concurrencé"]
+    "risks": [
+      "Marge par vente faible pour payer de la pub seul : à proposer en vente additionnelle",
+      "Très concurrencé"
+    ],
+    "searchEn": "self cleaning slicker brush pet"
   },
   {
     "name": "Fontaine à eau sans fil pour chat + filtres de rechange",
@@ -47,6 +63,11 @@
     "priceEur": 49.9,
     "costEur": 28,
     "score": 58,
-    "risks": ["Appareil électrique avec batterie : marquage CE et documents de conformité obligatoires, fournisseur sérieux uniquement", "Plus cher à tester ; à lancer après un premier produit gagnant", "Aucune promesse sur la santé du chat"]
+    "risks": [
+      "Appareil électrique avec batterie : marquage CE et documents de conformité obligatoires, fournisseur sérieux uniquement",
+      "Plus cher à tester ; à lancer après un premier produit gagnant",
+      "Aucune promesse sur la santé du chat"
+    ],
+    "searchEn": "cordless cat water fountain"
   }
 ]

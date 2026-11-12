@@ -170,3 +170,14 @@ input[type="password"], .field input { width: 100%; border: 1px solid var(--line
 .steps ul { padding-left: 18px; margin-top: 4px; }
 
 .steps + p, .tiles + p, .card > p.small { margin-top: 10px; }
+
+.ads { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
+.table-wrap { overflow-x: auto; }
+.table-wrap table { width: 100%; border-collapse: collapse; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+.table-wrap th, .table-wrap td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.table-wrap td:first-child { white-space: normal; min-width: 140px; }
+.v-couper { background: var(--danger-soft); border-color: transparent; color: var(--danger); }
+.v-augmenter { background: var(--ok); border-color: transparent; color: #fff; }
+
+.spend { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin: 6px 0 10px; }
+.spend b { font: 800 28px/1.1 var(--display); }

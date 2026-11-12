@@ -9,9 +9,11 @@ import { seal, unseal } from "../../src/gold/engine/seal";
 import { ROSTER } from "../../src/ecom/shared/roster";
 import { unitEconomics } from "../../src/ecom/shared/finance";
 import type { AgentId, EcomState, ProductIdea, PublishedState } from "../../src/ecom/shared/types";
-import { isDue, runAgent, syncProducts, type Config, type Ctx } from "./agents";
+import { isDue, overBudget, runAgent, syncProducts, type Config, type Ctx } from "./agents";
 import { hasClaude, usage } from "./claude";
 import { Shopify, type Policy } from "./shopify";
+import { adsConfigured, fetchAds, verdicts } from "./ads";
+import { CJ, cjConfigured } from "./cj";
 
 const args = process.argv.slice(2);
 const arg = (name: string) => {
@@ -58,7 +60,7 @@ const state = await load();
 // First run: start from the products researched by hand (server/ecom/seed-products.json).
 // They enter as ideas, so the sourcing agent checks real supplier prices before anything else.
 if (!state.products.length) {
-  type Seed = Pick<ProductIdea, "name" | "problem" | "why" | "angle" | "priceEur" | "costEur" | "score" | "risks">;
+  type Seed = Pick<ProductIdea, "name" | "problem" | "why" | "angle" | "priceEur" | "costEur" | "score" | "risks" | "searchEn">;
   const seeds = JSON.parse(readFileSync(fileURLToPath(new URL("./seed-products.json", import.meta.url)), "utf8")) as Seed[];
   for (const s of seeds) {
     const u = unitEconomics(s.priceEur, s.costEur, cfg);
@@ -100,24 +102,87 @@ if (Shopify.configured()) {
 }
 if (!hasClaude()) console.log("Claude pas encore connecté (secret ANTHROPIC_API_KEY) : seuls les calculs tournent.");
 
-const ctx: Ctx = { cfg, state, shop, policies, orders, now, log };
+// Ad results (read-only) and the CJ catalogue, each optional
+const ads = adsConfigured() ? await fetchAds(cfg.metaApiVersion, log) : null;
+if (ads) {
+  const live = state.products.filter((p) => p.status === "en vente" || p.status === "brouillon" || p.status === "sourcé");
+  const be = state.kpis?.breakEvenRoas ?? (live.length ? live.reduce((s, p) => s + p.breakEvenRoas, 0) / live.length : 2.2);
+  const margin = live.length ? live.reduce((s, p) => s + p.marginEur, 0) / live.length : 12;
+  verdicts(ads, be, margin);
+  // the owner's limits beat every other rule: stop-loss without a sale, then the monthly ceiling
+  const spent = ads.platforms.reduce((s, p) => s + p.spend30, 0);
+  const sales = ads.platforms.reduce((s, p) => s + p.purchases30, 0);
+  const all = ads.platforms.flatMap((p) => p.ads);
+  if (spent >= cfg.adStopLossEur && sales === 0) {
+    all.forEach((a) => (a.verdict = "couper"));
+    log(`Pubs : ${Math.round(spent)} € dépensés sans aucune vente, tout est à couper (limite ${cfg.adStopLossEur} €)`);
+  } else if (spent >= cfg.adBudgetMaxMonthEur) {
+    all.forEach((a) => (a.verdict = a.verdict === "augmenter" || a.verdict === "attendre" ? "couper" : a.verdict));
+    log(`Pubs : plafond de ${cfg.adBudgetMaxMonthEur} € atteint sur 30 jours, tout est à couper`);
+  } else if (spent >= cfg.adBudgetMaxMonthEur * 0.8) {
+    all.forEach((a) => (a.verdict = a.verdict === "augmenter" ? "attendre" : a.verdict));
+  }
+  console.log(`Pubs : ${ads.platforms.map((p) => `${p.name} ${p.ads.length} pub(s)`).join(", ") || "aucune donnée"}${ads.errors.length ? `, ${ads.errors.length} erreur(s)` : ""}.`);
+}
+state.ads = ads;
+let cj: CJ | null = null;
+if (cjConfigured()) {
+  try {
+    cj = await CJ.connect();
+    console.log("CJ Dropshipping connecté.");
+  } catch (e) {
+    log(`CJ : ${(e as Error).message}`);
+    console.log("::warning::CJ Dropshipping : connexion refusée");
+  }
+}
+
+const ctx: Ctx = { cfg, state, shop, policies, orders, ads, cj, now, log };
+// Claude spend of the month, measured on every call; a new calendar month starts from zero
+const month = new Date(now).toISOString().slice(0, 7);
+if (!state.claude || state.claude.month !== month) {
+  // the very first run (12 November 2026) happened before spend was tracked
+  const before = !state.claude && state.runs > 0 && month === "2026-11" ? cfg.claudeSpentBeforeTrackingUsd : 0;
+  state.claude = { month, usd: before, budget: cfg.claudeBudgetMonthUsd, runs: 0 };
+}
+state.claude.budget = cfg.claudeBudgetMonthUsd;
+const monthStart = state.claude.usd;
+const spent = () => monthStart + usage.usd;
+let blocked = 0;
+
 let ran = 0;
+let worked = 0; // agents that produced a fresh report with the model this run
 for (const a of ROSTER) {
   if (only.length && !only.includes(a.id)) continue;
   // the CEO writes the brief whenever someone else worked
-  const due = a.id === "ceo" ? ran > 0 || isDue("ceo", ctx, force) : isDue(a.id, ctx, force);
+  const due = a.id === "ceo" ? worked > 0 || isDue("ceo", ctx, force) : isDue(a.id, ctx, force);
   if (!due) continue;
+  // the ceiling is enforced here: an agent that could push the month past it does not start
+  if (hasClaude() && overBudget(a.id, ctx, spent())) {
+    const prev = state.agents[a.id];
+    state.agents[a.id] = {
+      ...(prev ?? { id: a.id, summary: "", sections: [], todo: [] }),
+      at: prev?.at ?? now,
+      status: "waiting",
+      note: `Plafond Claude du mois atteint (${spent().toFixed(2)} $ dépensés sur ${cfg.claudeBudgetMonthUsd} $) : reprise le 1er du mois prochain, ou monte le plafond dans config.json.`,
+    };
+    blocked++;
+    continue;
+  }
   const t0 = Date.now();
   const r = await runAgent(a.id, ctx);
   state.agents[a.id] = r;
   ran++;
+  if (r.status === "ok" && r.model && r.at === now) worked++;
   console.log(`${a.name} (${a.role}) : ${r.status} en ${Math.round((Date.now() - t0) / 1000)} s`);
 }
 
 state.at = now;
 state.runs++;
+state.claude.usd = Math.round(spent() * 100) / 100;
+state.claude.runs++;
+if (blocked) log(`Plafond Claude : ${blocked} agent(s) en pause, ${state.claude.usd} $ dépensés ce mois-ci sur ${cfg.claudeBudgetMonthUsd} $`);
 if (ran) log(`Journée de travail : ${ran} agent(s), ${usage.calls} appel(s) Claude, ${usage.searches} recherche(s) web`);
 
 const pub: PublishedState = { v: 1, at: now, runs: state.runs, sealed: await seal(state, passphrase) };
 writeFileSync(statePath, JSON.stringify(pub));
-console.log(`État chiffré écrit (${ran} agent(s), ${usage.calls} appels Claude, ${usage.input} + ${usage.output} jetons, ${usage.searches} recherches web).`);
+console.log(`État chiffré écrit (${ran} agent(s), ${usage.calls} appels Claude, ${usage.input} + ${usage.output} jetons, ${usage.searches} recherches web, ${usage.usd.toFixed(2)} $ ; ce mois-ci ${state.claude.usd} $ sur ${cfg.claudeBudgetMonthUsd} $).`);

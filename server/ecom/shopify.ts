@@ -39,7 +39,11 @@ export class Shopify {
         client_secret: process.env.SHOPIFY_CLIENT_SECRET ?? "",
       }),
     });
-    if (!res.ok) throw new Error(`jeton Shopify refusé (${res.status}) : vérifie SHOPIFY_CLIENT_ID / SHOPIFY_CLIENT_SECRET et que l'app est installée sur la boutique`);
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      if (body.includes("shop_not_permitted")) throw new Error("Shopify refuse : l'app du Dev Dashboard doit être créée avec le même compte (la même organisation) que la boutique");
+      throw new Error(`jeton Shopify refusé (${res.status}) : vérifie SHOPIFY_CLIENT_ID / SHOPIFY_CLIENT_SECRET et que l'app est installée sur la boutique`);
+    }
     const j = (await res.json()) as { access_token?: string };
     if (!j.access_token) throw new Error("Shopify n'a pas renvoyé de jeton");
     return new Shopify(store, j.access_token);
@@ -70,16 +74,23 @@ export class Shopify {
 
   async shop(): Promise<{ info: ShopInfo; policies: Policy[] }> {
     type R = {
-      shop: { name: string; currencyCode: string; primaryDomain: { host: string }; shopPolicies: { type: string; body: string }[] };
+      shop: { name: string; currencyCode: string; primaryDomain: { host: string } };
       products: { nodes: { id: string; title: string; status: string; priceRangeV2: { minVariantPrice: { amount: string } } }[] };
     };
     const d = await this.gql<R>(`{
-      shop { name currencyCode primaryDomain { host } shopPolicies { type body } }
+      shop { name currencyCode primaryDomain { host } }
       products(first: 100, sortKey: UPDATED_AT, reverse: true) {
         nodes { id title status priceRangeV2 { minVariantPrice { amount } } }
       }
     }`);
-    const policies = d.shop.shopPolicies.filter((p) => p.body?.trim()).map((p) => ({ type: p.type, body: p.body }));
+    // legal pages need their own scope (read_legal_policies): without it the shop still connects
+    let policies: Policy[] = [];
+    try {
+      const p = await this.gql<{ shop: { shopPolicies: { type: string; body: string }[] } }>(`{ shop { shopPolicies { type body } } }`);
+      policies = p.shop.shopPolicies.filter((x) => x.body?.trim()).map((x) => ({ type: x.type, body: x.body }));
+    } catch {
+      /* the compliance agent reports the pages as unknown */
+    }
     return {
       info: {
         name: d.shop.name,
