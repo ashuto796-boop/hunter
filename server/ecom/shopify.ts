@@ -27,7 +27,7 @@ export class Shopify {
   }
 
   static async connect(): Promise<Shopify> {
-    const store = (process.env.SHOPIFY_STORE ?? "").replace(/^https?:\/\//, "").replace(/\/.*$/, "").trim();
+    const store = (process.env.SHOPIFY_STORE ?? "").trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "").trim().toLowerCase();
     if (!/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/i.test(store)) throw new Error("SHOPIFY_STORE doit ressembler à ma-boutique.myshopify.com");
     if (process.env.SHOPIFY_TOKEN) return new Shopify(store, process.env.SHOPIFY_TOKEN.trim());
     const res = await fetch(`https://${store}/admin/oauth/access_token`, {
@@ -35,14 +35,22 @@ export class Shopify {
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
         grant_type: "client_credentials",
-        client_id: process.env.SHOPIFY_CLIENT_ID ?? "",
-        client_secret: process.env.SHOPIFY_CLIENT_SECRET ?? "",
+        client_id: (process.env.SHOPIFY_CLIENT_ID ?? "").trim(),
+        client_secret: (process.env.SHOPIFY_CLIENT_SECRET ?? "").trim(),
       }),
     });
     if (!res.ok) {
       const body = await res.text().catch(() => "");
       if (body.includes("shop_not_permitted")) throw new Error("Shopify refuse : l'app du Dev Dashboard doit être créée avec le même compte (la même organisation) que la boutique");
-      throw new Error(`jeton Shopify refusé (${res.status}) : vérifie SHOPIFY_CLIENT_ID / SHOPIFY_CLIENT_SECRET et que l'app est installée sur la boutique`);
+      // Shopify's own error code and description (they never contain the credentials)
+      let why = "";
+      try {
+        const j = JSON.parse(body) as { error?: string; error_description?: string; errors?: string };
+        why = [j.error, j.error_description, j.errors].filter(Boolean).join(" : ");
+      } catch {
+        why = body.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+      }
+      throw new Error(`jeton Shopify refusé (${res.status}${why ? `, Shopify dit « ${why.slice(0, 160)} »` : ""}) : vérifie que l'app est installée sur la boutique et SHOPIFY_CLIENT_ID / SHOPIFY_CLIENT_SECRET`);
     }
     const j = (await res.json()) as { access_token?: string };
     if (!j.access_token) throw new Error("Shopify n'a pas renvoyé de jeton");
