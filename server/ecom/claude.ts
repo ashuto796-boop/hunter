@@ -20,14 +20,32 @@ export interface Usage {
   input: number;
   output: number;
   searches: number;
+  usd: number; // cost of this run, from the token counts the API returns and the public prices
 }
-export const usage: Usage = { calls: 0, input: 0, output: 0, searches: 0 };
+export const usage: Usage = { calls: 0, input: 0, output: 0, searches: 0, usd: 0 };
+
+// $ per million tokens (input, output), public API prices. Cache writes cost 1.25x input, cache
+// reads 0.05x input; web search is $10 per 1 000 searches. Unknown models are priced like Opus 5.
+const PRICES: [RegExp, number, number][] = [
+  [/opus-5-5/, 4, 20],
+  [/fable|mythos/, 8, 40],
+  [/sonnet/, 2, 10],
+  [/haiku-5/, 0.1, 0.5],
+  [/haiku/, 1, 5],
+  [/.*/, 5, 25],
+];
 
 function count(res: Anthropic.Beta.BetaMessage) {
+  const u = res.usage;
+  const read = u.cache_read_input_tokens ?? 0;
+  const write = u.cache_creation_input_tokens ?? 0;
+  const searches = u.server_tool_use?.web_search_requests ?? 0;
+  const [, pin, pout] = PRICES.find(([re]) => re.test(res.model))!;
   usage.calls++;
-  usage.input += res.usage.input_tokens + (res.usage.cache_read_input_tokens ?? 0) + (res.usage.cache_creation_input_tokens ?? 0);
-  usage.output += res.usage.output_tokens;
-  usage.searches += res.usage.server_tool_use?.web_search_requests ?? 0;
+  usage.input += u.input_tokens + read + write;
+  usage.output += u.output_tokens;
+  usage.searches += searches;
+  usage.usd += (u.input_tokens * pin + write * pin * 1.25 + read * pin * 0.05 + u.output_tokens * pout) / 1e6 + searches * 0.01;
 }
 
 export async function research(model: string, system: string, prompt: string, maxSearches: number): Promise<{ text: string; model: string }> {

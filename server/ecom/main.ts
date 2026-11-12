@@ -9,7 +9,7 @@ import { seal, unseal } from "../../src/gold/engine/seal";
 import { ROSTER } from "../../src/ecom/shared/roster";
 import { unitEconomics } from "../../src/ecom/shared/finance";
 import type { AgentId, EcomState, ProductIdea, PublishedState } from "../../src/ecom/shared/types";
-import { isDue, runAgent, syncProducts, type Config, type Ctx } from "./agents";
+import { isDue, overBudget, runAgent, syncProducts, type Config, type Ctx } from "./agents";
 import { hasClaude, usage } from "./claude";
 import { Shopify, type Policy } from "./shopify";
 import { adsConfigured, fetchAds, verdicts } from "./ads";
@@ -137,6 +137,18 @@ if (cjConfigured()) {
 }
 
 const ctx: Ctx = { cfg, state, shop, policies, orders, ads, cj, now, log };
+// Claude spend of the month, measured on every call; a new calendar month starts from zero
+const month = new Date(now).toISOString().slice(0, 7);
+if (!state.claude || state.claude.month !== month) {
+  // the very first run (12 November 2026) happened before spend was tracked
+  const before = !state.claude && state.runs > 0 && month === "2026-11" ? cfg.claudeSpentBeforeTrackingUsd : 0;
+  state.claude = { month, usd: before, budget: cfg.claudeBudgetMonthUsd, runs: 0 };
+}
+state.claude.budget = cfg.claudeBudgetMonthUsd;
+const monthStart = state.claude.usd;
+const spent = () => monthStart + usage.usd;
+let blocked = 0;
+
 let ran = 0;
 let worked = 0; // agents that produced a fresh report with the model this run
 for (const a of ROSTER) {
@@ -144,6 +156,18 @@ for (const a of ROSTER) {
   // the CEO writes the brief whenever someone else worked
   const due = a.id === "ceo" ? worked > 0 || isDue("ceo", ctx, force) : isDue(a.id, ctx, force);
   if (!due) continue;
+  // the ceiling is enforced here: an agent that could push the month past it does not start
+  if (hasClaude() && overBudget(a.id, ctx, spent())) {
+    const prev = state.agents[a.id];
+    state.agents[a.id] = {
+      ...(prev ?? { id: a.id, summary: "", sections: [], todo: [] }),
+      at: prev?.at ?? now,
+      status: "waiting",
+      note: `Plafond Claude du mois atteint (${spent().toFixed(2)} $ dépensés sur ${cfg.claudeBudgetMonthUsd} $) : reprise le 1er du mois prochain, ou monte le plafond dans config.json.`,
+    };
+    blocked++;
+    continue;
+  }
   const t0 = Date.now();
   const r = await runAgent(a.id, ctx);
   state.agents[a.id] = r;
@@ -154,8 +178,11 @@ for (const a of ROSTER) {
 
 state.at = now;
 state.runs++;
+state.claude.usd = Math.round(spent() * 100) / 100;
+state.claude.runs++;
+if (blocked) log(`Plafond Claude : ${blocked} agent(s) en pause, ${state.claude.usd} $ dépensés ce mois-ci sur ${cfg.claudeBudgetMonthUsd} $`);
 if (ran) log(`Journée de travail : ${ran} agent(s), ${usage.calls} appel(s) Claude, ${usage.searches} recherche(s) web`);
 
 const pub: PublishedState = { v: 1, at: now, runs: state.runs, sealed: await seal(state, passphrase) };
 writeFileSync(statePath, JSON.stringify(pub));
-console.log(`État chiffré écrit (${ran} agent(s), ${usage.calls} appels Claude, ${usage.input} + ${usage.output} jetons, ${usage.searches} recherches web).`);
+console.log(`État chiffré écrit (${ran} agent(s), ${usage.calls} appels Claude, ${usage.input} + ${usage.output} jetons, ${usage.searches} recherches web, ${usage.usd.toFixed(2)} $ ; ce mois-ci ${state.claude.usd} $ sur ${cfg.claudeBudgetMonthUsd} $).`);

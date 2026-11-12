@@ -178,3 +178,6 @@ input[type="password"], .field input { width: 100%; border: 1px solid var(--line
 .table-wrap td:first-child { white-space: normal; min-width: 140px; }
 .v-couper { background: var(--danger-soft); border-color: transparent; color: var(--danger); }
 .v-augmenter { background: var(--ok); border-color: transparent; color: #fff; }
+
+.spend { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin: 6px 0 10px; }
+.spend b { font: 800 28px/1.1 var(--display); }
