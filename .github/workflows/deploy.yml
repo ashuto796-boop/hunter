@@ -1,7 +1,7 @@
 name: Build check
 
 # GitHub Pages serves the main branch directly (site at /hunter/, AURUM at /hunter/gold/,
-# Tremplin at /hunter/saas/). This job only checks that the apps and the AURUM server still compile.
+# Tremplin at /hunter/saas/, Vitrine at /hunter/ecom/). This job only checks that the apps and the AURUM server still compile.
 on:
   push:
     branches: [main]
@@ -26,4 +26,5 @@ jobs:
           npm run build
           npm run build:gold
           npm run build:saas
+          npm run build:ecom
           npm run check:server
