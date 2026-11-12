@@ -7,7 +7,8 @@ import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { seal, unseal } from "../../src/gold/engine/seal";
 import { ROSTER } from "../../src/ecom/shared/roster";
-import type { AgentId, EcomState, PublishedState } from "../../src/ecom/shared/types";
+import { unitEconomics } from "../../src/ecom/shared/finance";
+import type { AgentId, EcomState, ProductIdea, PublishedState } from "../../src/ecom/shared/types";
 import { isDue, runAgent, syncProducts, type Config, type Ctx } from "./agents";
 import { hasClaude, usage } from "./claude";
 import { Shopify, type Policy } from "./shopify";
@@ -53,6 +54,24 @@ async function load(): Promise<EcomState> {
 }
 
 const state = await load();
+
+// First run: start from the products researched by hand (server/ecom/seed-products.json).
+// They enter as ideas, so the sourcing agent checks real supplier prices before anything else.
+if (!state.products.length) {
+  type Seed = Pick<ProductIdea, "name" | "problem" | "why" | "angle" | "priceEur" | "costEur" | "score" | "risks">;
+  const seeds = JSON.parse(readFileSync(fileURLToPath(new URL("./seed-products.json", import.meta.url)), "utf8")) as Seed[];
+  for (const s of seeds) {
+    const u = unitEconomics(s.priceEur, s.costEur, cfg);
+    const key = s.name
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 60);
+    state.products.push({ ...s, key, marginEur: u.margin, breakEvenRoas: u.breakEvenRoas, suppliers: [], status: "idée", foundAt: now });
+  }
+}
 const log = (text: string) => {
   state.log.unshift({ at: Date.now(), text });
   state.log = state.log.slice(0, 80);
