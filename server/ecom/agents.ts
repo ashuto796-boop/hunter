@@ -394,8 +394,10 @@ const merch: Agent = async (ctx) => {
         p.shopifyId = await shop.createDraft({ title: p.listing!.title, descriptionHtml: p.listing!.descriptionHtml, productType: "", tags: [], seoTitle: p.listing!.title.slice(0, 70), seoDescription: p.problem.slice(0, 160), price: p.listing!.price, compareAt: p.listing!.compareAt, cost: p.costEur });
         p.status = "brouillon";
         ctx.log(`Maxime : brouillon Shopify créé pour « ${p.name} »`);
+        console.log("Maxime : 1 brouillon créé dans Shopify.");
       } catch (e) {
         ctx.log(`Maxime : brouillon impossible (${explain(e)})`);
+        console.log(`::warning::Maxime : brouillon refusé par Shopify (${explain(e).slice(0, 120)})`);
       }
     }
   }
@@ -422,8 +424,10 @@ const merch: Agent = async (ctx) => {
         candidate.shopifyId = await shop.createDraft({ title: l.title, descriptionHtml: l.descriptionHtml, productType: l.productType, tags: l.tags.slice(0, 10), seoTitle: l.seoTitle, seoDescription: l.seoDescription, price: l.priceEur, compareAt: l.compareAtEur, cost: candidate.costEur });
         candidate.status = "brouillon";
         ctx.log(`Maxime : brouillon Shopify créé pour « ${candidate.name} »`);
+        console.log("Maxime : 1 brouillon créé dans Shopify.");
       } catch (e) {
         ctx.log(`Maxime : brouillon impossible (${explain(e)})`);
+        console.log(`::warning::Maxime : brouillon refusé par Shopify (${explain(e).slice(0, 120)})`);
       }
     }
   }
