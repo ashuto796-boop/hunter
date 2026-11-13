@@ -91,7 +91,7 @@ if (Shopify.configured()) {
     policies = s.policies;
     orders = await shop.orders(30);
     syncProducts(state);
-    console.log(`Shopify connecté : ${s.info.products.length} produits, ${orders.length} commandes sur 30 jours.`);
+    console.log(`Shopify connecté : ${s.info.products.length} produits (${s.info.products.filter((p) => p.status === "DRAFT").length} brouillons), ${orders.length} commandes sur 30 jours.`);
   } catch (e) {
     state.shopError = (e as Error).message.slice(0, 200);
     console.log(`::warning::Shopify : ${state.shopError}`);
