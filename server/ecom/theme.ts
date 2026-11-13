@@ -192,9 +192,28 @@ async function main() {
   for (const k of plainChanged) current[k] = plain[k];
   if (plainChanged.length) console.log(`Couleurs de page : ${plainChanged.join(", ")}.`);
   colours = [...colours, ...plainChanged];
+  // Horizon-style themes: one central palette that every other colour refers to
+  const palette = current.color_palette as Json | undefined;
+  if (palette && typeof palette === "object") {
+    const set = (k: string, v: string) => {
+      if (k in palette && palette[k] !== v) {
+        palette[k] = v;
+        colours.push(`color_palette.${k}`);
+      }
+    };
+    set("background", BRAND.page);
+    set("foreground", BRAND.ink);
+    console.log(`Palette du thème : ${Object.keys(palette).join(", ")}.`);
+  }
+  // main buttons in the paw's terracotta (only settings this theme actually has)
+  for (const [k, v] of [["palette_primary_button_background", BRAND.button], ["palette_primary_button_border", BRAND.button], ["palette_primary_button_text", BRAND.onButton]] as const)
+    if (k in current) {
+      current[k] = v;
+      colours.push(k);
+    }
   data.current = current;
   await writeSettings(shop, theme.id, JSON.stringify(data, null, 2));
-  console.log(`Thème mis à jour : logo (${logo.join(", ")}), icône (${favicon.join(", ")}), ${colours.length} couleur(s) du schéma « ${first ?? "aucun"} ». Rien n'a été publié.`);
+  console.log(`Thème mis à jour : logo (${logo.join(", ")}), icône (${favicon.join(", ")}), ${colours.length} couleur(s) changée(s) (${colours.join(", ") || "aucune"}). Rien n'a été publié.`);
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) await main();
