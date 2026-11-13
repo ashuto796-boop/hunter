@@ -57,7 +57,7 @@ export class Shopify {
     return new Shopify(store, j.access_token);
   }
 
-  private async gql<T>(query: string, variables: Record<string, unknown> = {}): Promise<T> {
+  async gql<T>(query: string, variables: Record<string, unknown> = {}): Promise<T> {
     for (let attempt = 0; ; attempt++) {
       const res = await fetch(`https://${this.store}/admin/api/${API_VERSION}/graphql.json`, {
         method: "POST",

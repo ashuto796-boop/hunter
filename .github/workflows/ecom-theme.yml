@@ -1,0 +1,43 @@
+name: "Boutique : poser le thème"
+
+# Puts the brand (logo, favicon, colours) on the live Shopify theme: server/ecom/theme.ts.
+# Only config/settings_data.json of the current theme changes; the original is saved first
+# and kept as the "theme-backup" artifact. Choose "restore" to put that backup back
+# (download the artifact of the run that changed the theme into theme-backup/ first).
+# Needs the app scopes read_themes, write_themes and write_files.
+on:
+  workflow_dispatch:
+    inputs:
+      restore:
+        description: "Remettre les réglages d'origine du thème"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  theme:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install --no-audit --no-fund --legacy-peer-deps
+      - name: Put the brand on the theme
+        env:
+          SHOPIFY_STORE: ${{ secrets.SHOPIFY_STORE }}
+          SHOPIFY_TOKEN: ${{ secrets.SHOPIFY_TOKEN }}
+          SHOPIFY_CLIENT_ID: ${{ secrets.SHOPIFY_CLIENT_ID }}
+          SHOPIFY_CLIENT_SECRET: ${{ secrets.SHOPIFY_CLIENT_SECRET }}
+        run: npx tsx server/ecom/theme.ts ${{ inputs.restore && '--restore' || '' }}
+      - name: Keep the original theme settings
+        if: ${{ always() && !inputs.restore }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: theme-backup
+          path: theme-backup/
+          if-no-files-found: ignore
+          retention-days: 90
