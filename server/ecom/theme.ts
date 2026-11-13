@@ -140,6 +140,23 @@ async function main() {
   }
 
   const files = await readFiles(shop, theme.id, ["config/settings_data.json", "config/settings_schema.json"]).catch(scopeHint);
+  if (process.argv.includes("--inspect")) {
+    // read-only look at how this theme stores its colours (theme configuration only, no shop data)
+    const d = parseThemeJson(files["config/settings_data.json"] ?? "{}");
+    const cur = (typeof d.current === "object" ? d.current : {}) as Json;
+    const pre = d.presets as Record<string, Json> | undefined;
+    console.log("current, réglages de couleur :", JSON.stringify(Object.fromEntries(Object.entries(cur).filter(([k]) => /colou?r|scheme|background|button/i.test(k)))).slice(0, 1500));
+    for (const [name, p] of Object.entries(pre ?? {})) console.log(`preset ${name} :`, Object.keys(p).filter((k) => /colou?r|scheme|background|button/i.test(k)).join(", ").slice(0, 800));
+    try {
+      for (const g of JSON.parse(files["config/settings_schema.json"] ?? "[]") as { name?: unknown; settings?: Json[] }[])
+        for (const st of g.settings ?? [])
+          if (st.type === "color_scheme_group" || st.type === "color" || st.type === "color_scheme")
+            console.log("schéma :", JSON.stringify({ id: st.id, type: st.type, default: st.default, definition: Array.isArray(st.definition) ? (st.definition as Json[]).map((x) => `${x.id}:${x.default ?? ""}`) : undefined }).slice(0, 1200));
+    } catch (e) {
+      console.log("schéma illisible", (e as Error).message);
+    }
+    return;
+  }
   const original = files["config/settings_data.json"];
   if (!original) throw new Error("réglages du thème introuvables");
   writeFileSync("theme-backup/settings_data.json", original);
