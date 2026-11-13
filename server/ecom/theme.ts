@@ -27,6 +27,11 @@ function scopeHint(e: unknown): never {
 
 async function upload(shop: Shopify, path: string, alt: string): Promise<string> {
   const name = path.split("/").pop()!;
+  // already in the shop's files from an earlier run: reuse it instead of adding a copy
+  type Q = { files: { nodes: { image?: { url: string } | null }[] } };
+  const found = await shop.gql<Q>(`query($q: String!) { files(first: 5, query: $q) { nodes { ... on MediaImage { image { url } } } } }`, { q: `filename:${name}` }).catch(() => null);
+  const same = found?.files.nodes.map((n) => n.image?.url).find((u) => u && decodeURIComponent(new URL(u).pathname.split("/").pop()!) === name);
+  if (same) return name;
   const size = statSync(path).size;
   type S = { stagedUploadsCreate: { stagedTargets: { url: string; resourceUrl: string; parameters: { name: string; value: string }[] }[]; userErrors: { message: string }[] } };
   const s = await shop.gql<S>(
@@ -153,9 +158,15 @@ async function main() {
   for (const id of logo) current[id] = `shopify://shop_images/${logoFile}`;
   for (const id of favicon) current[id] = `shopify://shop_images/${iconFile}`;
   let colours: string[] = [];
+  // a fresh theme keeps its colour schemes in the preset, not in "current": copy them over first
+  if (!current.color_schemes) {
+    const preset = Object.values(presets).find((p) => p && typeof p === "object" && (p as Json).color_schemes) as Json | undefined;
+    if (preset) current.color_schemes = structuredClone(preset.color_schemes);
+  }
   const schemes = current.color_schemes as Record<string, { settings?: Json }> | undefined;
   const first = schemes && Object.keys(schemes)[0];
   if (first && schemes![first].settings) colours = recolour(schemes![first].settings!);
+  else console.log(`Pas de schéma de couleurs trouvé (réglages : ${Object.keys(current).slice(0, 30).join(", ") || "aucun"} ; préréglages : ${Object.keys(presets).join(", ") || "aucun"}).`);
   data.current = current;
   await writeSettings(shop, theme.id, JSON.stringify(data, null, 2));
   console.log(`Thème mis à jour : logo (${logo.join(", ")}), icône (${favicon.join(", ")}), ${colours.length} couleur(s) du schéma « ${first ?? "aucun"} ». Rien n'a été publié.`);
