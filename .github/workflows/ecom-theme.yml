@@ -12,6 +12,10 @@ on:
         description: "Remettre les réglages d'origine du thème"
         type: boolean
         default: false
+      inspect:
+        description: "Seulement regarder comment le thème range ses couleurs (ne change rien)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -32,9 +36,9 @@ jobs:
           SHOPIFY_TOKEN: ${{ secrets.SHOPIFY_TOKEN }}
           SHOPIFY_CLIENT_ID: ${{ secrets.SHOPIFY_CLIENT_ID }}
           SHOPIFY_CLIENT_SECRET: ${{ secrets.SHOPIFY_CLIENT_SECRET }}
-        run: npx tsx server/ecom/theme.ts ${{ inputs.restore && '--restore' || '' }}
+        run: npx tsx server/ecom/theme.ts ${{ inputs.restore && '--restore' || '' }} ${{ inputs.inspect && '--inspect' || '' }}
       - name: Keep the original theme settings
-        if: ${{ always() && !inputs.restore }}
+        if: ${{ always() && !inputs.restore && !inputs.inspect }}
         uses: actions/upload-artifact@v4
         with:
           name: theme-backup
