@@ -10,10 +10,10 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { Shopify } from "./shopify";
 
 const BRAND = {
-  ink: "#1F3A34", // deep green: text, buttons
-  paw: "#F4B79F", // soft peach: the paw
-  page: "#FFFFFF",
-  onInk: "#FFFFFF",
+  ink: "#1F3A34", // deep green: text and headings
+  button: "#C4603F", // terracotta, the colour of the paw: buttons and links
+  page: "#FFFBF8", // warm white page
+  onButton: "#FFFFFF",
 };
 const here = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -113,11 +113,11 @@ export function recolour(scheme: Json): string[] {
     const key = k.toLowerCase();
     let to: string | null = null;
     if (key.includes("secondary") || key.includes("border") || key.includes("shadow") || key.includes("gradient")) continue;
-    if (key.includes("button") && /(label|text|foreground)/.test(key)) to = BRAND.onInk;
-    else if (key.includes("button")) to = BRAND.ink;
+    if (key.includes("button") && /(label|text|foreground)/.test(key)) to = BRAND.onButton;
+    else if (key.includes("button")) to = BRAND.button;
     else if (key.includes("background")) to = BRAND.page;
     else if (/(foreground|text|heading)/.test(key)) to = BRAND.ink;
-    else if (key === "primary" || key.includes("accent")) to = BRAND.ink;
+    else if (key === "primary" || key.includes("accent") || key.includes("link")) to = BRAND.button;
     if (to && to.toLowerCase() !== v.toLowerCase()) {
       scheme[k] = to;
       changed.push(k);
@@ -145,8 +145,8 @@ async function main() {
   writeFileSync("theme-backup/settings_data.json", original);
   writeFileSync("theme-backup/theme.txt", `${theme.name}\n${theme.id}\n`);
 
-  const logoFile = await upload(shop, here("./brand/coussinet-logo.png"), "Logo Coussinet");
-  const iconFile = await upload(shop, here("./brand/coussinet-icone.png"), "Icône Coussinet");
+  const logoFile = await upload(shop, here("./brand/coussinet-logo-v2.png"), "Logo Coussinet");
+  const iconFile = await upload(shop, here("./brand/coussinet-icone-v2.png"), "Icône Coussinet");
   console.log("Logo et icône envoyés dans les fichiers de la boutique.");
 
   const data = parseThemeJson(original);
@@ -167,6 +167,14 @@ async function main() {
   const first = schemes && Object.keys(schemes)[0];
   if (first && schemes![first].settings) colours = recolour(schemes![first].settings!);
   else console.log(`Pas de schéma de couleurs trouvé (réglages : ${Object.keys(current).slice(0, 30).join(", ") || "aucun"} ; préréglages : ${Object.keys(presets).join(", ") || "aucun"}).`);
+  // themes like Horizon also keep page colours as plain settings: recolour those too
+  const presetValues = (Object.values(presets).find((p) => p && typeof p === "object") ?? {}) as Json;
+  const plain: Json = {};
+  for (const src of [presetValues, current]) for (const [k, v] of Object.entries(src)) if (typeof v === "string" && /^#[0-9a-f]{3,8}$/i.test(v) && /page|button|link/i.test(k) && !/badge|sale|input|error|success/i.test(k)) plain[k] = v;
+  const plainChanged = recolour(plain);
+  for (const k of plainChanged) current[k] = plain[k];
+  if (plainChanged.length) console.log(`Couleurs de page : ${plainChanged.join(", ")}.`);
+  colours = [...colours, ...plainChanged];
   data.current = current;
   await writeSettings(shop, theme.id, JSON.stringify(data, null, 2));
   console.log(`Thème mis à jour : logo (${logo.join(", ")}), icône (${favicon.join(", ")}), ${colours.length} couleur(s) du schéma « ${first ?? "aucun"} ». Rien n'a été publié.`);
