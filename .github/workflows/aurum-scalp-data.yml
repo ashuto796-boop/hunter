@@ -9,12 +9,18 @@ on:
       years:
         description: "Années d'historique"
         default: "2"
+      skip_years:
+        description: "Finir il y a tant d'années (données plus anciennes)"
+        default: "0"
+      branch:
+        description: "Branche où ranger les données"
+        default: "aurum-scalp-data"
 
 permissions:
   contents: write
 
 concurrency:
-  group: aurum-scalp-data
+  group: aurum-scalp-data-${{ inputs.branch }}
   cancel-in-progress: true
 
 jobs:
@@ -28,7 +34,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Download one slice
-        run: python3 backtest/dukascopy.py --m1 --years "${{ inputs.years }}" --parts 12 --part ${{ matrix.part }} --workers 6 --out slice
+        run: python3 backtest/dukascopy.py --m1 --years "${{ inputs.years }}" --skip-years "${{ inputs.skip_years }}" --parts 12 --part ${{ matrix.part }} --workers 6 --out slice
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
@@ -63,8 +69,8 @@ jobs:
       - name: Publish
         run: |
           cd data
-          git init -q -b aurum-scalp-data
+          git init -q -b "${{ inputs.branch }}"
           git add .
           git -c user.name="AURUM bot" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
             commit -q -m "AURUM : données minute (lancement ${{ github.run_id }})"
-          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" aurum-scalp-data
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" "${{ inputs.branch }}"

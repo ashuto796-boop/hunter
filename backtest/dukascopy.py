@@ -174,10 +174,11 @@ def main():
     ap.add_argument("--probe", action="store_true", help="decode one recent day and stop")
     ap.add_argument("--part", type=int, default=-1, help="with --parts: download only this slice of the period")
     ap.add_argument("--parts", type=int, default=1)
+    ap.add_argument("--skip-years", type=float, default=0, help="end the period this many years ago (older data for a final check)")
     ap.add_argument("--m1", action="store_true", help="gold 1-minute candles only (xau_m1.json), for scalping tests")
     args = ap.parse_args()
     os.makedirs(args.out, exist_ok=True)
-    end = date.today() - timedelta(days=1)
+    end = date.today() - timedelta(days=1 + int(args.skip_years * 365.25))
     if args.probe:
         d = end
         while d.weekday() >= 5:
