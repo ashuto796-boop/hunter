@@ -4,7 +4,11 @@
 // to choose). Trades pay the real spread: a buy fills at the ask and exits at the bid. When the
 // stop and the target are both reachable within the same minute, the stop is assumed first.
 //
-//   npx tsx backtest/scalp.ts --data backtest/scalp-data/xau_m1.json [--top 15]
+//   npx tsx backtest/scalp.ts --data backtest/scalp-data/xau_m1.json [--top 15] [--spread 1.2]
+//
+// Result on 2 years (Nov 2024 - Nov 2026, median spread 0.60 $): none of the 104 rule sets made
+// money on both halves; the frequent ones (2 to 9 trades a day) all lost, paying 0.2 to 0.3 R of
+// spread per trade.
 import { readFileSync } from "fs";
 
 const args = process.argv.slice(2);
@@ -215,7 +219,7 @@ function sweep(look: number, stopAtr: number): Signal {
 }
 
 const rules: Rule[] = [];
-for (const spread of [0.5]) {
+for (const spread of [Number(opt("spread", "1.2"))]) {
   for (const open of ["londres", "new york"] as const)
     for (const len of [5, 15, 30])
       for (const tr of [1, 1.5, 2])
