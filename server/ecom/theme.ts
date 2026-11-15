@@ -10,10 +10,10 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { Shopify } from "./shopify";
 
 const BRAND = {
-  ink: "#1F3A34", // deep green: text, buttons
-  paw: "#F4B79F", // soft peach: the paw
-  page: "#FFFFFF",
-  onInk: "#FFFFFF",
+  ink: "#1F3A34", // deep green: text and headings
+  button: "#C4603F", // terracotta, the colour of the paw: buttons and links
+  page: "#FFFBF8", // warm white page
+  onButton: "#FFFFFF",
 };
 const here = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -27,6 +27,11 @@ function scopeHint(e: unknown): never {
 
 async function upload(shop: Shopify, path: string, alt: string): Promise<string> {
   const name = path.split("/").pop()!;
+  // already in the shop's files from an earlier run: reuse it instead of adding a copy
+  type Q = { files: { nodes: { image?: { url: string } | null }[] } };
+  const found = await shop.gql<Q>(`query($q: String!) { files(first: 5, query: $q) { nodes { ... on MediaImage { image { url } } } } }`, { q: `filename:${name}` }).catch(() => null);
+  const same = found?.files.nodes.map((n) => n.image?.url).find((u) => u && decodeURIComponent(new URL(u).pathname.split("/").pop()!) === name);
+  if (same) return name;
   const size = statSync(path).size;
   type S = { stagedUploadsCreate: { stagedTargets: { url: string; resourceUrl: string; parameters: { name: string; value: string }[] }[]; userErrors: { message: string }[] } };
   const s = await shop.gql<S>(
@@ -108,11 +113,11 @@ export function recolour(scheme: Json): string[] {
     const key = k.toLowerCase();
     let to: string | null = null;
     if (key.includes("secondary") || key.includes("border") || key.includes("shadow") || key.includes("gradient")) continue;
-    if (key.includes("button") && /(label|text|foreground)/.test(key)) to = BRAND.onInk;
-    else if (key.includes("button")) to = BRAND.ink;
+    if (key.includes("button") && /(label|text|foreground)/.test(key)) to = BRAND.onButton;
+    else if (key.includes("button")) to = BRAND.button;
     else if (key.includes("background")) to = BRAND.page;
     else if (/(foreground|text|heading)/.test(key)) to = BRAND.ink;
-    else if (key === "primary" || key.includes("accent")) to = BRAND.ink;
+    else if (key === "primary" || key.includes("accent") || key.includes("link")) to = BRAND.button;
     if (to && to.toLowerCase() !== v.toLowerCase()) {
       scheme[k] = to;
       changed.push(k);
@@ -135,13 +140,30 @@ async function main() {
   }
 
   const files = await readFiles(shop, theme.id, ["config/settings_data.json", "config/settings_schema.json"]).catch(scopeHint);
+  if (process.argv.includes("--inspect")) {
+    // read-only look at how this theme stores its colours (theme configuration only, no shop data)
+    const d = parseThemeJson(files["config/settings_data.json"] ?? "{}");
+    const cur = (typeof d.current === "object" ? d.current : {}) as Json;
+    const pre = d.presets as Record<string, Json> | undefined;
+    console.log("current, réglages de couleur :", JSON.stringify(Object.fromEntries(Object.entries(cur).filter(([k]) => /colou?r|scheme|background|button/i.test(k)))).slice(0, 1500));
+    for (const [name, p] of Object.entries(pre ?? {})) console.log(`preset ${name} :`, Object.keys(p).filter((k) => /colou?r|scheme|background|button/i.test(k)).join(", ").slice(0, 800));
+    try {
+      for (const g of JSON.parse(files["config/settings_schema.json"] ?? "[]") as { name?: unknown; settings?: Json[] }[])
+        for (const st of g.settings ?? [])
+          if (st.type === "color_scheme_group" || st.type === "color" || st.type === "color_scheme")
+            console.log("schéma :", JSON.stringify({ id: st.id, type: st.type, default: st.default, definition: Array.isArray(st.definition) ? (st.definition as Json[]).map((x) => `${x.id}:${x.default ?? ""}`) : undefined }).slice(0, 1200));
+    } catch (e) {
+      console.log("schéma illisible", (e as Error).message);
+    }
+    return;
+  }
   const original = files["config/settings_data.json"];
   if (!original) throw new Error("réglages du thème introuvables");
   writeFileSync("theme-backup/settings_data.json", original);
   writeFileSync("theme-backup/theme.txt", `${theme.name}\n${theme.id}\n`);
 
-  const logoFile = await upload(shop, here("./brand/coussinet-logo.png"), "Logo Coussinet");
-  const iconFile = await upload(shop, here("./brand/coussinet-icone.png"), "Icône Coussinet");
+  const logoFile = await upload(shop, here("./brand/coussinet-logo-01.png"), "Logo Coussinet");
+  const iconFile = await upload(shop, here("./brand/coussinet-icone-01.png"), "Icône Coussinet");
   console.log("Logo et icône envoyés dans les fichiers de la boutique.");
 
   const data = parseThemeJson(original);
@@ -153,12 +175,45 @@ async function main() {
   for (const id of logo) current[id] = `shopify://shop_images/${logoFile}`;
   for (const id of favicon) current[id] = `shopify://shop_images/${iconFile}`;
   let colours: string[] = [];
+  // a fresh theme keeps its colour schemes in the preset, not in "current": copy them over first
+  if (!current.color_schemes) {
+    const preset = Object.values(presets).find((p) => p && typeof p === "object" && (p as Json).color_schemes) as Json | undefined;
+    if (preset) current.color_schemes = structuredClone(preset.color_schemes);
+  }
   const schemes = current.color_schemes as Record<string, { settings?: Json }> | undefined;
   const first = schemes && Object.keys(schemes)[0];
   if (first && schemes![first].settings) colours = recolour(schemes![first].settings!);
+  else console.log(`Pas de schéma de couleurs trouvé (réglages : ${Object.keys(current).slice(0, 30).join(", ") || "aucun"} ; préréglages : ${Object.keys(presets).join(", ") || "aucun"}).`);
+  // themes like Horizon also keep page colours as plain settings: recolour those too
+  const presetValues = (Object.values(presets).find((p) => p && typeof p === "object") ?? {}) as Json;
+  const plain: Json = {};
+  for (const src of [presetValues, current]) for (const [k, v] of Object.entries(src)) if (typeof v === "string" && /^#[0-9a-f]{3,8}$/i.test(v) && /page|button|link/i.test(k) && !/badge|sale|input|error|success/i.test(k)) plain[k] = v;
+  const plainChanged = recolour(plain);
+  for (const k of plainChanged) current[k] = plain[k];
+  if (plainChanged.length) console.log(`Couleurs de page : ${plainChanged.join(", ")}.`);
+  colours = [...colours, ...plainChanged];
+  // Horizon-style themes: one central palette that every other colour refers to
+  const palette = current.color_palette as Json | undefined;
+  if (palette && typeof palette === "object") {
+    const set = (k: string, v: string) => {
+      if (k in palette && palette[k] !== v) {
+        palette[k] = v;
+        colours.push(`color_palette.${k}`);
+      }
+    };
+    set("background", BRAND.page);
+    set("foreground", BRAND.ink);
+    console.log(`Palette du thème : ${Object.keys(palette).join(", ")}.`);
+  }
+  // main buttons in the paw's terracotta (only settings this theme actually has)
+  for (const [k, v] of [["palette_primary_button_background", BRAND.button], ["palette_primary_button_border", BRAND.button], ["palette_primary_button_text", BRAND.onButton]] as const)
+    if (k in current) {
+      current[k] = v;
+      colours.push(k);
+    }
   data.current = current;
   await writeSettings(shop, theme.id, JSON.stringify(data, null, 2));
-  console.log(`Thème mis à jour : logo (${logo.join(", ")}), icône (${favicon.join(", ")}), ${colours.length} couleur(s) du schéma « ${first ?? "aucun"} ». Rien n'a été publié.`);
+  console.log(`Thème mis à jour : logo (${logo.join(", ")}), icône (${favicon.join(", ")}), ${colours.length} couleur(s) changée(s) (${colours.join(", ") || "aucune"}). Rien n'a été publié.`);
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) await main();
