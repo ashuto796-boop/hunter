@@ -220,7 +220,7 @@ jobs:
         continue-on-error: true
         with:
           pattern: scalp-*
-          path: parts
+          path: scalp-parts
       - uses: actions/download-artifact@v4
         continue-on-error: true
         with:
@@ -232,7 +232,7 @@ jobs:
           npx -y tsx@4.19.2 backtest/lab.ts --merge parts --data backtest/data --state state/lab.json --report out/lab.md --champion out/champion.json
           cp state/lab.json out/lab.json
           if [ -f m1/xau_m1.json ]; then
-            NODE_OPTIONS=--max-old-space-size=4000 npx -y tsx@4.19.2 backtest/scalplab.ts --merge parts --m1 m1/xau_m1.json --state state/scalp.json --report out/scalp.md
+            NODE_OPTIONS=--max-old-space-size=4000 npx -y tsx@4.19.2 backtest/scalplab.ts --merge scalp-parts --m1 m1/xau_m1.json --state state/scalp.json --report out/scalp.md
             cp state/scalp.json out/scalp.json
           fi
       - name: Publish
