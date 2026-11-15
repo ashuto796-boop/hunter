@@ -3,6 +3,8 @@ name: AURUM labo de nuit
 # Every night: adds the new days of real gold prices to the 5-year history, then 8 machines
 # (3 searches each) try and refine strategies for 40 minutes with backtest/lab.ts, and the results
 # are folded into the leaderboard kept on the aurum-lab branch (lab.json, lab.md, champion.json).
+# A second lane searches home-made scalping rules on 1-minute gold (backtest/scalplab.ts, 4 years
+# kept up to date on aurum-scalp-data; results scalp.json / scalp.md on aurum-lab).
 # The lab never changes the bot: its champion is a proposal. Optional push summary: NTFY_TOPIC.
 on:
   schedule:
@@ -65,12 +67,94 @@ jobs:
       - name: Load the leaderboard
         run: |
           mkdir -p state
-          if git fetch -q origin aurum-lab 2>/dev/null; then git show FETCH_HEAD:lab.json > state/lab.json; else echo "premier passage du labo"; fi
+          if git fetch -q origin aurum-lab 2>/dev/null; then
+            git show FETCH_HEAD:lab.json > state/lab.json
+            git show FETCH_HEAD:scalp.json > state/scalp.json 2>/dev/null || rm -f state/scalp.json
+          else echo "premier passage du labo"; fi
       - uses: actions/upload-artifact@v4
         with:
           name: state
           path: state
           if-no-files-found: ignore
+
+  scalp-data:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Load 4 years of 1-minute gold and add the new days
+        run: |
+          mkdir -p m1 old new
+          git fetch -q origin aurum-scalp-data && git show FETCH_HEAD:xau_m1.json.gz | gunzip > m1/recent.json
+          if git fetch -q origin aurum-scalp-data-old 2>/dev/null; then git show FETCH_HEAD:xau_m1.json.gz | gunzip > m1/old.json; fi
+          FROM=$(python3 -c "import json,datetime;r=json.load(open('m1/recent.json'));print((datetime.datetime.utcfromtimestamp(r[-1][0])-datetime.timedelta(days=2)).date())")
+          python3 backtest/dukascopy.py --m1 --from "$FROM" --workers 6 --out new || echo "pas de nouveaux jours"
+          python3 - <<'PY'
+          import glob, json
+          rows = {}
+          for f in ["m1/old.json", "m1/recent.json", "new/xau_m1.json"]:
+              try:
+                  for r in json.load(open(f)):
+                      rows[r[0]] = r
+              except FileNotFoundError:
+                  pass
+          out = [rows[k] for k in sorted(rows)]
+          json.dump(out, open("m1/xau_m1.json", "w"), separators=(",", ":"))
+          print(len(out), "minutes")
+          PY
+          mkdir -p saved && gzip -9 -c m1/xau_m1.json > saved/xau_m1.json.gz
+          cd saved
+          git init -q -b aurum-scalp-data
+          git add .
+          git -c user.name="AURUM bot" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -q -m "AURUM : or minute par minute jusqu'au $(date -u +%Y-%m-%d)"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" aurum-scalp-data
+      - uses: actions/upload-artifact@v4
+        with:
+          name: m1
+          path: m1/xau_m1.json
+
+  scalp-search:
+    needs: [data, scalp-data]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        job: [0, 1]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - uses: actions/download-artifact@v4
+        with:
+          name: data
+          path: backtest/data
+      - uses: actions/download-artifact@v4
+        with:
+          name: m1
+          path: m1
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: state
+          path: state
+      - name: Search scalping rules (3 at once)
+        env:
+          NODE_OPTIONS: --max-old-space-size=4000
+        run: |
+          npx -y tsx@4.19.2 --version >/dev/null
+          for j in 0 1 2; do
+            k=$(( ${{ matrix.job }} * 3 + j ))
+            npx -y tsx@4.19.2 backtest/scalplab.ts --wf --data backtest/data --m1 m1/xau_m1.json --state state/scalp.json --worker $k --workers 6 --minutes 30 --cap 3000 --out s-$k.jsonl > slog-$k.txt 2>&1 &
+          done
+          wait
+          tail -n 3 slog-*.txt
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: scalp-${{ matrix.job }}
+          path: s-*.jsonl
 
   search:
     needs: data
@@ -110,7 +194,7 @@ jobs:
           path: part-*.jsonl
 
   merge:
-    needs: search
+    needs: [search, scalp-search]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -132,16 +216,31 @@ jobs:
         with:
           pattern: part-*
           path: parts
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          pattern: scalp-*
+          path: parts
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: m1
+          path: m1
       - name: Fold the night into the leaderboard
         run: |
           mkdir -p out state
           npx -y tsx@4.19.2 backtest/lab.ts --merge parts --data backtest/data --state state/lab.json --report out/lab.md --champion out/champion.json
           cp state/lab.json out/lab.json
+          if [ -f m1/xau_m1.json ]; then
+            NODE_OPTIONS=--max-old-space-size=4000 npx -y tsx@4.19.2 backtest/scalplab.ts --merge parts --m1 m1/xau_m1.json --state state/scalp.json --report out/scalp.md
+            cp state/scalp.json out/scalp.json
+          fi
       - name: Publish
         run: |
           cd out
           git init -q -b aurum-lab
           git add lab.json lab.md champion.json
+          if [ -f scalp.json ]; then git add scalp.json scalp.md; fi
           git -c user.name="AURUM bot" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -q -m "AURUM : labo du $(date -u +%Y-%m-%d)"
           git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" aurum-lab
       - name: Push summary
@@ -149,5 +248,14 @@ jobs:
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
         if: env.NTFY_TOPIC != ''
         run: |
-          MSG=$(python3 -c "import json;s=json.load(open('out/lab.json'));h=s['history'][-1];print(f\"Labo AURUM nuit {s['nights']} : {h['tried']} stratégies essayées, {h['qualified']} qualifiées, champion : {s['champion'] or 'aucun encore'}\")")
+          MSG=$(python3 -c "
+          import json, os
+          s = json.load(open('out/lab.json')); h = s['history'][-1]
+          m = f\"Labo AURUM nuit {s['nights']} : {h['tried']} stratégies essayées, {h['qualified']} qualifiées, champion : {s['champion'] or 'aucun encore'}\"
+          if os.path.exists('out/scalp.json'):
+              k = json.load(open('out/scalp.json'))
+              q = sum(1 for e in k['entries'] if e['status'] in ('qualifiée', 'confirmée'))
+              m += f\". Scalping : {q} qualifiées, champion : {k['champion'] or 'aucun encore'}\"
+          print(m)
+          ")
           curl -fsS -H "Title: AURUM labo" -d "$MSG" "https://ntfy.sh/$NTFY_TOPIC" >/dev/null || true
