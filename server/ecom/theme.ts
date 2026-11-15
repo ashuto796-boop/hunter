@@ -162,8 +162,8 @@ async function main() {
   writeFileSync("theme-backup/settings_data.json", original);
   writeFileSync("theme-backup/theme.txt", `${theme.name}\n${theme.id}\n`);
 
-  const logoFile = await upload(shop, here("./brand/coussinet-logo-v2.png"), "Logo Coussinet");
-  const iconFile = await upload(shop, here("./brand/coussinet-icone-v2.png"), "Icône Coussinet");
+  const logoFile = await upload(shop, here("./brand/coussinet-logo-01.png"), "Logo Coussinet");
+  const iconFile = await upload(shop, here("./brand/coussinet-icone-01.png"), "Icône Coussinet");
   console.log("Logo et icône envoyés dans les fichiers de la boutique.");
 
   const data = parseThemeJson(original);
