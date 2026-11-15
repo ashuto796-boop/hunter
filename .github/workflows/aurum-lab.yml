@@ -1,0 +1,153 @@
+name: AURUM labo de nuit
+
+# Every night: adds the new days of real gold prices to the 5-year history, then 8 machines
+# (3 searches each) try and refine strategies for 40 minutes with backtest/lab.ts, and the results
+# are folded into the leaderboard kept on the aurum-lab branch (lab.json, lab.md, champion.json).
+# The lab never changes the bot: its champion is a proposal. Optional push summary: NTFY_TOPIC.
+on:
+  schedule:
+    - cron: "23 1 * * *"
+  workflow_dispatch:
+    inputs:
+      minutes:
+        description: "Minutes de recherche par machine"
+        default: "40"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: aurum-lab
+  cancel-in-progress: false
+
+env:
+  MINUTES: ${{ inputs.minutes || '40' }}
+
+jobs:
+  data:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Load the history
+        run: |
+          git fetch -q origin aurum-backtest-data
+          mkdir -p backtest/data
+          for f in xau_m15 xag_h1 eur_h1; do git show FETCH_HEAD:$f.json.gz | gunzip > backtest/data/$f.json; done
+          python3 -c "import json,datetime;c=json.load(open('backtest/data/xau_m15.json'));print('dernière bougie', datetime.datetime.utcfromtimestamp(c[-1]['t']/1000))"
+      - name: Add the new days
+        continue-on-error: true
+        run: |
+          FROM=$(python3 -c "import json,datetime;c=json.load(open('backtest/data/xau_m15.json'));print((datetime.datetime.utcfromtimestamp(c[-1]['t']/1000)-datetime.timedelta(days=2)).date())")
+          echo "téléchargement depuis $FROM"
+          python3 backtest/dukascopy.py --from "$FROM" --workers 6 --out new
+          python3 - <<'PY'
+          import json
+          for name in ("xau_m15", "xag_h1", "eur_h1"):
+              old = json.load(open(f"backtest/data/{name}.json"))
+              rows = {r["t"]: r for r in old}
+              before = len(rows)
+              for r in json.load(open(f"new/{name}.json")):
+                  rows[r["t"]] = r
+              json.dump([rows[t] for t in sorted(rows)], open(f"backtest/data/{name}.json", "w"), separators=(",", ":"))
+              print(name, before, "->", len(rows))
+          PY
+          mkdir -p saved && for f in xau_m15 xag_h1 eur_h1; do gzip -9 -c backtest/data/$f.json > saved/$f.json.gz; done
+          cd saved
+          git init -q -b aurum-backtest-data
+          git add .
+          git -c user.name="AURUM bot" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -q -m "AURUM : données jusqu'au $(date -u +%Y-%m-%d)"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" aurum-backtest-data
+      - uses: actions/upload-artifact@v4
+        with:
+          name: data
+          path: backtest/data
+      - name: Load the leaderboard
+        run: |
+          mkdir -p state
+          if git fetch -q origin aurum-lab 2>/dev/null; then git show FETCH_HEAD:lab.json > state/lab.json; else echo "premier passage du labo"; fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: state
+          path: state
+          if-no-files-found: ignore
+
+  search:
+    needs: data
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        job: [0, 1, 2, 3, 4, 5, 6, 7]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - uses: actions/download-artifact@v4
+        with:
+          name: data
+          path: backtest/data
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: state
+          path: state
+      - name: Search (3 at once)
+        run: |
+          npx -y tsx@4.19.2 --version >/dev/null
+          for j in 0 1 2; do
+            k=$(( ${{ matrix.job }} * 3 + j ))
+            npx -y tsx@4.19.2 backtest/lab.ts --wf --data backtest/data --state state/lab.json --worker $k --workers 24 --minutes "$MINUTES" --out part-$k.jsonl > log-$k.txt 2>&1 &
+          done
+          wait
+          tail -n 5 log-*.txt
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: part-${{ matrix.job }}
+          path: part-*.jsonl
+
+  merge:
+    needs: search
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - uses: actions/download-artifact@v4
+        with:
+          name: data
+          path: backtest/data
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: state
+          path: state
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: part-*
+          path: parts
+      - name: Fold the night into the leaderboard
+        run: |
+          mkdir -p out state
+          npx -y tsx@4.19.2 backtest/lab.ts --merge parts --data backtest/data --state state/lab.json --report out/lab.md --champion out/champion.json
+          cp state/lab.json out/lab.json
+      - name: Publish
+        run: |
+          cd out
+          git init -q -b aurum-lab
+          git add lab.json lab.md champion.json
+          git -c user.name="AURUM bot" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -q -m "AURUM : labo du $(date -u +%Y-%m-%d)"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" aurum-lab
+      - name: Push summary
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        if: env.NTFY_TOPIC != ''
+        run: |
+          MSG=$(python3 -c "import json;s=json.load(open('out/lab.json'));h=s['history'][-1];print(f\"Labo AURUM nuit {s['nights']} : {h['tried']} stratégies essayées, {h['qualified']} qualifiées, champion : {s['champion'] or 'aucun encore'}\")")
+          curl -fsS -H "Title: AURUM labo" -d "$MSG" "https://ntfy.sh/$NTFY_TOPIC" >/dev/null || true

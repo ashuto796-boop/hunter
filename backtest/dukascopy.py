@@ -174,6 +174,7 @@ def main():
     ap.add_argument("--probe", action="store_true", help="decode one recent day and stop")
     ap.add_argument("--part", type=int, default=-1, help="with --parts: download only this slice of the period")
     ap.add_argument("--parts", type=int, default=1)
+    ap.add_argument("--from", dest="since", default="", help="YYYY-MM-DD: download from this day to yesterday (daily refresh)")
     ap.add_argument("--skip-years", type=float, default=0, help="end the period this many years ago (older data for a final check)")
     ap.add_argument("--m1", action="store_true", help="gold 1-minute candles only (xau_m1.json), for scalping tests")
     args = ap.parse_args()
@@ -187,7 +188,7 @@ def main():
         f = factor_for("XAUUSD", rows)
         print(f"sonde {d} : {len(rows)} minutes, premier cours {rows[0][1] / f:.3f}, dernier {rows[-1][2] / f:.3f}")
         return
-    start = end - timedelta(days=int(args.years * 365.25))
+    start = date.fromisoformat(args.since) if args.since else end - timedelta(days=int(args.years * 365.25))
     days = [start + timedelta(days=i) for i in range((end - start).days + 1)]
     if args.part >= 0:  # one slice of the period, for parallel downloads on several machines
         size = -(-len(days) // args.parts)
@@ -216,7 +217,7 @@ def main():
     with open(os.path.join(args.out, "missing.json"), "w") as fh:
         json.dump({"missing": len(MISSING), "requested": 2 * len(days)}, fh)
     # a few missing days only leave gaps, like holidays; stop only when a large share is gone
-    if len(gold) < (1000 if args.part < 0 else 100) or len(MISSING) > 0.15 * 2 * len(days):
+    if len(gold) < (1 if args.since else 1000 if args.part < 0 else 100) or len(MISSING) > 0.15 * 2 * len(days):
         sys.exit("trop de données manquantes")
 
 
