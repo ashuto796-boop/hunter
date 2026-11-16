@@ -952,6 +952,8 @@ const CUR = CFG.simulation ? '€' : '$';
 const eur = (v) => (v > 0 ? '+' : v < 0 ? '−' : '') + fmt2(v) + ' ' + CUR;
 const pct = (v) => (v > 0 ? '+' : v < 0 ? '−' : '') + fmt2(v) + ' %';
 const pad = (n) => String(n).padStart(2, '0');
+// today: hh:mm:ss; another day: dd/mm hh:mm
+const whenT = (t) => { const d = new Date(t * 1000); return d.toDateString() === new Date().toDateString() ? hhmmss(t) : pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()); };
 const hhmmss = (t) => { const d = new Date(t * 1000); return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()); };
 
 /* ---------- toasts ---------- */
@@ -1142,9 +1144,11 @@ function setMarkers(ctx) {
   if (!ctx.series) return;
   const tf = ctx.tf, ms = [];
   const all = BOT.trades.slice(-40).concat(BOT.pos ? [BOT.pos] : []);
+  // on a narrow chart (phone) the labels overlap: arrows and dots only, the amounts stay in the table
+  const narrow = window.innerWidth < 640;
   all.forEach((tr) => {
-    ms.push({ time: bucket(tr.tIn, tf), position: tr.side > 0 ? 'belowBar' : 'aboveBar', color: tr.side > 0 ? '#2FD69B' : '#FF6A5E', shape: tr.side > 0 ? 'arrowUp' : 'arrowDown', text: tr.side > 0 ? 'Achat' : 'Vente' });
-    if (tr.tOut) ms.push({ time: bucket(tr.tOut, tf), position: tr.side > 0 ? 'aboveBar' : 'belowBar', color: tr.pnl >= 0 ? '#5BE8B4' : '#FF8E84', shape: 'circle', text: 'Sortie ' + eur(tr.pnl) });
+    ms.push({ time: bucket(tr.tIn, tf), position: tr.side > 0 ? 'belowBar' : 'aboveBar', color: tr.side > 0 ? '#2FD69B' : '#FF6A5E', shape: tr.side > 0 ? 'arrowUp' : 'arrowDown', text: narrow ? '' : tr.side > 0 ? 'Achat' : 'Vente' });
+    if (tr.tOut) ms.push({ time: bucket(tr.tOut, tf), position: tr.side > 0 ? 'aboveBar' : 'belowBar', color: tr.pnl >= 0 ? '#5BE8B4' : '#FF8E84', shape: 'circle', text: narrow ? '' : 'Sortie ' + eur(tr.pnl) });
   });
   ms.sort((a, b) => a.time - b.time);
   ctx.series.setMarkers(ms);
@@ -1225,7 +1229,7 @@ function renderTrades(highlight) {
   list.forEach((t, i) => {
     const tr = document.createElement('tr'); if (i === 0 && highlight) tr.className = 'new';
     const c = t.pnl >= 0 ? 'var(--up2)' : 'var(--dn2)';
-    tr.innerHTML = '<td>' + hhmmss(t.tIn) + '</td><td>' + hhmmss(t.tOut) + '</td><td style="color:' + (t.side > 0 ? 'var(--up2)' : 'var(--dn2)') + '">' + (t.side > 0 ? 'Achat' : 'Vente') + '</td><td>' + fmt2(t.entry * t.lot * 100 / 20) + ' ' + CUR + ' <span style="color:var(--mut)">· ' + String(+t.lot.toFixed(2)).replace('.', ',') + ' lot</span></td><td>' + t.entry.toFixed(2) + '</td><td>' + t.exit.toFixed(2) + '</td><td style="color:' + c + ';font-weight:600">' + eur(t.pnl) + '</td>';
+    tr.innerHTML = '<td>' + whenT(t.tIn) + '</td><td>' + whenT(t.tOut) + '</td><td style="color:' + (t.side > 0 ? 'var(--up2)' : 'var(--dn2)') + '">' + (t.side > 0 ? 'Achat' : 'Vente') + '</td><td>' + fmt2(t.entry * t.lot * 100 / 20) + ' ' + CUR + ' <span style="color:var(--mut)">· ' + String(+t.lot.toFixed(2)).replace('.', ',') + ' lot</span></td><td>' + t.entry.toFixed(2) + '</td><td>' + t.exit.toFixed(2) + '</td><td style="color:' + c + ';font-weight:600">' + eur(t.pnl) + '</td>';
     tb.appendChild(tr);
   });
 }
