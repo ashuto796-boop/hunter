@@ -32,6 +32,7 @@ import { Capital, CapitalError } from "./broker/capital";
 import { seal, unseal } from "../src/gold/engine/seal";
 import { LiveState } from "../src/gold/engine/live";
 import { SOURCES, Source, SourceId, fetchHistory, fetchNews, fetchPeers, probe } from "../src/gold/data/feed";
+import { ladderStep } from "./ladder";
 
 const DAY = 864e5;
 const MAX_THOUGHTS = 150;
@@ -146,7 +147,12 @@ function dailyRecap(s: ServerState): [string, string] | null {
   const body = today.length
     ? `${today.length} trade(s), ${r >= 0 ? "+" : ""}${r.toFixed(2)}R (${money(pnl)}). Solde ${s.st.balance.toFixed(2)} $.`
     : `Aucun trade aujourd'hui : pas de setup assez propre. Solde ${s.st.balance.toFixed(2)} $.`;
-  return ["AURUM — bilan du jour", body];
+  const L = s.ladder;
+  const lt = L ? L.closed.filter((c) => tradingDay(c.end) === day) : [];
+  const ladder = L
+    ? `\nÉchelle 1 min (démo) : ${lt.length} série(s), ${lt.filter((c) => c.pnl > 0).length} gagnante(s), ${money(lt.reduce((a, c) => a + c.pnl, 0))}. Solde ${L.balance.toFixed(2)} $.`
+    : "";
+  return ["AURUM — bilan du jour", body + ladder];
 }
 
 // Push alert to the phone even when the app is closed
@@ -379,7 +385,7 @@ export async function runOnce(): Promise<ServerState> {
   if (!prev) think("info", `Serveur 24/7 démarré sur ${HOST}. Flux : ${src.label}.`);
   if (prev && prev.source !== src.id) switchInstrument(state, src, think);
   if (prev && prev.settings.tf !== tf) {
-    state = freshState(settings, src.id);
+    state = { ...freshState(settings, src.id), ladder: prev.ladder };
     think("warn", `Nouvelle stratégie AURUM : bougies de ${tfLabel(tf)} au lieu de ${tfLabel(prev.settings.tf)}. Le compte démo repart à neuf.`);
   }
 
@@ -473,6 +479,7 @@ export async function runOnce(): Promise<ServerState> {
   state.st.trades = state.st.trades.slice(-500);
   state.price = closed[last].c;
   alerts.push(...(await brokerStep(state, broker, src.id === "xau" || src.id === "bitget")));
+  await ladderStep(state, src, log);
   state.runs++;
   state.host = HOST;
   state.updatedAt = Date.now();

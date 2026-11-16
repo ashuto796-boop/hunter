@@ -4,6 +4,7 @@ import { computeStats } from "../engine/stats";
 import { MODULE_INFO } from "../engine/modules";
 import { Trade } from "../engine/types";
 import { EquityChart } from "../ui/EquityChart";
+import { LadderState } from "../engine/ladder";
 import { dateTime, lots, pct, price, rr, side, tone, usd } from "../ui/format";
 
 const REASON: Record<Trade["reason"], string> = {
@@ -113,6 +114,7 @@ export function Trades() {
           <div className={`stat-val num ${tone(stats.sumR)}`}>{stats.n ? rr(stats.sumR).replace("R", "") : "—"}</div>
         </div>
       </div>
+      {remote?.ladder && <LadderCard l={remote.ladder} />}
       <section className="card">
         <div className="card-title">Journal de trading</div>
         {trades.length === 0 ? (
@@ -129,5 +131,55 @@ export function Trades() {
         )}
       </section>
     </div>
+  );
+}
+
+const HOW: Record<string, string> = { objectifs: "toutes à l'objectif", coupée: "coupée", temps: "coupée (temps)", trou: "marché fermé" };
+
+// Second demo account: the owner's 1-minute ladder scalp (up to 10 positions of 0.01 lot)
+function LadderCard({ l }: { l: LadderState }) {
+  const s = l.series;
+  return (
+    <section className="card">
+      <div className="card-title">
+        <span>Échelle 1 min · 10 positions (démo)</span>
+        <span className="num" style={{ textTransform: "none", letterSpacing: 0 }}>
+          départ {l.startBalance.toLocaleString("fr-FR")} $
+        </span>
+      </div>
+      <div className="pnl-big num">{l.balance.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} $</div>
+      <div className={`num ${tone(l.stats.pnl)}`} style={{ marginBottom: 12 }}>
+        {usd(l.stats.pnl, true)} · {l.stats.series} série(s), {l.stats.series ? `${((l.stats.won / l.stats.series) * 100).toFixed(0)} % gagnantes` : "aucune encore"} · pire {usd(l.stats.worst, true)}
+      </div>
+      <div className="note" style={{ marginBottom: 10 }}>
+        {s
+          ? `En cours : ${s.dir === 1 ? "achat" : "vente"}, ${s.open.length} position(s) ouverte(s) sur ${s.added}, ${s.won} déjà à l'objectif (${usd(s.pnl, true)}).`
+          : "Aucune série en cours : il attend un repli sur la moyenne 20 min dans le sens de la tendance (7 h-17 h UTC)."}{" "}
+        Une position de plus tous les 5 $ contre lui, jusqu'à 10 ; chacune vise +5 $ (environ 4-5 €). Argent fictif : jamais de vrai ordre.
+      </div>
+      {l.closed.length > 0 && (
+        <div className="list">
+          {l.closed
+            .slice(-10)
+            .reverse()
+            .map((c) => (
+              <div className="row" key={c.start}>
+                <span className={`side ${c.dir === 1 ? "long" : "short"}`}>{c.dir === 1 ? "A" : "V"}</span>
+                <div className="row-main">
+                  <div className="row-title">
+                    {c.added} position(s), {c.won} à l'objectif
+                  </div>
+                  <div className="row-sub num">
+                    {dateTime(c.start)} · {HOW[c.how] ?? c.how}
+                  </div>
+                </div>
+                <div className="row-right">
+                  <div className={`row-title num ${tone(c.pnl)}`}>{usd(c.pnl, true)}</div>
+                </div>
+              </div>
+            ))}
+        </div>
+      )}
+    </section>
   );
 }

@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { LadderState } from "./engine/ladder";
 import { BrainMemory, ContextMemory, DayState, Decision, ModuleStats, Position, Settings, Trade } from "./engine/types";
 import { SourceId } from "./data/feed";
 import { emptyBrain } from "./engine/brain";
@@ -22,6 +23,7 @@ export interface RemoteInfo {
   host: string;
   fetchedAt: number;
   error: string | null;
+  ladder: LadderState | null; // the owner's 1-minute ladder scalp, second demo account
 }
 
 export interface GoldState {

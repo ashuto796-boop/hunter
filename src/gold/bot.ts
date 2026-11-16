@@ -213,7 +213,7 @@ class Bot {
       cooldownUntil: st.cooldownUntil,
       threshold: this.threshold(),
       remote: r
-        ? { updatedAt: r.updatedAt, startedAt: r.startedAt, runs: r.runs, host: r.host, fetchedAt: this.remoteFetchedAt, error: this.remoteError }
+        ? { updatedAt: r.updatedAt, startedAt: r.startedAt, runs: r.runs, host: r.host, fetchedAt: this.remoteFetchedAt, error: this.remoteError, ladder: r.ladder ?? null }
         : null,
     });
   }

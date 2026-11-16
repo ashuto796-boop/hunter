@@ -124,6 +124,10 @@ export interface SRule {
   targetR: number;
   maxMin: number; // -1: until the 2-hour AI exits
   beAt: number;
+  // the owner's ladder instead of one stop and target: [n positions at most, step $ against before
+  // adding one, target $ per position]; the ladder is cut one step past the last position.
+  // Measured in R of its largest possible loss (step × n(n+1)/2 per ounce).
+  ladder?: number[];
 }
 const METHODS: Record<string, { params: number[][]; label: (p: number[]) => string }> = {
   orb: { params: [[0, 1], [5, 15, 30, 60], [0, 1]], label: (p) => `cassure de l'ouverture de ${p[0] ? "New York" : "Londres"} ${p[1]} min${p[2] ? " + retest" : ""}` },
@@ -146,11 +150,20 @@ const OPTIONS = {
   targetR: [0.5, 1, 1.5, 2, 3, 5],
   maxMin: [15, 30, 60, 120, 240, -1],
   beAt: [0, 0, 0.5, 1],
+  ladderN: [5, 10, 10],
+  ladderStep: [1, 2, 3, 5, 8],
+  ladderTarget: [0.5, 1, 2, 3, 5],
+  ladderMaxMin: [60, 120, 240, 480, -1],
 };
+const randomLadder = (rnd: () => number) => [pick(rnd, OPTIONS.ladderN), pick(rnd, OPTIONS.ladderStep), pick(rnd, OPTIONS.ladderTarget)];
 const WHEN = ["toutes heures", "Londres + New York", "chevauchement", "Londres", "New York"];
 const TREND = ["sans tendance", "avec la tendance 4 h", "avec la tendance du jour", "avec la position de l'IA 2 h"];
 const describe = (r: SRule) =>
-  `${METHODS[r.method].label(r.p)} · ${WHEN[r.when]} · ${TREND[r.trend]} · écart ≤ ${r.maxSpread} · ATR ≥ ${r.minAtr} $ · stop ${r.stopK} ATR · obj ${r.targetR}R · ${r.maxMin < 0 ? "jusqu'à la sortie de l'IA" : `${r.maxMin} min`}${r.beAt ? ` · stop à l'entrée à ${r.beAt}R` : ""}`;
+  `${METHODS[r.method].label(r.p)} · ${WHEN[r.when]} · ${TREND[r.trend]} · écart ≤ ${r.maxSpread} · ATR ≥ ${r.minAtr} $ · ${
+    r.ladder
+      ? `échelle de ${r.ladder[0]} positions (une de plus tous les ${r.ladder[1]} $ contre, +${r.ladder[2]} $ chacune, coupée un pas après la dernière)`
+      : `stop ${r.stopK} ATR · obj ${r.targetR}R`
+  } · ${r.maxMin < 0 ? "jusqu'à la sortie de l'IA" : `${r.maxMin} min`}${r.beAt ? ` · stop à l'entrée à ${r.beAt}R` : ""}`;
 
 type Signal = (i: number) => 1 | -1 | 0;
 function makeSignal(r: SRule): Signal {
@@ -278,6 +291,37 @@ interface Res {
   t: number;
   exit: number;
 }
+// One ladder from the signal on minute i, on the real spread of every minute (same rules as
+// src/gold/engine/ladder.ts, which the demo account runs)
+function ladderRun(i: number, d: 1 | -1, lad: number[], until: number): Res | null {
+  const [n, step, target] = lad;
+  const unit = (step * n * (n + 1)) / 2;
+  const k = i + 1;
+  const open = [O[k] + (d * S[i]) / 2];
+  let pnl = 0, added = 1;
+  const done = (extra: number, j: number): Res => ({ r: (pnl + extra) / unit, t: T[k], exit: j });
+  const markAt = (px: number) => open.reduce((s, e) => s + d * (px - e), 0);
+  for (let j = k; j < N; j++) {
+    const half = S[j] / 2;
+    if (j > k && GAP[j]) return done(markAt(C[j - 1] - (d * S[j - 1]) / 2), j - 1);
+    const worstPx = d === 1 ? L[j] - half : H[j] + half, bestPx = d === 1 ? H[j] - half : L[j] + half;
+    for (let p = open.length - 1; p >= 0; p--)
+      if (d * (bestPx - open[p]) >= target) {
+        pnl += target;
+        open.splice(p, 1);
+      }
+    const last = open.length ? open[open.length - 1] : null;
+    if (last !== null && added < n && d * (worstPx - last) <= -step) {
+      open.push(last - d * step + d * half);
+      added++;
+    }
+    if (added >= n && open.length && d * (worstPx - open[open.length - 1]) <= -step) return done(markAt(open[open.length - 1] - d * step), j);
+    if (!open.length) return done(0, j);
+    if (T[j] >= until) return done(markAt(C[j] - d * half), j);
+  }
+  return null;
+}
+
 export function run(r: SRule): Res[] {
   if ((r.method === "ia" || r.trend === 3 || r.maxMin < 0) && !aiReady) return [];
   const sig = makeSignal(r);
@@ -285,6 +329,14 @@ export function run(r: SRule): Res[] {
   for (let i = 1500; i < N - 2; i++) {
     const d = sig(i);
     if (!d || GAP[i + 1] || S[i] > r.maxSpread || ATR[i] < r.minAtr || !whenOk(r.when, i) || !trendOk(r.trend, i, d)) continue;
+    if (r.ladder) {
+      const res = ladderRun(i, d, r.ladder, r.maxMin < 0 ? AIUNTIL[i] || T[i] + 8 * 3600 : T[i + 1] + r.maxMin * 60);
+      if (!res) break;
+      out.push(res);
+      for (let j = i + 1; j <= res.exit; j++) sig(j);
+      i = res.exit;
+      continue;
+    }
     const stop = r.stopK * ATR[i];
     if (stop < 2 * S[i]) continue;
     const k = i + 1;
@@ -413,8 +465,23 @@ function mulberry(seed: number) {
   };
 }
 const pick = <X>(rnd: () => number, xs: readonly X[]) => xs[Math.floor(rnd() * xs.length)];
+// a third of the new rules are ladders (the owner's idea: up to 10 small positions on one signal)
 function randomRule(rnd: () => number): SRule {
   const method = pick(rnd, Object.keys(METHODS));
+  if (rnd() < 0.33)
+    return {
+      method,
+      p: METHODS[method].params.map((ps) => pick(rnd, ps)),
+      when: pick(rnd, OPTIONS.when),
+      trend: pick(rnd, OPTIONS.trend),
+      maxSpread: pick(rnd, OPTIONS.maxSpread),
+      minAtr: pick(rnd, OPTIONS.minAtr),
+      stopK: 0,
+      targetR: 0,
+      maxMin: method === "ia" || rnd() < 0.15 ? pick(rnd, OPTIONS.ladderMaxMin) : pick(rnd, OPTIONS.ladderMaxMin.filter((x) => x > 0)),
+      beAt: 0,
+      ladder: randomLadder(rnd),
+    };
   return {
     method,
     p: METHODS[method].params.map((ps) => pick(rnd, ps)),
@@ -442,9 +509,16 @@ function mutate(rnd: () => number, r0: SRule): SRule {
     else if (which === 4) r.minAtr = pick(rnd, OPTIONS.minAtr);
     else if (which === 5) r.stopK = pick(rnd, OPTIONS.stopK);
     else if (which === 6) r.targetR = pick(rnd, OPTIONS.targetR);
-    else if (which === 7) r.maxMin = pick(rnd, OPTIONS.maxMin);
+    else if (which === 7) r.maxMin = pick(rnd, r.ladder ? OPTIONS.ladderMaxMin : OPTIONS.maxMin);
     else r.beAt = pick(rnd, OPTIONS.beAt);
+    if (r.ladder && which >= 5 && rnd() < 0.7) {
+      // a ladder refines its own settings instead of a stop and target
+      const lad = randomLadder(rnd);
+      const q = Math.floor(rnd() * 3);
+      r.ladder = r.ladder.map((v, x) => (x === q ? lad[x] : v));
+    }
   }
+  if (r.ladder) (r.stopK = 0), (r.targetR = 0), (r.beAt = 0);
   return r;
 }
 const loadState = (f: string): ScalpState => (existsSync(f) ? JSON.parse(readFileSync(f, "utf8")) : { version: 1, updatedAt: 0, nights: 0, tried: 0, entries: [], champion: null });
@@ -531,6 +605,13 @@ function merge() {
     "",
     qualified.length ? head : "Aucune pour l'instant.",
     ...qualified.slice(0, 15).map(row),
+    "",
+    "## Échelles de petites positions (l'idée du propriétaire)",
+    "",
+    "Jusqu'à 10 positions sur un même signal, une de plus à chaque recul, chacune avec un petit objectif. En R de la plus grosse perte possible de l'échelle.",
+    "",
+    head,
+    ...state.entries.filter((e) => e.rule.ladder && e.status !== "rejetée").slice(0, 10).map(row),
     "",
     "## Meilleures avant 2025 (pas encore validées)",
     "",

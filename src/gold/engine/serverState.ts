@@ -4,6 +4,7 @@ import { TrainingResult } from "./training";
 import { Thought } from "./narrate";
 import { MediaState } from "./media";
 import { LivePublic } from "./live";
+import { LadderState } from "./ladder";
 
 export const SERVER_STATE_VERSION = 1;
 
@@ -22,6 +23,7 @@ export interface ServerState {
   media?: MediaState; // press review about gold
   note?: { day: string; at: number; text: string; model: string } | null; // evening log written by Claude
   live?: LivePublic; // real-money account at the broker, sealed with the owner's passphrase
+  ladder?: LadderState; // second demo account: the owner's 1-minute ladder scalp (never real money)
   autoThreshold: number;
   trainedAt: number;
   training: TrainingResult | null;
