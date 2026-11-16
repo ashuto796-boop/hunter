@@ -273,7 +273,7 @@ export function analyse(env: AnalyseEnv, st: TraderState, i: number): Decision {
   if (!blocked && s.c[i].h - s.c[i].l > 3 * a) blocked = "Choc de volatilité (bougie > 3 ATR) — j'attends que ça se calme";
   if (!blocked && st.position) blocked = "Position en cours — je la gère";
   if (!blocked && st.day.trades >= settings.maxTradesDay) blocked = `Quota du jour atteint (${settings.maxTradesDay} trades)`;
-  if (!blocked && st.day.pnl <= (-settings.maxDailyLossPct / 100) * st.day.startBalance) blocked = "Limite de perte journalière atteinte — reprise demain";
+  if (!blocked && settings.maxDailyLossPct > 0 && st.day.pnl <= (-settings.maxDailyLossPct / 100) * st.day.startBalance) blocked = "Limite de perte journalière atteinte — reprise demain";
   if (!blocked && st.cooldownUntil > t) blocked = "Pause après 2 pertes d'affilée — je me remets à zéro";
   if (!blocked && dir && st.lastLoss && st.lastLoss.dir === dir && t - st.lastLoss.t < tfBars(45) * tfMs) blocked = "Pas de revenge trading dans le même sens";
   if (!blocked && dir && STRATEGY.blockRegimes.includes(regime)) blocked = `Je ne trade pas en ${REGIME_LABEL[regime].toLowerCase()}`;

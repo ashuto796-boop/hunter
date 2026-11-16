@@ -5,7 +5,7 @@
   "tf": 5,
   "spread": 0.3,
   "maxTradesDay": 12,
-  "maxDailyLossPct": 3,
+  "maxDailyLossPct": 0,
   "trainDays": 30,
   "source": "auto",
   "broker": {

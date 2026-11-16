@@ -198,8 +198,8 @@ export function SettingsPage() {
         <Field label="Trades max / jour">
           <NumberInput value={s.maxTradesDay} min={1} max={20} step={1} onCommit={(maxTradesDay) => set({ maxTradesDay: Math.round(maxTradesDay) })} />
         </Field>
-        <Field label="Perte max / jour (%)" help="L'IA s'arrête jusqu'au lendemain">
-          <NumberInput value={s.maxDailyLossPct} min={0.5} max={20} step={0.5} onCommit={(maxDailyLossPct) => set({ maxDailyLossPct })} />
+        <Field label="Perte max / jour (%)" help="L'IA s'arrête jusqu'au lendemain · 0 = aucune limite">
+          <NumberInput value={s.maxDailyLossPct} min={0} max={20} step={0.5} onCommit={(maxDailyLossPct) => set({ maxDailyLossPct })} />
         </Field>
         <Field label="Spread simulé ($/oz)" help="Coût de ton courtier sur l'or">
           <NumberInput value={s.spread} min={0} max={3} step={0.05} onCommit={(spread) => set({ spread })} />

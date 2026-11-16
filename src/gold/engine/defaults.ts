@@ -10,7 +10,7 @@ export const DEFAULT_SETTINGS: Settings = {
   tf: 5,
   spread: 0.3,
   maxTradesDay: 12,
-  maxDailyLossPct: 3,
+  maxDailyLossPct: 0, // 0: no daily loss limit (the owner's choice for the demo)
   source: "auto",
   trainDays: 30,
   keepAwake: true,
