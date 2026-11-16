@@ -698,6 +698,7 @@ button.day:hover{transform:translateY(-2px);border-color:#4A3FA0;box-shadow:0 10
             </div>
           </div>
           <div class="panel" style="margin-top:14px"><h3 data-sim="TRADES DU JOUR · SIMULATION" data-real="DERNIERS TRADES · VRAI BOT">TRADES DU JOUR · SIMULATION</h3><div class="scrollx" style="margin-top:8px"><table class="tbl"><thead><tr><th>Entrée</th><th>Sortie</th><th>Sens</th><th>Mise</th><th>Prix d’entrée</th><th>Prix de sortie</th><th>Résultat</th></tr></thead><tbody id="trades-body"><tr><td colspan="7" style="color:var(--mut);font-family:var(--f-ui)">Le premier trade apparaîtra ici dès que l’IA entre.</td></tr></tbody></table></div></div>
+          <div class="panel" id="ladder-panel" style="margin-top:14px;display:none"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><h3>ÉCHELLE 1 MIN · 10 POSITIONS · DÉMO</h3><span class="num" id="ladder-bal" style="font-size:15px;font-weight:600">—</span></div><p id="ladder-now" style="margin-top:10px;font-size:14px;color:var(--fg2)"></p><div class="scrollx" style="margin-top:8px"><table class="tbl"><thead><tr><th>Début</th><th>Fin</th><th>Sens</th><th>Positions</th><th>À l’objectif</th><th>Comment</th><th>Résultat</th></tr></thead><tbody id="ladder-body"></tbody></table></div><p style="margin-top:10px;font-size:13px;color:var(--mut)">Second compte fictif de 10 000 $ : jusqu’à 10 positions de 0,01 lot sur un repli dans le sens de la tendance (8 h-18 h, heure de Paris), une de plus tous les 5 $ contre, chacune vise +5 $ (environ 4-5 €). Aucun ordre réel.</p></div>
         </section>
 
         <!-- Portefeuille -->
@@ -944,6 +945,7 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem('aurum.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem('aurum.' + k, JSON.stringify(v)); } catch (e) {} }
 };
+const escH = (x) => String(x).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const fmt2 = (v) => Math.abs(v).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const CUR = CFG.simulation ? '€' : '$';
 const eur = (v) => (v > 0 ? '+' : v < 0 ? '−' : '') + fmt2(v) + ' ' + CUR;
@@ -1236,7 +1238,7 @@ function renderPos() {
   const el = $('#pos-body'); if (!el) return;
   const p = BOT.pos;
   const ks = $('#k-state');
-  if (!p) { el.innerHTML = BOT.on ? 'Aucune position. L’IA attend un signal.' : 'IA en pause. Aucune nouvelle position.'; if (ks) ks.textContent = BOT.on ? 'En veille' : 'En pause'; return; }
+  if (!p) { const why = !CFG.simulation && LIVE.dec && LIVE.dec.verdict ? LIVE.dec.verdict : ''; el.innerHTML = BOT.on ? 'Aucune position. L’IA attend un signal.' + (why ? '<span style="display:block;margin-top:6px;font-size:13px">Pourquoi : ' + escH(why) + '</span>' : '') : 'IA en pause. Aucune nouvelle position.'; if (ks) ks.innerHTML = (BOT.on ? 'En veille' : 'En pause') + (why ? '<span style="display:block;margin-top:4px;font-size:12px;color:var(--mut);line-height:1.35">' + escH(why) + '</span>' : ''); return; }
   const c = p.pnl >= 0 ? 'var(--up2)' : 'var(--dn2)';
   el.innerHTML = '<div style="display:flex;justify-content:space-between;gap:10px;align-items:center"><span style="font-size:20px;font-weight:700;color:' + (p.side > 0 ? 'var(--up2)' : 'var(--dn2)') + '">' + (p.side > 0 ? 'Achat' : 'Vente') + ' · ' + String(+p.lot.toFixed(2)).replace('.', ',') + ' lot</span><span class="num" style="font-size:20px;font-weight:600;color:' + c + '">' + eur(p.pnl) + '</span></div><p class="num" style="margin-top:8px;color:var(--mut);font-size:13px">Mise ' + fmt2(p.entry * p.lot * 100 / 20) + ' ' + CUR + ' · entrée ' + p.entry.toFixed(2) + ' · actuel ' + p.last.toFixed(2) + ' · depuis ' + hhmmss(p.tIn) + '</p>';
   if (ks) ks.textContent = 'En position';
@@ -1722,7 +1724,7 @@ if (!CFG.simulation && CFG.live) {
     BOT.journal.length = 0;
     (d.thoughts || []).slice(-60).reverse().forEach((x) => { const k = KIND[x.kind] || KIND.info; BOT.journal.push({ t: sec(x.t), who: k[0], text: x.text, color: k[1] }); });
     if (first && d.price) feedPrice(+d.price, sec(Date.now()));
-    renderJournal(); renderTrades(fresh); renderKpis(); renderPos(); renderSpecs(); paintLive();
+    renderJournal(); renderTrades(fresh); renderKpis(); renderPos(); renderSpecs(); paintLive(); renderLadder(d.ladder);
     if (!trades.length) { const tb = $('#trades-body'); if (tb) tb.innerHTML = '<tr><td colspan="7" style="color:var(--mut);font-family:var(--f-ui)">Aucun trade fermé pour l’instant sur le compte démo : l’IA attend un signal propre.</td></tr>'; }
     charts.forEach((c) => { if (!c.series) return; setMarkers(c); if (BOT.pos) addEntryLine(c, BOT.pos); else if (c.line) { c.series.removePriceLine(c.line); c.line = null; } });
     CAL.cache = {}; loadCal();
@@ -1731,6 +1733,29 @@ if (!CFG.simulation && CFG.live) {
     if (fresh) { const t = trades[trades.length - 1]; toast('Trade fermé par le vrai bot · <b class="num" style="color:' + (t.pnl >= 0 ? '#5BE8B4' : '#FF8E84') + '">' + eur(t.pnl) + '</b>', t.pnl >= 0 ? 'up' : 'dn'); }
     else if (BOT.pos && !had && !first) toast('Le vrai bot entre ' + (BOT.pos.side > 0 ? 'à l’<b>achat</b>' : 'à la <b>vente</b>'), 'in');
     first = false;
+  }
+  const HOW = { objectifs: 'toutes à l’objectif', 'coupée': 'coupée', temps: 'coupée (8 h)', trou: 'marché fermé' };
+  const dayHm = (ms) => { const x = new Date(ms); return pad(x.getDate()) + '/' + pad(x.getMonth() + 1) + ' ' + pad(x.getHours()) + ':' + pad(x.getMinutes()); };
+  function renderLadder(l) {
+    const box = $('#ladder-panel'); if (!box) return;
+    box.style.display = l ? '' : 'none';
+    if (!l) return;
+    const tot = l.balance - l.startBalance, col = (v) => (v >= 0 ? 'var(--up2)' : 'var(--dn2)');
+    const bal = $('#ladder-bal'); bal.innerHTML = fmt2(l.balance) + ' $ <span style="color:' + col(tot) + '">(' + eur(Math.round(tot * 100) / 100) + ')</span>';
+    const s = l.series, st = l.stats;
+    let now;
+    if (s) {
+      const fl = s.open.reduce((a, e) => a + s.dir * (P.price - s.dir * 0.3 - e), 0);
+      now = 'En cours : ' + (s.dir > 0 ? 'achat' : 'vente') + ', <b>' + s.open.length + '</b> position(s) ouverte(s) sur ' + s.added + ', ' + s.won + ' déjà à l’objectif. Résultat de la série : <b class="num" style="color:' + col(s.pnl + fl) + '">' + eur(Math.round((s.pnl + fl) * 100) / 100) + '</b>';
+    } else {
+      const h = new Date().getHours();
+      now = 'Aucune série en cours : ' + (h >= 8 && h < 18 ? 'il attend un repli sur la moyenne 20 min dans le sens de la tendance.' : 'il ne démarre une série qu’entre 8 h et 18 h (heure de Paris).');
+    }
+    if (st.series) now += '<span style="display:block;margin-top:4px;color:var(--mut)">' + st.series + ' série(s) terminée(s), ' + Math.round((st.won / st.series) * 100) + ' % gagnantes, pire série ' + eur(Math.round(st.worst * 100) / 100) + '.</span>';
+    $('#ladder-now').innerHTML = now;
+    const tb = $('#ladder-body');
+    const list = (l.closed || []).slice(-12).reverse();
+    tb.innerHTML = list.length ? list.map((c) => '<tr><td>' + dayHm(c.start) + '</td><td>' + dayHm(c.end) + '</td><td style="color:' + (c.dir > 0 ? 'var(--up2)' : 'var(--dn2)') + '">' + (c.dir > 0 ? 'Achat' : 'Vente') + '</td><td>' + c.added + '</td><td>' + c.won + '</td><td>' + (HOW[c.how] || escH(c.how)) + '</td><td class="num" style="color:' + col(c.pnl) + '">' + eur(Math.round(c.pnl * 100) / 100) + '</td></tr>').join('') : '<tr><td colspan="7" style="color:var(--mut);font-family:var(--f-ui)">Aucune série terminée pour l’instant.</td></tr>';
   }
   async function tickPrice() {
     try { const j = await getJson(L.market + '/ticker?symbol=' + L.symbol + '&productType=USDT-FUTURES'); const x = +(j.data && j.data[0] && j.data[0].lastPr); if (x > 0) feedPrice(x, sec(Date.now())); } catch (e) { /* the next tick retries */ }
