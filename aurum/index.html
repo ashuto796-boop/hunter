@@ -1059,7 +1059,7 @@ P.subs.push((price, now) => {
 /* ---------- graphiques ---------- */
 const charts = [];
 function makeChart(host) {
-  host.innerHTML = '<div class="chart-top"><div><p style="font-size:12px;letter-spacing:.1em;color:var(--mut)">XAU/USD · OR CONTRE DOLLAR</p><p class="price" data-pp>—</p></div><div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end"><div class="tfs" role="group" aria-label="Échelle de temps"></div><div class="tfs zoom" role="group" aria-label="Zoom du graphique"><button type="button" data-z="in" aria-label="Zoomer">+</button><button type="button" data-z="out" aria-label="Dézoomer">−</button><button type="button" data-z="fit" aria-label="Tout afficher">⤢</button></div></div></div><div class="chart" style="touch-action:none;overscroll-behavior:contain"><div class="lw"></div><div class="ovl" aria-hidden="true"><svg><line class="lnk" x1="0" y1="0" x2="0" y2="0" stroke-dasharray="4 5" stroke-width="1.5" opacity="0"/></svg></div></div><div class="chart-foot"><span class="botstate"><span class="dot live" aria-hidden="true"></span><span data-bs>L’IA analyse le marché</span></span><span data-livefoot>' + (CFG.simulation ? 'Simulation en direct · en production : flux de prix du courtier' : 'Connexion au vrai bot…') + '</span></div>';
+  host.innerHTML = '<div class="chart-top"><div><p style="font-size:12px;letter-spacing:.1em;color:var(--mut)">XAU/USD · OR CONTRE DOLLAR</p><p class="price" data-pp>—</p></div><div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end"><div class="tfs" role="group" aria-label="Échelle de temps"></div><div class="tfs zoom" role="group" aria-label="Zoom du graphique"><button type="button" data-z="in" aria-label="Zoomer">+</button><button type="button" data-z="out" aria-label="Dézoomer">−</button><button type="button" data-z="fit" aria-label="Tout afficher">⤢</button><button type="button" data-z="kind" aria-label="Ligne ou bougies" style="width:auto;padding:0 12px">Bougies</button></div></div></div><div class="chart" style="touch-action:none;overscroll-behavior:contain"><div class="lw"></div><div class="ovl" aria-hidden="true"><svg><line class="lnk" x1="0" y1="0" x2="0" y2="0" stroke-dasharray="4 5" stroke-width="1.5" opacity="0"/></svg></div></div><div class="chart-foot"><span class="botstate"><span class="dot live" aria-hidden="true"></span><span data-bs>L’IA analyse le marché</span></span><span data-livefoot>' + (CFG.simulation ? 'Simulation en direct · en production : flux de prix du courtier' : 'Connexion au vrai bot…') + '</span></div>';
   const tfsEl = host.querySelector('.tfs');
   Object.values(TF).forEach((tf) => {
     const b = document.createElement('button');
@@ -1079,7 +1079,9 @@ function makeChart(host) {
     localization: { locale: 'fr-FR', priceFormatter: (p) => p.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) },
     handleScale: { mouseWheel: true, pinch: true, axisPressedMouseMove: { time: true, price: true }, axisDoubleClickReset: { time: true, price: true } }, handleScroll: { mouseWheel: false, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false }
   });
-  const ctx = { host, chart, series: null, tf: TF.s, bars: [], line: null, ovl: host.querySelector('.ovl'), lnk: host.querySelector('.lnk'), el: {}, pp: host.querySelector('[data-pp]'), bs: host.querySelector('[data-bs]') };
+  let kind = 'line'; try { kind = localStorage.getItem('aurum.chartKind') || 'line'; } catch (e) {}
+  const ctx = { kind, host, chart, series: null, tf: TF.s, bars: [], line: null, ovl: host.querySelector('.ovl'), lnk: host.querySelector('.lnk'), el: {}, pp: host.querySelector('[data-pp]'), bs: host.querySelector('[data-bs]') };
+  host.querySelector('[data-z="kind"]').textContent = ctx.kind === 'line' ? 'Bougies' : 'Ligne';
   setTF(ctx, 's');
   tfsEl.addEventListener('click', (e) => {
     const b = e.target.closest('button'); if (!b) return;
@@ -1093,6 +1095,7 @@ function makeChart(host) {
     const b = e.target.closest('button'); if (!b) return;
     const ts = chart.timeScale();
     if (b.dataset.z === 'fit') { ts.fitContent(); return; }
+    if (b.dataset.z === 'kind') { ctx.kind = isLine(ctx) ? 'candles' : 'line'; b.textContent = ctx.kind === 'line' ? 'Bougies' : 'Ligne'; try { localStorage.setItem('aurum.chartKind', ctx.kind); } catch (e) {} setTF(ctx, ctx.tf.key); return; }
     const r = ts.getVisibleLogicalRange(); if (!r) return;
     const span = r.to - r.from, k = b.dataset.z === 'in' ? 0.6 : 1 / 0.6;
     const next = Math.max(8, Math.min(span * k, ctx.bars.length + 20));
@@ -1100,6 +1103,14 @@ function makeChart(host) {
   });
   P.subs.push((price, now) => tickChart(ctx, price, now));
   BOT.subs.push((ev, tr) => botEvent(ctx, ev, tr));
+}
+// line by default (smoother to read), candles on demand; the long views are always a line
+const isLine = (ctx) => ctx.tf.area || ctx.kind !== 'candles';
+// the last hours in view rather than 300 tiny candles squeezed together (scroll or ⤢ for more)
+function showRecent(ctx) {
+  const n = ctx.bars.length, keep = window.innerWidth < 640 ? 72 : 150, ts = ctx.chart.timeScale();
+  if (n <= keep || ctx.tf.area) ts.fitContent();
+  else ts.setVisibleLogicalRange({ from: n - keep, to: n + 3 });
 }
 async function setTF(ctx, key) {
   const tf = TF[key]; ctx.tf = tf;
@@ -1109,14 +1120,14 @@ async function setTF(ctx, key) {
   if (ctx.series) { ctx.chart.removeSeries(ctx.series); ctx.series = null; ctx.line = null; }
   ctx.chart.applyOptions({ timeScale: { secondsVisible: tf.sec < 60, timeVisible: tf.sec < 86400 } });
   ctx.bars = bars && bars.length ? bars.slice() : CFG.simulation ? history(tf) : [];
-  if (tf.area) {
-    ctx.series = ctx.chart.addAreaSeries({ lineColor: '#B847E6', topColor: 'rgba(184,71,230,0.35)', bottomColor: 'rgba(91,43,234,0.0)', lineWidth: 2, priceLineColor: '#B847E6' });
+  if (isLine(ctx)) {
+    ctx.series = ctx.chart.addAreaSeries({ lineColor: '#C77DFF', topColor: 'rgba(184,71,230,0.30)', bottomColor: 'rgba(75,38,224,0.02)', lineWidth: 2, lineType: 2, priceLineColor: '#B847E6', priceLineStyle: 2, crosshairMarkerRadius: 4, crosshairMarkerBorderColor: '#fff', crosshairMarkerBackgroundColor: '#B847E6' });
     ctx.series.setData(ctx.bars.map((b) => ({ time: b.time, value: b.close })));
   } else {
-    ctx.series = ctx.chart.addCandlestickSeries({ upColor: '#2FD69B', downColor: '#FF6A5E', borderVisible: false, wickUpColor: '#2FD69B', wickDownColor: '#FF6A5E', priceLineColor: '#B847E6' });
+    ctx.series = ctx.chart.addCandlestickSeries({ upColor: 'rgba(47,214,155,0.9)', downColor: 'rgba(255,106,94,0.9)', borderVisible: false, wickUpColor: 'rgba(47,214,155,0.55)', wickDownColor: 'rgba(255,106,94,0.55)', priceLineColor: '#B847E6', priceLineStyle: 2 });
     ctx.series.setData(ctx.bars);
   }
-  ctx.chart.timeScale().fitContent();
+  showRecent(ctx);
   setMarkers(ctx);
   if (BOT.pos) { addEntryLine(ctx, BOT.pos); }
   placeOverlay(ctx);
@@ -1133,7 +1144,7 @@ function tickChart(ctx, price, now) {
     last.close = price; last.high = Math.max(last.high, price); last.low = Math.min(last.low, price);
   }
   const b = ctx.bars[ctx.bars.length - 1];
-  ctx.series.update(tf.area ? { time: b.time, value: b.close } : b);
+  ctx.series.update(isLine(ctx) ? { time: b.time, value: b.close } : b);
   if (ctx.pp) {
     ctx.pp.textContent = price.toLocaleString('fr-FR', { minimumFractionDigits: 2 });
     ctx.pp.classList.toggle('up', price >= P.prev); ctx.pp.classList.toggle('dn', price < P.prev);
@@ -1146,9 +1157,10 @@ function setMarkers(ctx) {
   const all = BOT.trades.slice(-40).concat(BOT.pos ? [BOT.pos] : []);
   // on a narrow chart (phone) the labels overlap: arrows and dots only, the amounts stay in the table
   const narrow = window.innerWidth < 640;
+  const t0 = ctx.bars.length ? ctx.bars[0].time : 0;
   all.forEach((tr) => {
-    ms.push({ time: bucket(tr.tIn, tf), position: tr.side > 0 ? 'belowBar' : 'aboveBar', color: tr.side > 0 ? '#2FD69B' : '#FF6A5E', shape: tr.side > 0 ? 'arrowUp' : 'arrowDown', text: narrow ? '' : tr.side > 0 ? 'Achat' : 'Vente' });
-    if (tr.tOut) ms.push({ time: bucket(tr.tOut, tf), position: tr.side > 0 ? 'aboveBar' : 'belowBar', color: tr.pnl >= 0 ? '#5BE8B4' : '#FF8E84', shape: 'circle', text: narrow ? '' : 'Sortie ' + eur(tr.pnl) });
+    if (bucket(tr.tIn, tf) >= t0) ms.push({ time: bucket(tr.tIn, tf), position: tr.side > 0 ? 'belowBar' : 'aboveBar', color: tr.side > 0 ? '#2FD69B' : '#FF6A5E', shape: tr.side > 0 ? 'arrowUp' : 'arrowDown', text: '' });
+    if (tr.tOut && bucket(tr.tOut, tf) >= t0) ms.push({ time: bucket(tr.tOut, tf), position: tr.side > 0 ? 'aboveBar' : 'belowBar', color: tr.pnl >= 0 ? '#5BE8B4' : '#FF8E84', shape: 'circle', size: 0.7, text: narrow ? '' : (tr.pnl >= 0 ? '+' : '−') + Math.round(Math.abs(tr.pnl)) + ' ' + CUR });
   });
   ms.sort((a, b) => a.time - b.time);
   ctx.series.setMarkers(ms);
