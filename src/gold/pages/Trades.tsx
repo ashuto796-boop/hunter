@@ -175,7 +175,7 @@ function LadderCard({ l }: { l: LadderState }) {
                 <div className="row-main">
                   <div className="row-title">{c.added > 1 ? `${c.added} positions` : c.dir === 1 ? "Achat 0,01 lot" : "Vente 0,01 lot"}</div>
                   <div className="row-sub num">
-                    {dateTime(c.start)} · {HOW[c.how] ?? c.how}
+                    {dateTime(c.start)} · {c.added > 1 && c.how !== "règles" ? `ancienne échelle ${c.how === "objectifs" ? "à l'objectif" : "coupée"}` : HOW[c.how] ?? c.how}
                   </div>
                 </div>
                 <div className="row-right">

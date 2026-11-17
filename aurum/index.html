@@ -698,7 +698,7 @@ button.day:hover{transform:translateY(-2px);border-color:#4A3FA0;box-shadow:0 10
             </div>
           </div>
           <div class="panel" style="margin-top:14px"><h3 data-sim="TRADES DU JOUR · SIMULATION" data-real="DERNIERS TRADES · VRAI BOT">TRADES DU JOUR · SIMULATION</h3><div class="scrollx" style="margin-top:8px"><table class="tbl"><thead><tr><th>Entrée</th><th>Sortie</th><th>Sens</th><th>Mise</th><th>Prix d’entrée</th><th>Prix de sortie</th><th>Résultat</th></tr></thead><tbody id="trades-body"><tr><td colspan="7" style="color:var(--mut);font-family:var(--f-ui)">Le premier trade apparaîtra ici dès que l’IA entre.</td></tr></tbody></table></div></div>
-          <div class="panel" id="ladder-panel" style="margin-top:14px;display:none"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><h3>ÉCHELLE 1 MIN · 10 POSITIONS · DÉMO</h3><span class="num" id="ladder-bal" style="font-size:15px;font-weight:600">—</span></div><p id="ladder-now" style="margin-top:10px;font-size:14px;color:var(--fg2)"></p><div class="scrollx" style="margin-top:8px"><table class="tbl"><thead><tr><th>Début</th><th>Fin</th><th>Sens</th><th>Positions</th><th>À l’objectif</th><th>Comment</th><th>Résultat</th></tr></thead><tbody id="ladder-body"></tbody></table></div><p style="margin-top:10px;font-size:13px;color:var(--mut)">Second compte fictif de 10 000 $ : jusqu’à 10 positions de 0,01 lot sur un repli dans le sens de la tendance (8 h-18 h, heure de Paris), une de plus tous les 5 $ contre, chacune vise +5 $ (environ 4-5 €). Aucun ordre réel.</p></div>
+          <div class="panel" id="ladder-panel" style="margin-top:14px;display:none"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><h3>SCALP 1 MIN · 10 POSITIONS · DÉMO</h3><span class="num" id="ladder-bal" style="font-size:15px;font-weight:600">—</span></div><p id="ladder-now" style="margin-top:10px;font-size:14px;color:var(--fg2)"></p><div class="scrollx" style="margin-top:8px"><table class="tbl"><thead><tr><th>Début</th><th>Fin</th><th>Sens</th><th>Positions</th><th>En gain</th><th>Comment</th><th>Résultat</th></tr></thead><tbody id="ladder-body"></tbody></table></div><p style="margin-top:10px;font-size:13px;color:var(--mut)">Second compte fictif de 10 000 $ : chaque repli dans le sens de la tendance (8 h-18 h, heure de Paris) ouvre une position de 0,01 lot, jusqu’à 10 en même temps, sans limite par jour. Elle se ferme à la première minute où elle est en gain ; en perte, jamais plus de 5 €. Aucun ordre réel.</p></div>
         </section>
 
         <!-- Portefeuille -->
@@ -1760,7 +1760,7 @@ if (!CFG.simulation && CFG.live) {
     else if (BOT.pos && !had && !first) toast('Le vrai bot entre ' + (BOT.pos.side > 0 ? 'à l’<b>achat</b>' : 'à la <b>vente</b>'), 'in');
     first = false;
   }
-  const HOW = { objectifs: 'toutes à l’objectif', 'coupée': 'coupée', temps: 'coupée (8 h)', trou: 'marché fermé' };
+  const HOW = { objectifs: 'fermée en gain', 'coupée': 'stop −5 €', temps: 'coupée (8 h)', trou: 'marché fermé', 'règles': 'ancienne échelle soldée' };
   const dayHm = (ms) => { const x = new Date(ms); return pad(x.getDate()) + '/' + pad(x.getMonth() + 1) + ' ' + pad(x.getHours()) + ':' + pad(x.getMinutes()); };
   function renderLadder(l) {
     const box = $('#ladder-panel'); if (!box) return;
@@ -1768,20 +1768,23 @@ if (!CFG.simulation && CFG.live) {
     if (!l) return;
     const tot = l.balance - l.startBalance, col = (v) => (v >= 0 ? 'var(--up2)' : 'var(--dn2)');
     const bal = $('#ladder-bal'); bal.innerHTML = fmt2(l.balance) + ' $ <span style="color:' + col(tot) + '">(' + eur(Math.round(tot * 100) / 100) + ')</span>';
-    const s = l.series, st = l.stats;
+    const s = l.series, st = l.stats, op = l.open || [];
     let now;
-    if (s) {
+    if (op.length) {
+      const fl = op.reduce((a, p) => a + p.dir * (P.price - p.dir * 0.3 - p.entry), 0);
+      now = 'En cours : <b>' + op.length + '</b> position(s) ouverte(s) (' + op.filter((p) => p.dir > 0).length + ' achat, ' + op.filter((p) => p.dir < 0).length + ' vente). Résultat en ce moment : <b class="num" style="color:' + col(fl) + '">' + eur(Math.round(fl * 100) / 100) + '</b>';
+    } else if (s) {
       const fl = s.open.reduce((a, e) => a + s.dir * (P.price - s.dir * 0.3 - e), 0);
       now = 'En cours : ' + (s.dir > 0 ? 'achat' : 'vente') + ', <b>' + s.open.length + '</b> position(s) ouverte(s) sur ' + s.added + ', ' + s.won + ' déjà à l’objectif. Résultat de la série : <b class="num" style="color:' + col(s.pnl + fl) + '">' + eur(Math.round((s.pnl + fl) * 100) / 100) + '</b>';
     } else {
       const h = new Date().getHours();
-      now = 'Aucune série en cours : ' + (h >= 8 && h < 18 ? 'il attend un repli sur la moyenne 20 min dans le sens de la tendance.' : 'il ne démarre une série qu’entre 8 h et 18 h (heure de Paris).');
+      now = 'Aucune position : ' + (h >= 8 && h < 18 ? 'il attend un repli sur la moyenne 20 min dans le sens de la tendance.' : 'il n’ouvre de positions qu’entre 8 h et 18 h (heure de Paris).');
     }
-    if (st.series) now += '<span style="display:block;margin-top:4px;color:var(--mut)">' + st.series + ' série(s) terminée(s), ' + Math.round((st.won / st.series) * 100) + ' % gagnantes, pire série ' + eur(Math.round(st.worst * 100) / 100) + '.</span>';
+    if (st.series) now += '<span style="display:block;margin-top:4px;color:var(--mut)">' + st.series + ' trade(s) terminé(s), ' + Math.round((st.won / st.series) * 100) + ' % gagnants, pire trade ' + eur(Math.round(st.worst * 100) / 100) + '.</span>';
     $('#ladder-now').innerHTML = now;
     const tb = $('#ladder-body');
     const list = (l.closed || []).slice(-12).reverse();
-    tb.innerHTML = list.length ? list.map((c) => '<tr><td>' + dayHm(c.start) + '</td><td>' + dayHm(c.end) + '</td><td style="color:' + (c.dir > 0 ? 'var(--up2)' : 'var(--dn2)') + '">' + (c.dir > 0 ? 'Achat' : 'Vente') + '</td><td>' + c.added + '</td><td>' + c.won + '</td><td>' + (HOW[c.how] || escH(c.how)) + '</td><td class="num" style="color:' + col(c.pnl) + '">' + eur(Math.round(c.pnl * 100) / 100) + '</td></tr>').join('') : '<tr><td colspan="7" style="color:var(--mut);font-family:var(--f-ui)">Aucune série terminée pour l’instant.</td></tr>';
+    tb.innerHTML = list.length ? list.map((c) => '<tr><td>' + dayHm(c.start) + '</td><td>' + dayHm(c.end) + '</td><td style="color:' + (c.dir > 0 ? 'var(--up2)' : 'var(--dn2)') + '">' + (c.dir > 0 ? 'Achat' : 'Vente') + '</td><td>' + c.added + '</td><td>' + c.won + '</td><td>' + (c.added > 1 && c.how !== 'règles' ? 'ancienne échelle' + (c.how === 'objectifs' ? ' à l’objectif' : ' coupée') : HOW[c.how] || escH(c.how)) + '</td><td class="num" style="color:' + col(c.pnl) + '">' + eur(Math.round(c.pnl * 100) / 100) + '</td></tr>').join('') : '<tr><td colspan="7" style="color:var(--mut);font-family:var(--f-ui)">Aucun trade terminé pour l’instant.</td></tr>';
   }
   async function tickPrice() {
     try { const j = await getJson(L.market + '/ticker?symbol=' + L.symbol + '&productType=USDT-FUTURES'); const x = +(j.data && j.data[0] && j.data[0].lastPr); if (x > 0) feedPrice(x, sec(Date.now())); } catch (e) { /* the next tick retries */ }
