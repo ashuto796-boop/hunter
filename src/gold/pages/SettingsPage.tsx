@@ -198,8 +198,8 @@ export function SettingsPage() {
         <Field label="Risque par trade (%)" help="Les pros risquent 0,5 à 1 %">
           <NumberInput value={s.riskPct} min={0.1} max={5} step={0.1} onCommit={(riskPct) => set({ riskPct })} />
         </Field>
-        <Field label="Trades max / jour">
-          <NumberInput value={s.maxTradesDay} min={1} max={20} step={1} onCommit={(maxTradesDay) => set({ maxTradesDay: Math.round(maxTradesDay) })} />
+        <Field label="Trades max / jour" help="0 = aucune limite">
+          <NumberInput value={s.maxTradesDay} min={0} max={200} step={1} onCommit={(maxTradesDay) => set({ maxTradesDay: Math.round(maxTradesDay) })} />
         </Field>
         <Field label="Perte max / jour (%)" help="L'IA s'arrête jusqu'au lendemain · 0 = aucune limite">
           <NumberInput value={s.maxDailyLossPct} min={0} max={20} step={0.5} onCommit={(maxDailyLossPct) => set({ maxDailyLossPct })} />

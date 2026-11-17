@@ -4,7 +4,7 @@
   "mode": "auto",
   "tf": 5,
   "spread": 0.3,
-  "maxTradesDay": 12,
+  "maxTradesDay": 0,
   "maxDailyLossPct": 0,
   "trainDays": 30,
   "source": "auto",

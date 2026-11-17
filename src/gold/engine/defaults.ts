@@ -9,7 +9,7 @@ export const DEFAULT_SETTINGS: Settings = {
   mode: "auto",
   tf: 5,
   spread: 0.3,
-  maxTradesDay: 12,
+  maxTradesDay: 0, // 0: no limit on trades per day (the owner's choice)
   maxDailyLossPct: 0, // 0: no daily loss limit (the owner's choice for the demo)
   source: "auto",
   trainDays: 30,

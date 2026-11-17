@@ -303,7 +303,7 @@ function TodayStats() {
         <div className="stat-label">Trades jour</div>
         <div className="stat-val num">
           {day.trades}
-          <span className="muted">/{max}</span>
+          {max > 0 && <span className="muted">/{max}</span>}
         </div>
       </div>
     </div>
