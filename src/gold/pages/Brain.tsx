@@ -1,4 +1,5 @@
 import { useGold } from "../store";
+import { Fold, FoldGroup } from "../ui/Fold";
 import { PressReview } from "../ui/Press";
 import { MODULE_IDS, MODULE_INFO } from "../engine/modules";
 import { REGIME_LABEL, contextMult, learnedMult } from "../engine/brain";
@@ -141,12 +142,8 @@ export function Brain() {
         )}
       </section>
 
-      <Radar im={d?.intermarket ?? null} />
-
-      <PressReview />
-
-      <MemoryCard stats={memStats} total={memTotal} />
-
+      <FoldGroup label="Détails" />
+      <Fold id="brain.modules" title="Les 7 spécialistes" hint="leurs votes et leurs poids">
       <section className="card">
         <div className="card-title">
           <span>Les 7 spécialistes</span>
@@ -212,7 +209,17 @@ export function Brain() {
           })}
         </div>
       </section>
-
+      </Fold>
+      <Fold id="brain.radar" title="Radar intermarché" hint="argent, dollar">
+        <Radar im={d?.intermarket ?? null} />
+      </Fold>
+      <Fold id="brain.press" title="Revue de presse" hint="les titres et leur effet sur l'or">
+        <PressReview />
+      </Fold>
+      <Fold id="brain.memory" title="Mémoire" hint="ce que l'IA a retenu de ses signaux">
+        <MemoryCard stats={memStats} total={memTotal} />
+      </Fold>
+      <Fold id="brain.thoughts" title="Monologue intérieur" hint={`${thoughts.length} pensée(s)`}>
       <section className="card">
         <div className="card-title">Monologue intérieur</div>
         {thoughts.length === 0 && <div className="empty">L'IA n'a encore rien dit.</div>}
@@ -230,6 +237,7 @@ export function Brain() {
             ))}
         </div>
       </section>
+      </Fold>
     </div>
   );
 }

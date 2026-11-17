@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Fold, FoldGroup } from "../ui/Fold";
 import { useGold } from "../store";
 import { bot } from "../bot";
 import { MODULE_IDS, MODULE_INFO } from "../engine/modules";
@@ -232,10 +233,14 @@ export function Lab() {
         </section>
       )}
 
-      <MonteCarloCard trades={tr.trades} capital={capital} />
-
-      <SessionStats trades={tr.trades} />
-
+      <FoldGroup label="Détails" />
+      <Fold id="lab.mc" title="Monte-Carlo" hint="l'éventail des issues possibles">
+        <MonteCarloCard trades={tr.trades} capital={capital} />
+      </Fold>
+      <Fold id="lab.sessions" title="Par session" hint="Asie, Londres, New York">
+        <SessionStats trades={tr.trades} />
+      </Fold>
+      <Fold id="lab.modules" title="Par spécialiste" hint="les 7 stratégies">
       <section className="card">
         <div className="card-title">Performance par spécialiste</div>
         <div className="list">
@@ -261,6 +266,25 @@ export function Lab() {
           {s.n === 0 && <div className="empty">Aucun trade sur la période : les conditions n'ont jamais été assez bonnes.</div>}
         </div>
       </section>
+      </Fold>
+
+      {tr.trades.length > 0 && (
+        <Fold id="lab.trades" title="Trades simulés" hint={`${tr.trades.length} trades`}>
+        <section className="card">
+          <div className="card-title">Trades simulés</div>
+          <div className="list">
+            {(showAll ? tr.trades : tr.trades.slice(0, 15)).map((t) => (
+              <TradeRow t={t} key={`bt${t.id}`} />
+            ))}
+          </div>
+          {tr.trades.length > 15 && (
+            <button className="btn block" style={{ marginTop: 10 }} onClick={() => setShowAll(!showAll)}>
+              {showAll ? "Réduire" : `Voir les ${tr.trades.length} trades`}
+            </button>
+          )}
+        </section>
+        </Fold>
+      )}
 
       {remote ? (
         <section className="card">
@@ -285,22 +309,6 @@ export function Lab() {
           <p className="note" style={{ marginTop: 10 }}>
             Plus de jours = plus d'expérience mais un marché plus ancien. Un changement de durée recharge l'historique.
           </p>
-        </section>
-      )}
-
-      {tr.trades.length > 0 && (
-        <section className="card">
-          <div className="card-title">Trades simulés</div>
-          <div className="list">
-            {(showAll ? tr.trades : tr.trades.slice(0, 15)).map((t) => (
-              <TradeRow t={t} key={`bt${t.id}`} />
-            ))}
-          </div>
-          {tr.trades.length > 15 && (
-            <button className="btn block" style={{ marginTop: 10 }} onClick={() => setShowAll(!showAll)}>
-              {showAll ? "Réduire" : `Voir les ${tr.trades.length} trades`}
-            </button>
-          )}
         </section>
       )}
 

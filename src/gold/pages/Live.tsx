@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Fold, FoldGroup } from "../ui/Fold";
 import { useGold } from "../store";
 import { bot } from "../bot";
 import { Chart } from "../ui/Chart";
@@ -367,6 +368,8 @@ export function Live() {
   const tf = useGold((s) => s.trader.tf);
   const remote = useGold((s) => s.remote);
   const serverNote = useGold((s) => s.serverNote);
+  const verdict = useGold((s) => s.decision?.verdict);
+  const note = useGold((s) => s.note && Date.now() - s.note.at <= 36 * 3_600_000);
   return (
     <div className="page">
       <Hero />
@@ -384,9 +387,6 @@ export function Live() {
         </div>
       )}
       {remote ? <ServerCard /> : <Autopilot />}
-      <AiCard />
-      <NoteCard />
-      <PressCard onMore={() => useGold.setState({ tab: "brain" })} />
       <PositionCard />
       <section className="card chart-card">
         <div className="card-title">
@@ -405,6 +405,18 @@ export function Live() {
         <Chart />
       </section>
       <TodayStats />
+      <FoldGroup label="Détails" />
+      <Fold id="live.ai" title="Cerveau IA" hint={verdict}>
+        <AiCard />
+      </Fold>
+      {note && (
+        <Fold id="live.note" title="Carnet du soir" hint="l'analyse écrite chaque soir">
+          <NoteCard />
+        </Fold>
+      )}
+      <Fold id="live.press" title="Radar médias" hint="ce que dit la presse sur l'or">
+        <PressCard onMore={() => useGold.setState({ tab: "brain" })} />
+      </Fold>
       <p className="note">
         Compte de démonstration avec prix réels : aucun argent réel n'est engagé. Le trading de l'or comporte un risque élevé de perte.
       </p>

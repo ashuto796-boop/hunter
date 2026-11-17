@@ -8,7 +8,7 @@ name: AURUM labo de nuit
 # The lab never changes the bot: its champion is a proposal. Optional push summary: NTFY_TOPIC.
 on:
   schedule:
-    - cron: "23 1 * * *"
+    - cron: "47 22 * * *"
   workflow_dispatch:
     inputs:
       minutes:

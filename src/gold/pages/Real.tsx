@@ -365,7 +365,7 @@ export function Real() {
       {!STRATEGY.realMoney && (
         <div className="banner">
           <span>🧪</span>
-          <span>Stratégie 30 min : compte démo seulement. Avec CAPITAL_ENV = demo, l'IA copie ses trades sur ton compte démo Capital.com ; un compte réel reste sans nouvelle entrée.</span>
+          <span>Stratégie actuelle : compte démo seulement. Un compte réel reste sans nouvelle entrée.</span>
         </div>
       )}
       {live?.note && (
@@ -378,9 +378,8 @@ export function Real() {
       <AiNow />
       {state && <Positions s={state} />}
       {state && <Activity s={state} />}
-      {access === "absent" && <Setup open />}
       <Readiness s={state} />
-      {access !== "absent" && <Setup open={false} />}
+      <Setup open={false} />
       {state && (
         <button className="btn block" onClick={() => confirm("Oublier le code secret sur ce téléphone ?") && setPass("")}>
           Verrouiller (oublier le code sur ce téléphone)

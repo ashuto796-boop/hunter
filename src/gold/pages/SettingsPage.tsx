@@ -1,4 +1,5 @@
 import { ReactNode, useState } from "react";
+import { Fold, FoldGroup } from "../ui/Fold";
 import { dateTime, tfLabel } from "../ui/format";
 import { useGold } from "../store";
 import { bot } from "../bot";
@@ -153,14 +154,16 @@ export function SettingsPage() {
 
   return (
     <div className="page">
-      <ThemeCard />
       <ServerSection />
+      <FoldGroup label="Réglages" />
+      <Fold id="set.ai" title="L'IA du téléphone" hint="style, risque, marché">
       {remote && (
         <div className="banner">
           <span>ℹ️</span>
           <span>Les réglages ci-dessous servent quand le téléphone trade lui-même. Le serveur suit son fichier de réglages sur GitHub (bouton ci-dessus).</span>
         </div>
       )}
+
       <section className="card">
         <div className="card-title">Style de l'IA</div>
         <Seg
@@ -229,7 +232,9 @@ export function SettingsPage() {
           />
         </div>
       </section>
+      </Fold>
 
+      <Fold id="set.phone" title="Téléphone" hint="écran, notifications, sons">
       <section className="card">
         <div className="card-title">Téléphone</div>
         <Field label="Garder l'écran allumé" help="Le navigateur met l'IA en pause quand l'écran s'éteint">
@@ -249,7 +254,9 @@ export function SettingsPage() {
           <Toggle on={s.sound} label="Sons" onChange={(sound) => set({ sound })} />
         </Field>
       </section>
+      </Fold>
 
+      <Fold id="set.account" title="Compte démo" hint="remettre à zéro">
       <section className="card">
         <div className="card-title">Compte</div>
         {remote ? (
@@ -265,7 +272,12 @@ export function SettingsPage() {
           </button>
         )}
       </section>
+      </Fold>
 
+      <Fold id="set.theme" title="Couleurs" hint="thème de l'app">
+        <ThemeCard />
+      </Fold>
+      <Fold id="set.how" title="Comment ça marche" hint="le fonctionnement de l'IA">
       <section className="card">
         <div className="card-title">Comment ça marche</div>
         <p style={{ fontSize: 13.5, lineHeight: 1.55 }}>
@@ -283,6 +295,7 @@ export function SettingsPage() {
           Mode démo uniquement : aucun ordre réel n'est envoyé à un courtier. Aucune IA ne peut garantir des gains.
         </p>
       </section>
+      </Fold>
     </div>
   );
 }

@@ -76,6 +76,7 @@ export function Trades() {
   const balance = useGold((s) => s.balance);
   const capital = useGold((s) => s.trader.capital);
   const remote = useGold((s) => s.remote);
+  const [all, setAll] = useState(false);
   const start = useMemo(() => balance - trades.reduce((a, t) => a + t.pnl, 0), [balance, trades]);
   const stats = useMemo(() => computeStats(trades, start), [trades, start]);
   const curve = useMemo(() => {
@@ -124,10 +125,16 @@ export function Trades() {
             {trades
               .slice()
               .reverse()
+              .slice(0, all ? undefined : 10)
               .map((t) => (
                 <TradeRow t={t} key={t.id + t.openTime} />
               ))}
           </div>
+        )}
+        {trades.length > 10 && (
+          <button className="btn block" style={{ marginTop: 10 }} onClick={() => setAll(!all)}>
+            {all ? "Réduire" : `Voir les ${trades.length} trades`}
+          </button>
         )}
       </section>
     </div>
