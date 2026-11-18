@@ -141,7 +141,7 @@ export function Trades() {
   );
 }
 
-const HOW: Record<string, string> = { objectifs: "fermée en gain", coupée: "stop −5 €", temps: "coupée (8 h)", trou: "marché fermé", règles: "ancienne échelle soldée" };
+const HOW: Record<string, string> = { objectifs: "fermé en gain", coupée: "stop (−5 € max)", temps: "sorti au temps", trou: "marché fermé", règles: "changement de règles" };
 
 // Second demo account: the owner's 1-minute scalp (up to 10 positions of 0.01 lot at once)
 function LadderCard({ l }: { l: LadderState }) {
@@ -149,7 +149,7 @@ function LadderCard({ l }: { l: LadderState }) {
   return (
     <section className="card">
       <div className="card-title">
-        <span>Scalp 1 min · 10 positions (démo)</span>
+        <span>Scalp piloté par le labo (démo)</span>
         <span className="num" style={{ textTransform: "none", letterSpacing: 0 }}>
           départ {l.startBalance.toLocaleString("fr-FR")} $
         </span>
@@ -159,10 +159,9 @@ function LadderCard({ l }: { l: LadderState }) {
         {usd(l.stats.pnl, true)} · {l.stats.series} trade(s), {l.stats.series ? `${((l.stats.won / l.stats.series) * 100).toFixed(0)} % gagnants` : "aucun encore"} · pire {usd(l.stats.worst, true)}
       </div>
       <div className="note" style={{ marginBottom: 10 }}>
-        {open.length
-          ? `En cours : ${open.length} position(s) ouverte(s) (${open.filter((p) => p.dir === 1).length} achat, ${open.filter((p) => p.dir === -1).length} vente).`
-          : "Aucune position : il attend un repli sur la moyenne 20 min dans le sens de la tendance (8 h-18 h, heure de Paris)."}{" "}
-        Chaque position (0,01 lot) se ferme à la première minute où elle est en gain ; en perte, jamais plus de 5 €. Jusqu'à 10 en même temps, pas de limite par jour. Argent fictif : jamais de vrai ordre.
+        {open.length ? `En cours : ${open[0].dir === 1 ? "achat" : "vente"} à ${open[0].entry.toFixed(2)}. ` : "Aucune position en ce moment. "}
+        {l.ruleText ? `Règle du labo ${l.ruleId} : ${l.ruleText}. ` : "En attente de la première règle du labo. "}
+        Il suit chaque jour la meilleure règle de scalping validée par le labo de nuit ; chaque trade perd 5 € au plus. Argent fictif : jamais de vrai ordre.
       </div>
       {l.closed.length > 0 && (
         <div className="list">

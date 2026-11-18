@@ -10,6 +10,8 @@
 // 1-minute prices with a broker-like spread. On four years this rule wins 75-87 % of its trades but
 // loses overall (many wins of well under 1 $, losses of 5.40 $): see backtest/scalp_basket.ts.
 
+import type { SRule } from "./scalprule";
+
 export interface LadderRule {
   maxOpen: number; // positions open at the same time, at most
   stop: number; // $ lost per position at most (1 oz = 0.01 lot: 1 $ of move = 1 $)
@@ -34,6 +36,7 @@ export interface OpenPos {
   dir: 1 | -1;
   entry: number;
   t: number; // ms
+  oz?: number; // ounces (1 = 0.01 lot); sized so the stop loses 5 € at most (lab rules)
 }
 // kept for older published states; always null now
 export interface LadderSeries {
@@ -56,7 +59,7 @@ export interface LadderClosed {
   how: "objectifs" | "coupée" | "temps" | "trou" | "règles";
 }
 export interface LadderState {
-  version: 1 | 2;
+  version: 1 | 2 | 3; // 3: follows the nightly lab's best scalping rule (server/ladder.ts)
   startedAt: number;
   startBalance: number;
   balance: number;
@@ -68,6 +71,12 @@ export interface LadderState {
   pending: 0 | 1 | -1; // signal on the last minute: a position opens at the next minute's open
   series: LadderSeries | null;
   open?: OpenPos[];
+  ruleId?: string; // version 3: the lab rule followed, in French, and since when
+  ruleText?: string;
+  rule?: SRule;
+  followSince?: number;
+  recorded?: number[]; // entry times (s) of the lab rule's trades already booked
+  bookedUntil?: number; // exit time (s) of the last booked trade
   closed: LadderClosed[]; // most recent last (capped)
   stats: { series: number; won: number; pnl: number; positions: number; worst: number };
 }
@@ -91,7 +100,7 @@ export function newLadder(balance: number, now: number): LadderState {
   };
 }
 
-const record = (st: LadderState, p: OpenPos, end: number, pnl: number, how: LadderClosed["how"]): LadderClosed => {
+export const record = (st: LadderState, p: OpenPos, end: number, pnl: number, how: LadderClosed["how"]): LadderClosed => {
   const c: LadderClosed = { dir: p.dir, start: p.t, end, added: 1, won: pnl > 0 ? 1 : 0, pnl, worst: Math.min(0, pnl), how };
   st.balance += pnl;
   st.stats.series++;
@@ -108,7 +117,7 @@ const record = (st: LadderState, p: OpenPos, end: number, pnl: number, how: Ladd
 // then the account carries on with the new rules.
 export function upgradeLadder(st: LadderState, rule: LadderRule): LadderClosed[] {
   const out: LadderClosed[] = [];
-  if (st.version !== 2) {
+  if (st.version === 1) {
     const s = st.series;
     if (s) {
       const pnl = s.pnl + s.open.reduce((a, e) => a + s.dir * (st.lastC - s.dir * (rule.spread / 2) - e) * rule.oz, 0);
