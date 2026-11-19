@@ -66,6 +66,11 @@ function ServerCard() {
           Dernier passage {since(remote.updatedAt)} · risque {trader.riskPct} % · {MODE_LABEL[trader.mode]}
           {trader.mode === "auto" && ` (seuil ${threshold})`}
         </div>
+        {remote.lab && (
+          <div className="autopilot-sub">
+            Stratégie du labo {remote.lab.id} : {remote.lab.text}
+          </div>
+        )}
         {late && <div className="autopilot-sub gold">GitHub décale parfois ses passages : l'IA rattrapera toutes les bougies manquées au prochain.</div>}
         {remote.error && <div className="autopilot-sub">Lecture du serveur : {remote.error}</div>}
       </div>

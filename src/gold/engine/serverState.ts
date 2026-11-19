@@ -23,7 +23,8 @@ export interface ServerState {
   media?: MediaState; // press review about gold
   note?: { day: string; at: number; text: string; model: string } | null; // evening log written by Claude
   live?: LivePublic; // real-money account at the broker, sealed with the owner's passphrase
-  ladder?: LadderState; // second demo account: the owner's 1-minute ladder scalp (never real money)
+  ladder?: LadderState; // second demo account: the scalp piloted by the lab (never real money)
+  lab?: { id: string; text: string; since: number; spec: { tf: Settings["tf"]; threshold: number; trainDays: number; maxTradesDay: number; rules: Record<string, unknown> } }; // lab strategy the demo bot follows
   autoThreshold: number;
   trainedAt: number;
   training: TrainingResult | null;

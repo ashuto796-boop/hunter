@@ -23,7 +23,8 @@ export interface RemoteInfo {
   host: string;
   fetchedAt: number;
   error: string | null;
-  ladder: LadderState | null; // the owner's 1-minute ladder scalp, second demo account
+  ladder: LadderState | null; // the scalp piloted by the lab, second demo account
+  lab: { id: string; text: string; since: number } | null; // the lab strategy the demo bot follows
 }
 
 export interface GoldState {

@@ -33,6 +33,7 @@ import { seal, unseal } from "../src/gold/engine/seal";
 import { LiveState } from "../src/gold/engine/live";
 import { SOURCES, Source, SourceId, fetchHistory, fetchNews, fetchPeers, probe } from "../src/gold/data/feed";
 import { ladderStep } from "./ladder";
+import { followLab } from "./labstrategy";
 
 const DAY = 864e5;
 const MAX_THOUGHTS = 150;
@@ -370,6 +371,8 @@ async function brokerStep(state: ServerState, cfg: BrokerConfig, realGold: boole
 export async function runOnce(): Promise<ServerState> {
   const { settings, source: pref, retrainMs, pressMs, broker } = loadConfig();
   const prev = loadState();
+  // the demo bot plays the nightly lab's best strategy (settings + rules), the owner's choice
+  const lab = await followLab(settings, prev?.lab, log);
   const tf = settings.tf;
   const tfMs = tf * 60000;
   const src = await pickSource(pref, tf, prev);
@@ -385,9 +388,21 @@ export async function runOnce(): Promise<ServerState> {
   if (!prev) think("info", `Serveur 24/7 démarré sur ${HOST}. Flux : ${src.label}.`);
   if (prev && prev.source !== src.id) switchInstrument(state, src, think);
   if (prev && prev.settings.tf !== tf) {
-    state = { ...freshState(settings, src.id), ladder: prev.ladder };
-    think("warn", `Nouvelle stratégie AURUM : bougies de ${tfLabel(tf)} au lieu de ${tfLabel(prev.settings.tf)}. Le compte démo repart à neuf.`);
+    // a strategy on other candles: the account goes on (balance, journal); an open position is
+    // closed at the last price, and the brain is trained again for the new candles
+    const old = prev.st;
+    if (old.position) closePosition(old, prev.price - old.position.dir * (settings.spread / 2), Date.now(), "MANUEL");
+    state = { ...freshState(settings, src.id), ladder: prev.ladder, thoughts: prev.thoughts, runs: prev.runs, startedAt: prev.startedAt, lastRecap: prev.lastRecap, pushTag: prev.pushTag, media: prev.media, note: prev.note, live: prev.live };
+    state.st.balance = old.balance;
+    state.st.peak = old.peak;
+    state.st.trades = old.trades;
+    think(
+      "warn",
+      lab ? `Le bot suit la meilleure stratégie du labo (${lab.id}) : bougies de ${tfLabel(tf)} au lieu de ${tfLabel(prev.settings.tf)}. Le compte continue.` : `Nouvelle stratégie : bougies de ${tfLabel(tf)} au lieu de ${tfLabel(prev.settings.tf)}. Le compte continue.`,
+    );
   }
+  if (lab && prev?.lab?.id !== lab.id && prev?.settings.tf === tf) think("info", `Le bot suit maintenant la stratégie ${lab.id} du labo : ${lab.text}.`);
+  state.lab = lab;
 
   const days = settings.trainDays + 10;
   log(`chargement ${days} j de ${src.symbol} M${tf}…`);
@@ -419,6 +434,7 @@ export async function runOnce(): Promise<ServerState> {
     !state.trainedAt ||
     !state.st.mem?.total || // no lessons yet (first run of a version with memory): learn them from history now
     now - state.trainedAt > retrainMs ||
+    prev?.lab?.id !== lab?.id || // new rules from the lab: learn them now
     state.settings.mode !== settings.mode ||
     state.settings.trainDays !== settings.trainDays;
   if (needTrain) {
