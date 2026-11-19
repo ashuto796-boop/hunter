@@ -448,6 +448,8 @@ function statusOf(m: Metrics): Entry["status"] {
     m.valid.pf >= 1.1 &&
     m.dd <= 40;
   if (!qualified) return m.score > 0 ? "candidate" : "rejetée";
+  // failing on prices that did not exist when it was found takes it off the board
+  if (m.live.sumR <= -10 || (m.live.n >= 20 && m.live.sumR <= -5)) return "rejetée";
   return m.live.days >= 30 && m.live.n >= 20 && m.live.sumR >= 0 && (m.stress ?? -1) > 0 ? "confirmée" : "qualifiée";
 }
 const idOf = (r: SRule) => {
@@ -595,7 +597,7 @@ function merge() {
     "",
     `Données : or minute par minute du ${d(T[0])} au ${d(T[N - 1])}, écart réel de chaque minute. Cette nuit : ${tried} règles essayées ; depuis le début : ${state.tried}. Qualifiées : ${qualified.length}. Confirmées : ${confirmed.length}.`,
     "",
-    "Méthode : classement avant 2025 seulement (au moins 100 trades par an, 60 % des semestres gagnants) ; qualifiée si 2025 → jour de découverte gagne aussi ; confirmée après au moins 30 jours et 20 trades gagnants sur des prix nouveaux, et encore gagnante avec un écart 50 % plus large.",
+    "Méthode : classement avant 2025 seulement (au moins 100 trades par an, 60 % des semestres gagnants) ; qualifiée si 2025 → jour de découverte gagne aussi ; confirmée après au moins 30 jours et 20 trades gagnants sur des prix nouveaux, et encore gagnante avec un écart 50 % plus large ; retirée si elle perd 5R sur 20 trades nouveaux, ou 10R à tout moment.",
     "",
     "## Champion du scalping",
     "",

@@ -272,7 +272,10 @@ function statusOf(m: Metrics): Entry["status"] {
     m.valid.pf >= 1.1 &&
     m.dd <= 25;
   if (!qualified) return m.score > 0 ? "candidate" : "rejetée";
-  const confirmed = m.live.days >= 30 && m.live.sumR >= 0 && (m.stress ?? -1) > 0;
+  // on prices that did not exist when it was found: failing there takes it off the board (the
+  // demo bot then leaves it), and confirming needs a few real trades, not just 30 quiet days
+  if (m.live.sumR <= -6 || (m.live.days >= 30 && m.live.n >= 3 && m.live.sumR <= -3)) return "rejetée";
+  const confirmed = m.live.days >= 30 && m.live.n >= 3 && m.live.sumR > 0 && (m.stress ?? -1) > 0;
   return confirmed ? "confirmée" : "qualifiée";
 }
 
@@ -428,7 +431,7 @@ function merge() {
     "",
     `Cette nuit : ${tried} nouvelles règles essayées. Depuis le début : ${state.tried}. Qualifiées aujourd'hui : ${qualified.length}. Confirmées : ${confirmed.length}.`,
     "",
-    "Méthode : classement sur 2021-2024 seulement ; qualifiée si 2025 → jour de découverte gagne aussi (facteur de profit ≥ 1,1, pire repli ≤ 25R) ; confirmée après au moins 30 jours gagnants qui n'existaient pas quand elle a été trouvée, et un écart de prix 50 % plus large encore gagnant.",
+    "Méthode : classement sur 2021-2024 seulement ; qualifiée si 2025 → jour de découverte gagne aussi (facteur de profit ≥ 1,1, pire repli ≤ 25R) ; confirmée après au moins 30 jours et 3 trades gagnants sur des prix qui n'existaient pas quand elle a été trouvée, et un écart de prix 50 % plus large encore gagnant ; retirée si elle perd 3R sur ces 30 jours, ou 6R à tout moment.",
     "",
     "## Champion",
     "",
