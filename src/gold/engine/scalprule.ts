@@ -201,6 +201,8 @@ function makeSignal(m: ScalpMarket, r: SRule): Signal {
         return d > p[0] ? -1 : d < -p[0] ? 1 : 0;
       };
     }
+    case "elder":
+      return elderSignal(m, p);
     case "sweep":
       return (i) => {
         if (i < p[0] + 1) return 0;
@@ -300,6 +302,7 @@ const LABELS: Record<string, (p: number[]) => string> = {
   burst: (p) => `élan ×${p[0]}`,
   fade: (p) => `retour depuis ${p[0]} ATR de la moyenne 20 min`,
   sweep: (p) => `chasse aux stops (sommet/creux ${p[0]} min)`,
+  elder: (p) => `triple écran d'Elder : direction ${p[0] === 1440 ? "1 jour" : "4 h"}, repli ${p[1] === 60 ? "1 h" : "30 min"} (stochastique ${p[3]}/${100 - p[3]}), entrée sur cassure ${p[2]} min`,
 };
 const WHEN = ["toutes heures", "Londres + New York", "chevauchement Londres/New York", "Londres", "New York"];
 const TREND = ["sans tendance", "avec la tendance 4 h", "avec la tendance du jour", "avec la position de l'IA 2 h"];
@@ -329,4 +332,89 @@ export function labPick(lab: { champion: string | null; entries: LabEntry[] }, c
   const cur = ok.find((e) => e.id === current);
   if (cur && good(cur) && best && robustScore(best) < robustScore(cur) + 0.1 * Math.abs(robustScore(cur))) return cur;
   return best;
+}
+
+// ---------------------------------------------------------------------------------------------------
+// Elder's triple screen, shrunk to gold intraday (the owner's request): screen 1 gives the
+// direction on a long timeframe (slope of the 13-period average of 4 h or daily candles), screen 2
+// waits for a pullback against it on a middle timeframe (5-period stochastic of 30 min or 1 h
+// candles below `level` in an uptrend, above 100 - level in a downtrend), screen 3 enters when the
+// price breaks the previous candle of a short timeframe (15, 5 or 1 min) in the trend's direction.
+// Only completed candles of each timeframe are used: nothing from the future.
+// p = [direction tf (240 | 1440), setup tf (30 | 60), entry tf (1 | 5 | 15), level (20 | 30)]
+// ---------------------------------------------------------------------------------------------------
+export interface Bars1m {
+  N: number;
+  T: Float64Array; // seconds
+  H: Float64Array;
+  L: Float64Array;
+  C: Float64Array;
+}
+// For each minute, the completed candles of timeframe `tf` minutes before it: calls `onBar` once per
+// completed candle (in order) and `at(i)` for every minute with the number of completed candles.
+function walk(m: Bars1m, tf: number, onBar: (h: number, l: number, c: number) => void, at: (i: number, done: number) => void) {
+  const s = tf * 60;
+  let b = -1, h = 0, l = 0, c = 0, done = 0;
+  for (let i = 0; i < m.N; i++) {
+    const k = Math.floor(m.T[i] / s);
+    if (k !== b) {
+      if (b !== -1) onBar(h, l, c), done++;
+      (b = k), (h = m.H[i]), (l = m.L[i]);
+    } else (h = Math.max(h, m.H[i])), (l = Math.min(l, m.L[i]));
+    c = m.C[i];
+    at(i, done);
+  }
+}
+export function elderSignal(m: Bars1m, p: number[]): (i: number) => 1 | -1 | 0 {
+  const [dirTf, setTf, entTf, level] = p;
+  // screen 1: slope of the 13-period average of the completed long candles
+  const dir = new Int8Array(m.N);
+  {
+    let ema = NaN, prev = NaN, n = 0;
+    walk(
+      m,
+      dirTf,
+      (_h, _l, c) => {
+        prev = ema;
+        ema = n++ ? ema + (2 / 14) * (c - ema) : c;
+      },
+      (i) => (dir[i] = n > 13 && ema > prev ? 1 : n > 13 && ema < prev ? -1 : 0),
+    );
+  }
+  // screen 2: 5-period stochastic of the completed middle candles
+  const stoch = new Float64Array(m.N).fill(NaN);
+  {
+    const hs: number[] = [], ls: number[] = [];
+    let last = NaN;
+    walk(
+      m,
+      setTf,
+      (h, l, c) => {
+        hs.push(h);
+        ls.push(l);
+        if (hs.length > 5) hs.shift(), ls.shift();
+        const hi = Math.max(...hs), lo = Math.min(...ls);
+        last = hs.length === 5 && hi > lo ? ((c - lo) / (hi - lo)) * 100 : NaN;
+      },
+      (i) => (stoch[i] = last),
+    );
+  }
+  // screen 3: the previous completed short candle
+  const eh = new Float64Array(m.N).fill(NaN), el = new Float64Array(m.N).fill(NaN);
+  {
+    let ph = NaN, pl = NaN;
+    walk(
+      m,
+      entTf,
+      (h, l) => ((ph = h), (pl = l)),
+      (i) => ((eh[i] = ph), (el[i] = pl)),
+    );
+  }
+  return (i) => {
+    const d = dir[i], k = stoch[i];
+    if (!d || !(k === k)) return 0;
+    if (d === 1 && k < level && m.C[i] > eh[i]) return 1;
+    if (d === -1 && k > 100 - level && m.C[i] < el[i]) return -1;
+    return 0;
+  };
 }

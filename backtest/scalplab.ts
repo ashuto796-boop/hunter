@@ -14,6 +14,7 @@
 //   merge:  npx tsx backtest/scalplab.ts --merge parts --m1 xau_m1.json --state scalp.json --report scalp.md
 import { appendFileSync, existsSync, readFileSync, readdirSync, writeFileSync } from "fs";
 import { join } from "path";
+import { elderSignal } from "../src/gold/engine/scalprule";
 
 const args = process.argv.slice(2);
 const opt = (k: string, d: string) => {
@@ -139,6 +140,7 @@ const METHODS: Record<string, { params: number[][]; label: (p: number[]) => stri
   burst: { params: [[2, 3, 4, 5]], label: (p) => `élan ×${p[0]}` },
   fade: { params: [[2, 3, 4, 5, 6]], label: (p) => `retour depuis ${p[0]} ATR de la moyenne 20 min` },
   sweep: { params: [[15, 30, 60, 120, 240]], label: (p) => `chasse aux stops (sommet/creux ${p[0]} min)` },
+  elder: { params: [[240, 1440], [30, 60], [1, 5, 15], [20, 30]], label: (p) => `triple écran d'Elder : direction ${p[0] === 1440 ? "1 jour" : "4 h"}, repli ${p[1] === 60 ? "1 h" : "30 min"} (stochastique ${p[3]}/${100 - p[3]}), entrée sur cassure ${p[2]} min` },
   ia: { params: [[0, 1, 2, 3]], label: (p) => `dans le sens de l'IA 2 h : ${["repli moyenne 20 min", "repli moyenne 50 min", "creux/sommet 15 min repris", "toutes les 15 min"][p[0]]}` },
 };
 const OPTIONS = {
@@ -255,6 +257,8 @@ function makeSignal(r: SRule): Signal {
         for (let j = i - p[0]; j < i; j++) (hi = Math.max(hi, H[j])), (lo = Math.min(lo, L[j]));
         return H[i] > hi && C[i] < hi && C[i] < O[i] ? -1 : L[i] < lo && C[i] > lo && C[i] > O[i] ? 1 : 0;
       };
+    case "elder":
+      return elderSignal({ N, T, H, L, C }, p);
     case "ia": {
       const e20 = EMA(20), e50 = EMA(50);
       return (i) => {
