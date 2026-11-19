@@ -373,6 +373,7 @@ export async function runOnce(): Promise<ServerState> {
   const prev = loadState();
   // the demo bot plays the nightly lab's best strategy (settings + rules), the owner's choice
   const lab = await followLab(settings, prev?.lab, log);
+  const labChanged = prev?.lab?.id !== lab?.id; // read before state (= prev) takes the new one
   const tf = settings.tf;
   const tfMs = tf * 60000;
   const src = await pickSource(pref, tf, prev);
@@ -401,7 +402,7 @@ export async function runOnce(): Promise<ServerState> {
       lab ? `Le bot suit la meilleure stratégie du labo (${lab.id}) : bougies de ${tfLabel(tf)} au lieu de ${tfLabel(prev.settings.tf)}. Le compte continue.` : `Nouvelle stratégie : bougies de ${tfLabel(tf)} au lieu de ${tfLabel(prev.settings.tf)}. Le compte continue.`,
     );
   }
-  if (lab && prev?.lab?.id !== lab.id && prev?.settings.tf === tf) think("info", `Le bot suit maintenant la stratégie ${lab.id} du labo : ${lab.text}.`);
+  if (lab && labChanged && prev?.settings.tf === tf) think("info", `Le bot suit maintenant la stratégie ${lab.id} du labo : ${lab.text}.`);
   state.lab = lab;
 
   const days = settings.trainDays + 10;
@@ -434,7 +435,7 @@ export async function runOnce(): Promise<ServerState> {
     !state.trainedAt ||
     !state.st.mem?.total || // no lessons yet (first run of a version with memory): learn them from history now
     now - state.trainedAt > retrainMs ||
-    prev?.lab?.id !== lab?.id || // new rules from the lab: learn them now
+    state.trainedFor !== lab?.id || // trained for other rules (a new lab strategy): learn them now
     state.settings.mode !== settings.mode ||
     state.settings.trainDays !== settings.trainDays;
   if (needTrain) {
@@ -445,6 +446,7 @@ export async function runOnce(): Promise<ServerState> {
     state.st.mem = tr.st.mem;
     state.autoThreshold = tr.threshold;
     state.trainedAt = now;
+    state.trainedFor = lab?.id;
     state.training = { ...tr.result, trades: tr.result.trades.slice(0, 80) };
     for (const text of trainingTexts(tr.result)) think("learn", text);
     log(`entraînement : ${tr.result.stats.n} trades, seuil ${tr.threshold}, ${Date.now() - t0} ms`);

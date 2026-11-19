@@ -27,6 +27,7 @@ export interface ServerState {
   lab?: { id: string; text: string; since: number; spec: { tf: Settings["tf"]; threshold: number; trainDays: number; maxTradesDay: number; rules: Record<string, unknown> } }; // lab strategy the demo bot follows
   autoThreshold: number;
   trainedAt: number;
+  trainedFor?: string; // lab strategy the brain was trained for
   training: TrainingResult | null;
   decision: Decision | null;
   thoughts: Thought[];
