@@ -1,9 +1,12 @@
 // The demo bot follows the nightly strategy lab (backtest/lab.ts), as the owner asked: each run
 // reads the lab's leaderboard (aurum-lab/lab.json) and plays its pick with exactly the settings and
 // rules the lab measured. The pick is the lab's champion (confirmed on 30+ new days) when there is
-// one, else the qualified strategy that earned the most per year on prices it was not ranked on.
-// It only changes for a clearly better one (10 % more per year), or when the one followed is no
-// longer qualified, so the account does not flip between near-identical variants every night.
+// one, else the most robust qualified strategy: the worse of its two periods (before 2025, and 2025
+// up to its discovery, in R per year) minus a quarter of its worst drawdown per year. Picking the
+// best of 2025 alone would favour the luckiest of a thousand near-identical variants; a strategy
+// has to be good in both periods, with a shallow drawdown, to be followed.
+// It only changes for a clearly better one (10 % more), or when the one followed is no longer
+// qualified, so the account does not flip between near-identical variants every night.
 // Demo only: every lab strategy has realMoney false, so the real account takes no new entry.
 import { LEGACY_M15, Strategy, useStrategy } from "../src/gold/engine/strategy";
 import { Settings } from "../src/gold/engine/types";
@@ -22,7 +25,7 @@ interface Entry {
   id: string;
   spec: Spec;
   status: string;
-  m: { valid: { sumR: number; days: number }; live: { sumR: number; days: number }; perYear: number };
+  m: { train: { sumR: number; days: number }; valid: { sumR: number; days: number }; live: { sumR: number; days: number }; perYear: number; dd: number };
 }
 export interface LabFollow {
   id: string;
@@ -31,7 +34,11 @@ export interface LabFollow {
   spec: Spec;
 }
 
-const yearly = (e: Entry) => (e.m.valid.sumR + e.m.live.sumR) / Math.max(0.25, (e.m.valid.days + e.m.live.days) / 365);
+const perYr = (sumR: number, days: number) => sumR / Math.max(0.25, days / 365);
+export const robust = (e: Entry) =>
+  Math.min(perYr(e.m.train.sumR, e.m.train.days), perYr(e.m.valid.sumR + e.m.live.sumR, e.m.valid.days + e.m.live.days)) -
+  (0.25 * e.m.dd) / Math.max(1, (e.m.train.days + e.m.valid.days + e.m.live.days) / 365);
+const yearly = robust;
 const good = (e: Entry) => e.status === "qualifiée" || e.status === "confirmée";
 
 export function pickStrategy(lab: { champion: string | null; entries: Entry[] }, current: string | undefined): Entry | null {
@@ -39,7 +46,7 @@ export function pickStrategy(lab: { champion: string | null; entries: Entry[] },
   if (champ) return champ;
   const best = lab.entries.filter(good).sort((a, b) => yearly(b) - yearly(a))[0] ?? null;
   const cur = lab.entries.find((e) => e.id === current);
-  if (cur && good(cur) && best && yearly(best) < 1.1 * yearly(cur)) return cur;
+  if (cur && good(cur) && best && yearly(best) < yearly(cur) + 0.1 * Math.abs(yearly(cur))) return cur;
   return best;
 }
 

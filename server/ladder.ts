@@ -36,7 +36,7 @@ export async function ladderStep(state: ServerState, src: Source, log: (...m: un
   upgradeLadder(L, AURUM_SCALP1);
   toLab(L);
   const board = await lab();
-  const pick = board ? labPick(board) : null;
+  const pick = board ? labPick(board, L.ruleId) : null;
   if (!pick && !L.ruleId) {
     log("scalp du labo : pas encore de règle qualifiée lisible");
     return;

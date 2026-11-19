@@ -306,18 +306,27 @@ const TREND = ["sans tendance", "avec la tendance 4 h", "avec la tendance du jou
 export const describeRule = (r: SRule) =>
   `${(LABELS[r.method] ?? (() => r.method))(r.p)} · ${WHEN[r.when]} · ${TREND[r.trend]} · stop ${r.stopK} ATR · objectif ${r.targetR}R · ${r.maxMin} min max${r.beAt ? ` · stop à l'entrée à ${r.beAt}R` : ""}`;
 
-// The lab's pick: its champion when there is one, else the qualified rule that earned the most per
-// year on prices it was not ranked on (same order as the lab's report). Only rules runnable here.
+// The lab's pick: its champion when there is one, else the most robust qualified rule: the worse of
+// its two periods (before 2025, and 2025 up to its discovery, in R per year) minus a quarter of its
+// worst drawdown per year, so a rule has to be good in both. Only rules runnable here. It changes
+// only for one clearly better (10 % more) or when the one followed is no longer qualified.
 export interface LabEntry {
   id: string;
   rule: SRule;
   status: string;
-  m: { valid: { sumR: number; days: number }; live: { sumR: number; days: number } };
+  m: { train: { sumR: number; days: number }; valid: { sumR: number; days: number }; live: { sumR: number; days: number }; dd: number };
 }
-export function labPick(lab: { champion: string | null; entries: LabEntry[] }): LabEntry | null {
+const perYr = (sumR: number, days: number) => sumR / Math.max(0.25, days / 365);
+export const robustScore = (e: LabEntry) =>
+  Math.min(perYr(e.m.train.sumR, e.m.train.days), perYr(e.m.valid.sumR + e.m.live.sumR, e.m.valid.days + e.m.live.days)) -
+  (0.25 * e.m.dd) / Math.max(1, (e.m.train.days + e.m.valid.days + e.m.live.days) / 365);
+export function labPick(lab: { champion: string | null; entries: LabEntry[] }, current?: string): LabEntry | null {
   const ok = lab.entries.filter((e) => runnable(e.rule));
   const champ = ok.find((e) => e.id === lab.champion);
   if (champ) return champ;
-  const yearly = (e: LabEntry) => (e.m.valid.sumR + e.m.live.sumR) / Math.max(0.25, (e.m.valid.days + e.m.live.days) / 365);
-  return ok.filter((e) => e.status === "qualifiée" || e.status === "confirmée").sort((a, b) => yearly(b) - yearly(a))[0] ?? null;
+  const good = (e: LabEntry) => e.status === "qualifiée" || e.status === "confirmée";
+  const best = ok.filter(good).sort((a, b) => robustScore(b) - robustScore(a))[0] ?? null;
+  const cur = ok.find((e) => e.id === current);
+  if (cur && good(cur) && best && robustScore(best) < robustScore(cur) + 0.1 * Math.abs(robustScore(cur))) return cur;
+  return best;
 }
