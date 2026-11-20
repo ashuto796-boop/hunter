@@ -498,6 +498,11 @@ export async function runOnce(): Promise<ServerState> {
   state.price = closed[last].c;
   alerts.push(...(await brokerStep(state, broker, src.id === "xau" || src.id === "bitget")));
   await ladderStep(state, src, log);
+  if (process.env.ANTHROPIC_API_KEY) {
+    // six Claude agents give their opinion on each new demo trade, in shadow mode (never blocks it)
+    const { agentsStep } = await import("./agents"); // the SDK is only installed when the key is set
+    await agentsStep(state, { src, news, peers }, log);
+  }
   state.runs++;
   state.host = HOST;
   state.updatedAt = Date.now();

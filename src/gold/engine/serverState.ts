@@ -8,6 +8,31 @@ import { LadderState } from "./ladder";
 
 export const SERVER_STATE_VERSION = 1;
 
+// The six Claude agents' opinions on each demo trade, in shadow mode (server/agents.ts)
+export type AgentId = "graphiques" | "actualites" | "annonces" | "intermarche" | "risque";
+export interface Opinion {
+  vote: "pour" | "contre" | "neutre";
+  confiance: number; // 0..1
+  raison: string;
+}
+export interface Verdict {
+  key: string; // account:entry time
+  account: "bot" | "scalp";
+  t: number; // entry time, ms
+  dir: 1 | -1;
+  entry: number;
+  at: number; // when the panel answered
+  votes: Partial<Record<AgentId, Opinion>>;
+  chef: { decision: "oui" | "non"; confiance: number; raison: string } | null;
+  pnl?: number; // filled when the trade is closed
+  r?: number;
+}
+export interface AgentsState {
+  since: number;
+  verdicts: Verdict[];
+}
+
+
 export interface ServerState {
   version: number;
   host: string; // "github-actions", "vps", ...
@@ -28,6 +53,7 @@ export interface ServerState {
   autoThreshold: number;
   trainedAt: number;
   trainedFor?: string; // lab strategy the brain was trained for
+  agents?: AgentsState; // shadow panel of six Claude agents (never blocks a trade)
   training: TrainingResult | null;
   decision: Decision | null;
   thoughts: Thought[];

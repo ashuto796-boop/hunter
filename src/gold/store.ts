@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { AgentsState } from "./engine/serverState";
 import { LadderState } from "./engine/ladder";
 import { BrainMemory, ContextMemory, DayState, Decision, ModuleStats, Position, Settings, Trade } from "./engine/types";
 import { SourceId } from "./data/feed";
@@ -25,6 +26,7 @@ export interface RemoteInfo {
   error: string | null;
   ladder: LadderState | null; // the scalp piloted by the lab, second demo account
   lab: { id: string; text: string; since: number } | null; // the lab strategy the demo bot follows
+  agents: AgentsState | null; // six Claude agents' shadow opinions on each demo trade
 }
 
 export interface GoldState {

@@ -56,6 +56,8 @@ export interface LadderClosed {
   won: number; // 1 if closed in profit
   pnl: number;
   worst: number;
+  entry?: number; // entry price (lab-piloted trades)
+  oz?: number;
   how: "objectifs" | "coupée" | "temps" | "trou" | "règles" | "entrée";
 }
 export interface LadderState {
@@ -101,7 +103,7 @@ export function newLadder(balance: number, now: number): LadderState {
 }
 
 export const record = (st: LadderState, p: OpenPos, end: number, pnl: number, how: LadderClosed["how"]): LadderClosed => {
-  const c: LadderClosed = { dir: p.dir, start: p.t, end, added: 1, won: pnl > 0 ? 1 : 0, pnl, worst: Math.min(0, pnl), how };
+  const c: LadderClosed = { dir: p.dir, start: p.t, end, added: 1, won: pnl > 0 ? 1 : 0, pnl, worst: Math.min(0, pnl), entry: p.entry, oz: p.oz, how };
   st.balance += pnl;
   st.stats.series++;
   if (pnl > 0) st.stats.won++;

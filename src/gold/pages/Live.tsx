@@ -11,6 +11,7 @@ import { MODULE_INFO } from "../engine/modules";
 import { lots, pct, price, rr, side, tfLabel, time, tone, usd } from "../ui/format";
 import { askNotifications, inNativeApp } from "../device";
 import { PressCard } from "../ui/Press";
+import type { AgentsState } from "../engine/serverState";
 
 const MODE_LABEL = { auto: "Auto", prudent: "Prudent", equilibre: "Équilibré", agressif: "Agressif" } as const;
 
@@ -419,6 +420,11 @@ export function Live() {
           <NoteCard />
         </Fold>
       )}
+      {remote?.agents && (
+        <Fold id="live.agents" title="Comité de 6 agents" hint="en ombre : avis sur chaque trade">
+          <AgentsCard a={remote.agents} />
+        </Fold>
+      )}
       <Fold id="live.press" title="Radar médias" hint="ce que dit la presse sur l'or">
         <PressCard onMore={() => useGold.setState({ tab: "brain" })} />
       </Fold>
@@ -426,5 +432,69 @@ export function Live() {
         Compte de démonstration avec prix réels : aucun argent réel n'est engagé. Le trading de l'or comporte un risque élevé de perte.
       </p>
     </div>
+  );
+}
+
+const AGENT_NAMES: Record<string, string> = { graphiques: "Graphiques", actualites: "Actualités", annonces: "Annonces", intermarche: "Intermarché", risque: "Risque" };
+const VOTE_TONE: Record<string, string> = { pour: "up", contre: "down", neutre: "" };
+
+// Six Claude agents in shadow mode: their opinion on every demo trade, and what it would have changed
+function AgentsCard({ a }: { a: AgentsState }) {
+  const done = a.verdicts.filter((v) => v.pnl !== undefined && v.chef);
+  const sum = (xs: typeof done) => xs.reduce((s, v) => s + (v.pnl ?? 0), 0);
+  const yes = done.filter((v) => v.chef!.decision === "oui"), no = done.filter((v) => v.chef!.decision === "non");
+  return (
+    <section className="card">
+      <div className="card-title">
+        <span>Comité de 6 agents (ombre)</span>
+        <span className="chip">{a.verdicts.length} avis</span>
+      </div>
+      <p className="note" style={{ marginBottom: 10 }}>
+        Graphiques, actualités, annonces, intermarché et risque donnent leur avis sur chaque trade des comptes démo, puis le chef dit s'il l'aurait gardé. Ils ne bloquent rien pendant ce test d'un mois.
+      </p>
+      {done.length > 0 && (
+        <div className="grid3" style={{ marginBottom: 10 }}>
+          <div className="stat">
+            <div className="stat-label">Gardés par le chef</div>
+            <div className={`stat-val num ${tone(sum(yes))}`}>{yes.length} · {usd(sum(yes), true)}</div>
+          </div>
+          <div className="stat">
+            <div className="stat-label">Refusés par le chef</div>
+            <div className={`stat-val num ${tone(sum(no))}`}>{no.length} · {usd(sum(no), true)}</div>
+          </div>
+          <div className="stat">
+            <div className="stat-label">Trades fermés</div>
+            <div className="stat-val num">{done.length}</div>
+          </div>
+        </div>
+      )}
+      {a.verdicts.length === 0 && <div className="empty">Pas encore de trade depuis l'arrivée du comité.</div>}
+      <div className="list">
+        {a.verdicts
+          .slice(-8)
+          .reverse()
+          .map((v) => (
+            <div className="row" key={v.key} style={{ flexDirection: "column", alignItems: "stretch", gap: 4 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                <span className="row-title">
+                  {v.account === "bot" ? "Bot" : "Scalp"} · {v.dir === 1 ? "achat" : "vente"} · {time(v.t)}
+                </span>
+                <span className={`num ${v.chef?.decision === "oui" ? "up" : v.chef ? "down" : ""}`}>
+                  chef : {v.chef ? v.chef.decision : "—"}
+                  {v.pnl !== undefined && <span className={tone(v.pnl)}> · {usd(v.pnl, true)}</span>}
+                </span>
+              </div>
+              {v.chef && <div className="row-sub">{v.chef.raison}</div>}
+              <div className="row-sub">
+                {Object.entries(v.votes).map(([id, o]) => (
+                  <span key={id} style={{ marginRight: 10 }} title={o.raison}>
+                    {AGENT_NAMES[id] ?? id} : <span className={VOTE_TONE[o.vote]}>{o.vote}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
+      </div>
+    </section>
   );
 }
