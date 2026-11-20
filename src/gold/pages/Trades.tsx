@@ -141,7 +141,7 @@ export function Trades() {
   );
 }
 
-const HOW: Record<string, string> = { objectifs: "fermé en gain", coupée: "stop (−5 € max)", temps: "sorti au temps", trou: "marché fermé", règles: "changement de règles" };
+const HOW: Record<string, string> = { objectifs: "fermé en gain", coupée: "stop (−5 € max)", temps: "sorti au temps", trou: "marché fermé", règles: "changement de règles", entrée: "stop à l'entrée (0 €)" };
 
 // Second demo account: the owner's 1-minute scalp (up to 10 positions of 0.01 lot at once)
 function LadderCard({ l }: { l: LadderState }) {

@@ -56,7 +56,7 @@ export interface LadderClosed {
   won: number; // 1 if closed in profit
   pnl: number;
   worst: number;
-  how: "objectifs" | "coupée" | "temps" | "trou" | "règles";
+  how: "objectifs" | "coupée" | "temps" | "trou" | "règles" | "entrée";
 }
 export interface LadderState {
   version: 1 | 2 | 3; // 3: follows the nightly lab's best scalping rule (server/ladder.ts)

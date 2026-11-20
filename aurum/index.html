@@ -1760,7 +1760,7 @@ if (!CFG.simulation && CFG.live) {
     else if (BOT.pos && !had && !first) toast('Le vrai bot entre ' + (BOT.pos.side > 0 ? 'à l’<b>achat</b>' : 'à la <b>vente</b>'), 'in');
     first = false;
   }
-  const HOW = { objectifs: 'fermé en gain', 'coupée': 'stop (−5 € max)', temps: 'sorti au temps', trou: 'marché fermé', 'règles': 'changement de règles' };
+  const HOW = { objectifs: 'fermé en gain', 'coupée': 'stop (−5 € max)', temps: 'sorti au temps', trou: 'marché fermé', 'règles': 'changement de règles', 'entrée': 'stop à l’entrée (0 €)' };
   const dayHm = (ms) => { const x = new Date(ms); return pad(x.getDate()) + '/' + pad(x.getMonth() + 1) + ' ' + pad(x.getHours()) + ':' + pad(x.getMinutes()); };
   function renderLadder(l) {
     const box = $('#ladder-panel'); if (!box) return;

@@ -76,7 +76,7 @@ export async function ladderStep(state: ServerState, src: Source, log: (...m: un
       continue;
     }
     if (booked.has(x.t)) continue;
-    record(L, pos, x.exitT * 1000, x.r * RISK, x.r > 0 ? "objectifs" : x.r <= -0.99 ? "coupée" : "temps");
+    record(L, pos, x.exitT * 1000, x.r * RISK, x.r > 0 ? "objectifs" : x.r <= -0.99 ? "coupée" : Math.abs(x.r) < 1e-9 ? "entrée" : "temps");
     booked.add(x.t);
     L.bookedUntil = x.exitT;
     n++;
