@@ -468,6 +468,7 @@ function AgentsCard({ a }: { a: AgentsState }) {
           </div>
         </div>
       )}
+      {a.note && <div className="banner warn" style={{ marginBottom: 10 }}><span>⚠️</span><span>{a.note}</span></div>}
       {a.verdicts.length === 0 && <div className="empty">Pas encore de trade depuis l'arrivée du comité.</div>}
       <div className="list">
         {a.verdicts

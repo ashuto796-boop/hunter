@@ -81,6 +81,9 @@ function candidates(state: ServerState, since: number): Candidate[] {
   return out;
 }
 
+// The account cannot pay or the key is refused: no point asking again every 15 minutes
+class Blocked extends Error {}
+
 async function ask<T>(client: Anthropic, system: string, data: unknown, schema: z.ZodType<T>, effort: "low" | "medium", log: (...m: unknown[]) => void): Promise<T | null> {
   try {
     const res = await client.beta.messages.parse({
@@ -98,8 +101,9 @@ async function ask<T>(client: Anthropic, system: string, data: unknown, schema: 
     }
     return (res.parsed_output as T | null) ?? null;
   } catch (e) {
-    if (e instanceof Anthropic.AuthenticationError) log("agents : la clé ANTHROPIC_API_KEY est refusée");
-    else if (e instanceof Anthropic.RateLimitError) log("agents : limite de débit, nouvel essai au prochain passage");
+    if (e instanceof Anthropic.AuthenticationError) throw new Blocked("la clé ANTHROPIC_API_KEY est refusée");
+    if (e instanceof Anthropic.BadRequestError && /credit balance/i.test(e.message)) throw new Blocked("le crédit de la clé Claude est épuisé (console Anthropic, Plans & Billing)");
+    if (e instanceof Anthropic.RateLimitError) log("agents : limite de débit, nouvel essai au prochain passage");
     else if (e instanceof Anthropic.APIError) log(`agents : erreur API ${e.status} ${e.message}`);
     else log("agents :", (e as Error).message);
     return null;
@@ -122,6 +126,7 @@ export async function agentsStep(state: ServerState, ctx: { src: Source; news: N
       if (c) (v.pnl = c.pnl), (v.r = c.pnl / 5.4);
     }
   }
+  if (A.pausedUntil && Date.now() < A.pausedUntil) return;
   const judged = new Set(A.verdicts.map((v) => v.key));
   const todo = candidates(state, A.since).filter((c) => !judged.has(c.key)).slice(0, MAX_PER_RUN);
   if (!todo.length) return;
@@ -133,6 +138,21 @@ export async function agentsStep(state: ServerState, ctx: { src: Source; news: N
     return;
   }
   const client = new Anthropic();
+  try {
+    await judgeAll(client, todo, h1, m15, state, ctx, log);
+    A.note = null;
+    A.pausedUntil = undefined;
+  } catch (e) {
+    if (!(e instanceof Blocked)) throw e;
+    A.note = `Comité en pause : ${e.message}. Nouvel essai dans 3 h.`;
+    A.pausedUntil = Date.now() + 3 * 3_600_000;
+    log(`agents : ${e.message}, pause de 3 h`);
+  }
+  A.verdicts = A.verdicts.slice(-300);
+}
+
+async function judgeAll(client: Anthropic, todo: Candidate[], h1: Candle[], m15: Candle[], state: ServerState, ctx: { news: NewsEvent[]; peers: Peers }, log: (...m: unknown[]) => void) {
+  const A = state.agents!;
   for (const c of todo) {
     const at = (tf: number, src: Candle[]) => closedBy(src, tf, c.t);
     const trade = { compte: c.account === "bot" ? "bot démo" : "scalp démo", sens: c.dir === 1 ? "achat" : "vente", entree: r2(c.entry), heure_utc: new Date(c.t).toISOString().slice(0, 16), stop: c.stop && r2(c.stop), objectif: c.target && r2(c.target), strategie: c.strategy };
@@ -160,5 +180,4 @@ export async function agentsStep(state: ServerState, ctx: { src: Source; news: N
     A.verdicts.push({ key: c.key, account: c.account, t: c.t, dir: c.dir, entry: c.entry, at: Date.now(), votes, chef: chef ? { decision: chef.decision, confiance: clamp01(chef.confiance), raison: chef.raison.slice(0, 400) } : null });
     log(`agents : ${c.key} → chef ${chef?.decision ?? "sans avis"} (${Object.values(votes).map((v) => v.vote).join(", ")})`);
   }
-  A.verdicts = A.verdicts.slice(-300);
 }

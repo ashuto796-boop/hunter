@@ -30,6 +30,8 @@ export interface Verdict {
 export interface AgentsState {
   since: number;
   verdicts: Verdict[];
+  pausedUntil?: number; // no call before this time (credit exhausted or key refused)
+  note?: string | null; // why the panel is paused, for the app
 }
 
 
