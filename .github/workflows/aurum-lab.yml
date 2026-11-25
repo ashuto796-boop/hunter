@@ -5,10 +5,14 @@ name: AURUM labo de nuit
 # are folded into the leaderboard kept on the aurum-lab branch (lab.json, lab.md, champion.json).
 # A second lane searches home-made scalping rules on 1-minute gold (backtest/scalplab.ts, 4 years
 # kept up to date on aurum-scalp-data; results scalp.json / scalp.md on aurum-lab).
-# The lab never changes the bot: its champion is a proposal. Optional push summary: NTFY_TOPIC.
+# Since 25 November it also searches during the day (the owner's request): three rounds a day, so
+# more candidates start their 30 days on new prices sooner. Public repository: no minute quota.
+# The demo accounts follow its picks; nothing here touches real money. Optional push: NTFY_TOPIC.
 on:
   schedule:
-    - cron: "47 22 * * *"
+    - cron: "47 22 * * *" # night (finished before the morning review even when GitHub runs it late)
+    - cron: "17 7 * * 1-5" # morning, market open
+    - cron: "17 13 * * 1-5" # afternoon
   workflow_dispatch:
     inputs:
       minutes:
