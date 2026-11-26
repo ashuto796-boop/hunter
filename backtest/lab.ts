@@ -319,8 +319,9 @@ async function worker() {
   const write = (e: Entry) => appendFileSync(out, JSON.stringify(e) + "\n");
   writeFileSync(out, "");
 
-  // 1. re-judge on today's data the references and every qualified rule set (their live days grow)
-  const known = state.entries.filter((e) => e.status === "qualifiée" || e.status === "confirmée" || e.origin === "référence");
+  // 1. re-judge on today's data the references and every qualified rule set (their live days grow),
+  // once a day: with three rounds a day, the day rounds keep their whole time for the search
+  const known = state.entries.filter((e) => (e.status === "qualifiée" || e.status === "confirmée" || e.origin === "référence") && NOW - (e.checkedAt ?? 0) > 18 * 3_600_000);
   const refs = REFERENCES.filter((r) => !state.entries.some((e) => e.id === idOf(r.spec)));
   const todo: { spec: Spec; foundAt: number; origin: string }[] = [
     ...known.map((e) => ({ spec: e.spec, foundAt: e.foundAt, origin: e.origin })),
@@ -392,9 +393,22 @@ function merge() {
       byId.set(e.id, e);
     }
   }
-  // keep every qualified one and reference, plus the 400 best by score
+  // behavioural twins (same trades: same counts and results in every period) are one strategy:
+  // keep the one found first, whose record on new prices is the longest
+  const twin = (e: Entry) => [e.spec.tf, e.m.train.n, e.m.train.sumR.toFixed(3), e.m.valid.n, e.m.valid.sumR.toFixed(3), e.m.live.n, e.m.live.sumR.toFixed(3)].join("|");
+  const firstOf = new Map<string, Entry>();
+  for (const e of [...byId.values()].sort((a, b) => a.foundAt - b.foundAt)) if (e.origin !== "référence" && !firstOf.has(twin(e))) firstOf.set(twin(e), e);
+  const twins = [...byId.values()].filter((e) => e.origin !== "référence" && firstOf.get(twin(e)) !== e);
+  for (const e of twins) byId.delete(e.id);
+  // keep every confirmed one and reference, the 800 most robust qualified ones (the worse of their two
+  // periods in R per year, minus a quarter of their worst drawdown per year: the demo bot's own
+  // pick), plus the 400 best by score
   const all = [...byId.values()];
-  const keep = new Set(all.filter((e) => e.status === "qualifiée" || e.status === "confirmée" || e.origin === "référence").map((e) => e.id));
+  const perYr = (r: number, days: number) => r / Math.max(0.25, days / 365);
+  const robust = (e: Entry) => Math.min(perYr(e.m.train.sumR, e.m.train.days), perYr(e.m.valid.sumR + e.m.live.sumR, e.m.valid.days + e.m.live.days)) - (0.25 * e.m.dd) / Math.max(1, (e.m.train.days + e.m.valid.days + e.m.live.days) / 365);
+  const keep = new Set(all.filter((e) => e.status === "confirmée" || e.origin === "référence").map((e) => e.id));
+  all.filter((e) => e.status === "qualifiée").sort((a, b) => robust(b) - robust(a)).slice(0, 800).forEach((e) => keep.add(e.id));
+  console.log(`${twins.length} doublons retirés ; ${all.filter((e) => e.status === "qualifiée").length} qualifiées, 800 gardées au plus`);
   all.filter((e) => e.status !== "rejetée").sort((a, b) => b.m.score - a.m.score).slice(0, 400).forEach((e) => keep.add(e.id));
   state.entries = all.filter((e) => keep.has(e.id)).sort((a, b) => b.m.score - a.m.score);
   state.nights++;
