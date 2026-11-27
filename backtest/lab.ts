@@ -381,6 +381,15 @@ function merge() {
   const { from, to } = dataRange(opt("data", "backtest/data"));
   const byId = new Map(state.entries.map((e) => [e.id, e]));
   let tried = 0;
+  // --restore <older lab.json>: qualified entries it holds and the board lost come back (re-judged
+  // on today's data at the next round, their discovery date intact)
+  const restore = opt("restore", "");
+  if (restore && existsSync(restore)) {
+    let back = 0;
+    for (const e of (JSON.parse(readFileSync(restore, "utf8")) as LabState).entries)
+      if ((e.status === "qualifiée" || e.status === "confirmée") && !byId.has(e.id)) byId.set(e.id, { ...e, checkedAt: 0 }), back++;
+    console.log(`${back} stratégies qualifiées récupérées de ${restore}`);
+  }
   for (const f of readdirSync(dir, { recursive: true }) as string[]) {
     if (!f.endsWith(".jsonl")) continue;
     for (const line of readFileSync(join(dir, f), "utf8").split("\n")) {
@@ -408,6 +417,9 @@ function merge() {
   const robust = (e: Entry) => Math.min(perYr(e.m.train.sumR, e.m.train.days), perYr(e.m.valid.sumR + e.m.live.sumR, e.m.valid.days + e.m.live.days)) - (0.25 * e.m.dd) / Math.max(1, (e.m.train.days + e.m.valid.days + e.m.live.days) / 365);
   const keep = new Set(all.filter((e) => e.status === "confirmée" || e.origin === "référence").map((e) => e.id));
   all.filter((e) => e.status === "qualifiée").sort((a, b) => robust(b) - robust(a)).slice(0, 800).forEach((e) => keep.add(e.id));
+  // ...and every qualified one already a week into its new prices without losing: the closest to
+  // being confirmed, whatever its rank (dropping them would restart their 30 days from zero)
+  all.filter((e) => e.status === "qualifiée" && e.m.live.days >= 7 && e.m.live.sumR >= 0).forEach((e) => keep.add(e.id));
   console.log(`${twins.length} doublons retirés ; ${all.filter((e) => e.status === "qualifiée").length} qualifiées, 800 gardées au plus`);
   all.filter((e) => e.status !== "rejetée").sort((a, b) => b.m.score - a.m.score).slice(0, 400).forEach((e) => keep.add(e.id));
   state.entries = all.filter((e) => keep.has(e.id)).sort((a, b) => b.m.score - a.m.score);

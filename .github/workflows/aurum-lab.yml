@@ -18,9 +18,13 @@ on:
       minutes:
         description: "Minutes de recherche par machine"
         default: "40"
+      restore_run:
+        description: "Numéro d'un lancement dont le classement (artefact state) doit être récupéré"
+        default: ""
 
 permissions:
   contents: write
+  actions: read # to fetch a previous round's leaderboard (restore_run)
 
 concurrency:
   group: aurum-lab
@@ -230,10 +234,18 @@ jobs:
         with:
           name: m1
           path: m1
+      - uses: actions/download-artifact@v4
+        if: ${{ inputs.restore_run != '' && inputs.restore_run != null }}
+        with:
+          name: state
+          path: restore
+          run-id: ${{ inputs.restore_run }}
+          github-token: ${{ github.token }}
       - name: Fold the night into the leaderboard
         run: |
           mkdir -p out state
-          npx -y tsx@4.19.2 backtest/lab.ts --merge parts --data backtest/data --state state/lab.json --report out/lab.md --champion out/champion.json
+          RESTORE=""; if [ -f restore/lab.json ]; then RESTORE="--restore restore/lab.json"; fi
+          npx -y tsx@4.19.2 backtest/lab.ts --merge parts --data backtest/data --state state/lab.json --report out/lab.md --champion out/champion.json $RESTORE
           cp state/lab.json out/lab.json
           if [ -f m1/xau_m1.json ]; then
             NODE_OPTIONS=--max-old-space-size=4000 npx -y tsx@4.19.2 backtest/scalplab.ts --merge scalp-parts --m1 m1/xau_m1.json --state state/scalp.json --report out/scalp.md
