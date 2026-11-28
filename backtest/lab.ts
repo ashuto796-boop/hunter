@@ -463,6 +463,25 @@ function merge() {
     "",
     champ ? `${champ.id} : ${describe(champ.spec)}.` : "Aucun pour l'instant : une règle doit d'abord tenir au moins 30 jours en direct.",
     "",
+    "## En route vers la confirmation",
+    "",
+    "Les stratégies qualifiées qui ont le plus de jours sur des prix nouveaux et y gagnent : la première à atteindre 30 jours, 3 trades et un gain devient candidate au titre de champion.",
+    "",
+    ...(() => {
+      const road = state.entries
+        .filter((e) => e.status === "qualifiée" && e.origin !== "référence" && e.m.live.sumR > 0)
+        .sort((a, b) => b.m.live.days - a.m.live.days || b.m.live.sumR - a.m.live.sumR)
+        .slice(0, 10);
+      if (!road.length) return ["Aucune pour l'instant."];
+      return [
+        `${state.entries.filter((e) => e.status === "qualifiée" && e.m.live.days >= 10 && e.m.live.sumR > 0).length} stratégies ont au moins 10 jours de prix nouveaux et y gagnent.`,
+        "",
+        "| Règle | Jours en direct | Trades en direct | Résultat en direct | Réglages |",
+        "|---|---|---|---|---|",
+        ...road.map((e) => `| ${e.id} | ${e.m.live.days.toFixed(0)} / 30 | ${e.m.live.n} / 3 | ${fR(e.m.live.sumR)} | ${describe(e.spec)} |`),
+      ];
+    })(),
+    "",
     "## Références (stratégies déjà connues du bot)",
     "",
     head,
